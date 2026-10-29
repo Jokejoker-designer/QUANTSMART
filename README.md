@@ -1,23 +1,58 @@
 # QUANTSMART
 
-**Test strategies. Build your own quantitative algorithms. Inspect the evidence.**
+Build your own trading logic. Test it with evidence. Keep the process transparent.
 
-QUANTSMART is a local research workspace for turning a trading idea into an explicit,
-testable strategy. Build with reusable blocks, compose Strategy Cards, replay historical
-prices, and compare results across chronological validation windows. Connect an MT5
-desktop terminal when you want to inspect actual broker prices alongside your research.
+QUANTSMART is a local quantitative research environment built for people who want to go beyond eyeballing charts and start designing real strategy logic with structure, repeatability, and accountability.
 
-The Sapphire Navy interface brings charts, multi-timeframe diagnostics, circular
-telemetry gauges and Card controls into one desktop workspace. Your data and saved
-experiments stay on your machine.
+This is not a signal service and it is not a black-box trading system. It is a workspace for building, testing, and refining trading ideas in a controlled local environment. You can create your own strategy components, assemble them into Strategy Cards, replay historical data, compare outcomes across different windows, and inspect whether a concept is genuinely worth pursuing before claiming it works.
+
+At its core, QUANTSMART is designed for one purpose: helping traders and researchers turn an idea into an explicit strategy that can be examined, validated, and improved.
+
+You are not limited to using predefined templates. The project is built to support:
+- custom strategy creation from reusable building blocks
+- strategy composition using logic modules, indicators, filters, and triggers
+- historical replay against real market data
+- validation across time splits and holdout windows
+- comparison of different strategy variants
+- design of strategy groups or ensembles, not just single-card experiments
+- local-first research so your data and workflow stay on your machine
+
+Whether you are exploring a simple mean-reversion setup, building a multi-factor trend model, or designing a structured portfolio of strategies working together, QUANTSMART gives you the environment to do it in a way that is inspectable and systematic.
+
+The philosophy is straightforward: every idea should be testable, every decision should be traceable, and every result should be reviewed in context. A strategy is not “good” because it looks plausible on a chart. It is only useful when it can be explained, tested, and evaluated against historical evidence.
+
+Inside the workspace, you can:
+- assemble reusable modules and formula-based logic
+- define strategy cards with different roles and components
+- test a strategy across historical datasets
+- inspect outcome quality, window coverage, and validation conditions
+- compare multiple strategies or role-based designs side by side
+- design a local strategy system that fits your research workflow and risk preferences
+
+This is especially valuable for people who want a local sandbox to:
+- prototype trading ideas
+- build custom quantitative systems
+- validate logic without rushing into execution
+- compare strategy behavior under different market conditions
+- maintain a record of what was tested and why
+
+The project is built to feel like a research lab rather than a trading terminal. It keeps the workflow focused on investigation, experimentation, and evidence. Your strategy logic remains yours. Your market data stays local. Your research stays transparent.
+
+QUANTSMART brings together:
+- strategy authoring
+- historical replay
+- market inspection
+- logic validation
+- multi-card or ensemble design
+- local-first execution and review
+
+It is built for people who like to think in systems: define a rule, test it, review the evidence, refine it, and repeat with intention.
 
 ![QUANTSMART Cockpit](docs/screenshots/home.jpg)
 
-[Explore all 17 workspaces](docs/PRODUCT_TOUR.md) · [Get started](#quick-start) ·
-[Connect MT5](#connect-xm--another-mt5-broker) · [Security](SECURITY.md)
+[Explore all 17 workspaces](docs/PRODUCT_TOUR.md) · [Get started](#quick-start) · [Connect MT5](#connect-xm--another-mt5-broker) · [Security](SECURITY.md)
 
-See the [Custom Module walkthrough](docs/CUSTOM_MODULES.md) for the visual feature
-graph, authoring lanes and formula inspection workflow.
+See the [Custom Module walkthrough](docs/CUSTOM_MODULES.md) for a visual guide to building and inspecting custom strategy components.
 
 ## What you can build
 
