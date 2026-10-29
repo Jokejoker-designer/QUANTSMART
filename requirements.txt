@@ -1,0 +1,2 @@
+-r requirements-mfe.txt
+pytest

@@ -1,0 +1,44 @@
+import { useState } from "react";
+import { Glyph } from "../components/ui/Glyph.tsx";
+import { WORKSPACES, WORKSPACE_GROUPS } from "../shell/navigation.ts";
+import "../shell/guide.css";
+const go=(id:string)=>window.dispatchEvent(new CustomEvent("mfe-nav",{detail:id}));
+export const GETTING_STARTED=[
+ {title:"Connect a local MT5 terminal",body:"Run npm run mfe from the source release. On Windows, open your broker MT5 and sign in there, then choose MT5 Offline → Auto-Attach Running MT5 in the top bar. Inspect the detected account and broker symbol. Advanced connection supports an installed terminal path and optional account credentials; passwords are never saved by QUANTSMART. macOS/Linux and disconnected terminals keep historical CSV research available.",to:"home",action:"Open Cockpit"},
+ {title:"Read the Cockpit",body:"Six telemetry tiles summarize the current tape. The left column holds timeframe observations, Card composition and feed diagnostics. The center shows price regions and research context. The right column holds source assessments, read-only direction scenarios and Card validation. Historical range rank and EMA gap are descriptive measurements, not entry probabilities. Missing plans and targets remain unavailable.",to:"home",action:"Open Cockpit"},
+ {title:"Choose an asset and data source",body:"The asset selector sets the context for charts, Cards and research. Historical mode uses the local OHLC dataset. Live mode requires a connected, current market feed.",to:"home",action:"Open Cockpit"},
+ {title:"Inspect the chart",body:"Choose a timeframe, drag to pan and scroll to zoom. Check the source and as-of timestamp before interpreting a number. Historical data is never presented as a live feed.",to:"microscope",action:"Open Microscope"},
+ {title:"Create or edit a Strategy Card",body:"Create an editable example in Cockpit or assemble modules in Canvas. An example is a draft, with no measured performance. Restore a saved Card to edit its own modules and timeframes.",to:"strategy-canvas",action:"Open Canvas"},
+ {title:"Save and validate",body:"Validate the composition, name the Card and publish it. The service runs the canonical engine with the declared design and execution timeframes, then persists the Card and its receipt. Failed validation or saving is reported explicitly.",to:"strategy-canvas",action:"Build a Card"},
+ {title:"Run a Card from one place",body:"In Cockpit or Strategy Lab, select a Card and choose Card backtest. Select MT5 closed candles or your local history, then Run backtest. The service freezes the inputs, reports progress and saves the measured result to that Card. Cancel run stops that owned research job. Open chart returns to the Card's market view.",to:"strategy-lab",action:"Open Card controls"},
+ {title:"Place or close a manual Demo order",body:"Choose MT5 Demo in the same controls. Confirm that the connected account is Demo, enter volume and direction, and review the broker-checked ticket before confirming. Demo positions have a Review close action with a separate confirmation. Real accounts are rejected. A Card backtest never sends an order. If the broker result is unknown, check MT5 before creating another ticket.",to:"home",action:"Open Demo ticket"},
+ {title:"Replay the research windows",body:"Select the Card in Microscope and work through the chronological history, six-month OOS and one-month holdout windows. Every result is attached to that Card, dataset, profile and engine identity.",to:"microscope",action:"Open Replay"},
+ {title:"Review evidence and limitations",body:"Strategy Lab and Compatibility Map read the same saved run records. Changing the Card, timeframe, asset, profile or module definitions makes prior evidence stale. A verified research receipt is not permission to trade.",to:"strategy-lab",action:"Open Strategy Lab"}
+];
+const TERMS=[
+ ["Strategy Card","A versioned research configuration containing module references, an asset, and design/execution timeframes."],
+ ["Block / Module","A block measures or transforms data. A module combines blocks into an explicit role. Missing dependencies prevent publication; a label alone does not make a module executable."],
+ ["Beast","A role-based composition of Cards. Its member lineage must match the current Card definitions; templates are drafts, not measured performance."],
+ ["Design TF / Execution TF / Chart TF","Design TF controls strategy evaluation. Execution TF controls the execution path used by the simulator. Chart TF controls the view. These are distinct and must not be silently substituted."],
+ ["Shadow","Research authority only. Saving, calibration or a positive simulation result does not automatically promote an artifact."],
+ ["OOS / Walk-forward","Chronological evaluation outside the data used for fitting. Test outcomes must not be fed back into fitting and then described as unseen evidence."],
+ ["Profit factor","Gross winning R divided by the magnitude of losing R within the stated run. Interpret it with sample count, costs and the evaluation period."],
+ ["Brier score","Mean squared probability error against observed outcomes. Lower is better only when comparing the same evaluation definition and data."],
+ ["MAE / MFE","Maximum adverse/favorable excursion within a sample's lifecycle. Check the units, lifecycle boundaries and price-path assumptions."],
+ ["Ablation","A measured comparison after removing a component. Marginal contributions are not additive, and removing the sole trigger changes the baseline strategy."],
+ ["CONFIG / MIRROR / OVERRIDE","CONFIG reads configuration; MIRROR documents a source constant; OVERRIDE is a user-selected profile value. CONFIG is not a live market connection."],
+ ["Not available / Stale","Not available means the required input or measurement is absent. Stale means the current context no longer matches the recorded evidence. Neither means zero."],
+ ["Modeled execution","A real simulation may still use approximate fills, price paths and costs. Its receipt records these assumptions; measured does not mean tick-exact or broker-calibrated."],
+ ["Receipt","A backend record of the engine, inputs, source hash, window and measured result. Imported numbers without a matching receipt remain unverified."],
+ ["Workspace save","Cards and research records are stored by the local service. Browser storage is a cache. Do not close while saving; a failed save is not reported as success."],
+ ["Economic calendar","Event timing comes from an imported, dated source in Assets. Without that source the calendar is unavailable; no demo countdown is generated."]
+];
+export function HelpManual(){
+ const [mode,setMode]=useState<"start"|"tasks"|"glossary">("start"),[query,setQuery]=useState("");
+ const terms=TERMS.filter(row=>row.join(" ").toLowerCase().includes(query.toLowerCase()));
+ return <div className="user-guide"><header className="guide-heading"><Glyph name="book" size={24}/><div><h1>User guide</h1><p>From market data to traceable strategy evidence.</p></div></header><nav className="guide-tabs" aria-label="Guide sections">{([["start","Getting started"],["tasks","By task"],["glossary","Glossary"]] as const).map(([id,label])=><button key={id} className={mode===id?"active":""} aria-pressed={mode===id} onClick={()=>setMode(id)}>{label}</button>)}</nav>
+ {mode==="start"&&<><p className="guide-intro">Start with historical research; a broker connection is optional. Navigation does not create Cards, launch jobs or apply a calibration profile automatically.</p><ol className="guide-steps">{GETTING_STARTED.map((step,i)=><li key={step.title}><span className="guide-step-number">{i+1}</span><div><h2>{step.title}</h2><p>{step.body}</p><button className="guide-link" onClick={()=>go(step.to)}>{step.action}<Glyph name="arrow-up" size={12} style={{transform:"rotate(90deg)"}}/></button></div></li>)}</ol></>}
+ {mode==="tasks"&&<div className="guide-directory">{WORKSPACE_GROUPS.map(group=><section key={group.id}><h2>{group.label}</h2>{WORKSPACES.filter(page=>page.group===group.id&&page.id!=="help").map(page=><button key={page.id} onClick={()=>go(page.id)}><Glyph name={page.icon} size={17}/><span><strong>{page.label}</strong><small>{page.description}</small></span><span aria-hidden="true">→</span></button>)}</section>)}</div>}
+ {mode==="glossary"&&<><label className="guide-search"><Glyph name="search" size={17}/><input aria-label="Find a term" placeholder="Search PF, OOS, Shadow, MAE…" value={query} onChange={e=>setQuery(e.target.value)}/></label><dl className="guide-glossary">{terms.map(([term,definition])=><div key={term}><dt>{term}</dt><dd>{definition}</dd></div>)}</dl>{!terms.length&&<p className="guide-intro">No matching term. Try a shorter query.</p>}</>}
+ <footer className="guide-footnote">QUANTSMART · Research / Shadow · Instructions do not grant execution or promotion authority.</footer></div>;
+}

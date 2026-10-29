@@ -1,0 +1,31 @@
+{
+  "name": "quantsmart-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "QUANTSMART: strategy experiments, custom quantitative algorithms, historical replay and traceable research evidence.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node tools/build-research-runtime.mjs",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview",
+    "start": "node tools/productServer.mjs",
+    "test:product": "node tools/test-research-backend.mjs && node tools/test-workspace-product.mjs && node tools/test-card-lifecycle.mjs",
+    "audit:language": "node tools/audit-product-source.mjs --strict",
+    "mfe": "node ../../scripts/bootstrap.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.160.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.160.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.4.5"
+  },
+  "license": "Apache-2.0"
+}

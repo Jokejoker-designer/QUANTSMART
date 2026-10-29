@@ -1,0 +1,77 @@
+/* Effective CSS viewport, independent of browser zoom or monitor resolution. */
+.workspace-shell { --workspace-gap:clamp(8px,.75vw,14px); --left-track:clamp(220px,18.5vw,300px); --right-track:clamp(250px,21vw,340px); min-height:100dvh; }
+.workspace-shell .main-wide { flex:1 0 auto; min-width:0; min-height:0; width:100%; max-width:2560px; margin-inline:auto; padding:clamp(10px,1vw,20px) clamp(10px,1.15vw,28px) 36px; }
+.workspace-shell .main-wide :where(section,aside,article,div,form,fieldset,details,dl,dt,dd,select,input) { min-width:0; min-height:0; }
+.workspace-shell .main-wide :where(pre,code,time,.quant-kv dd,.pc-h,.pkv,.strategy-context,.co-mut) { overflow-wrap:anywhere; }
+.workspace-shell .main-wide :where(pre) { white-space:pre-wrap; }
+.workspace-shell .main-wide :where(.quant-workspace,.ms,.cotrade,.product-workspace) { width:100%; max-width:2560px; margin-inline:auto; }
+.workspace-shell .quant-cockpit-grid,.workspace-shell .ms .ms-grid,.workspace-shell .strategy-canvas-layout { display:grid; grid-template-columns:var(--left-track) minmax(0,1fr) var(--right-track); gap:var(--workspace-gap); align-items:start; }
+.workspace-shell :where(.quant-cockpit-grid,.ms-grid,.strategy-canvas-layout)>* { min-width:0; min-height:0; }
+.workspace-shell :where(.quant-diagnostics,.quant-market-column,.quant-decision-column,.ms-col) { gap:var(--workspace-gap); }
+.workspace-shell .quant-chart-canvas { height:clamp(320px,52dvh,700px); min-width:0; }
+.workspace-shell .ms .ms-chart { height:clamp(360px,65dvh,820px); min-height:0; min-width:0; }
+.workspace-shell .quant-market-widgets { grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--workspace-gap); }
+.workspace-shell .quant-workspace .product-kpi-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:var(--workspace-gap); }
+.workspace-shell .quant-telemetry { container-type:inline-size; --dial-size:clamp(44px,3.6vw,56px); min-width:0; padding:clamp(8px,.75vw,12px); }
+.workspace-shell .quant-telemetry-reading { gap:clamp(6px,.65vw,10px); min-width:0; }
+.workspace-shell .quant-dial { flex-shrink:0; width:var(--dial-size); height:var(--dial-size); }
+.workspace-shell .quant-telemetry strong { min-width:0; font-size:clamp(13px,1.05vw,17px); overflow-wrap:anywhere; }
+.workspace-shell .quant-workspace .product-kpi-label { display:block; max-width:100%; font-size:clamp(13px,1.05vw,17px); line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.workspace-shell .quant-telemetry small { min-width:0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+@container(max-width:180px) { .quant-telemetry-reading { flex-wrap:wrap; }.quant-telemetry-reading strong { font-size:13px; } }
+.workspace-shell .strategy-canvas-layout { --studio-height:clamp(480px,calc(100dvh - 180px),1000px); }
+.workspace-shell .strategy-canvas-pane { height:var(--studio-height); min-width:0; min-height:0; }
+.workspace-shell .strategy-canvas-inspector { overflow-y:auto; }
+.workspace-shell :where(.strategy-canvas-pane,.strategy-library-scroll,.workspace-dropdown) { scrollbar-width:thin; scrollbar-color:var(--border-panel) transparent; }
+.workspace-shell :where(.strategy-canvas-pane,.strategy-library-scroll,.workspace-dropdown)::-webkit-scrollbar { width:4px; height:4px; }
+.workspace-shell :where(.strategy-canvas-pane,.strategy-library-scroll,.workspace-dropdown)::-webkit-scrollbar-thumb { background:var(--border-panel); border-radius:2px; }
+.workspace-shell .micro-live-quote { flex-wrap:wrap; flex-shrink:0; row-gap:3px; }
+.workspace-shell .mfe-market-chart { min-width:0; min-height:0; max-width:100%; }
+.workspace-shell .mfe-chart-plot { min-width:0; min-height:0; }
+.workspace-shell .mfe-chart-plot>svg { max-width:100%; }
+.workspace-shell .workspace-header { gap:clamp(4px,.8vw,16px); padding-inline:clamp(8px,1vw,20px); flex-wrap:nowrap; white-space:nowrap; }
+.workspace-shell .workspace-context { gap:clamp(4px,.65vw,12px); }
+.workspace-shell .workspace-navigation { gap:clamp(4px,.6vw,10px); }
+.workspace-shell .workspace-nav-link { padding-inline:clamp(4px,.55vw,10px); }
+.workspace-shell .workspace-tools { gap:clamp(4px,.65vw,14px); }
+.workspace-shell :where(.workspace-nav-link,.command-trigger,.connection-status) { white-space:nowrap; flex-shrink:0; }
+.workspace-shell .command-trigger>span,.workspace-shell .command-trigger>kbd { display:inline; }
+.workspace-shell .connection-label { max-width:clamp(96px,13vw,180px); }
+.workspace-shell .workspace-subnav { padding-inline:clamp(10px,1.15vw,28px); min-width:0; }
+.workspace-shell .workspace-statusbar { min-width:0; overflow:hidden; }
+.workspace-shell .workspace-statusbar>span { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.workspace-shell .workspace-statusbar>button { flex-shrink:0; }
+.workspace-shell :where(.ms-mtf,.ms-bot) { min-width:0; }
+.workspace-shell .ms .ms-ctrl { top:48px; max-height:none; }
+.workspace-shell .ms .ms-seg { max-width:100%; flex-wrap:wrap; }
+.workspace-shell .strategy-canvas-summary { grid-template-columns:minmax(0,210px) minmax(0,1fr); }
+.workspace-shell .strategy-canvas-summary>* { min-width:0; }
+@media(max-width:1359.98px) { .workspace-shell .quant-workspace .product-kpi-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media(max-width:1280px) {
+  .workspace-shell .quant-cockpit-grid,.workspace-shell .ms .ms-grid,.workspace-shell .strategy-canvas-layout { grid-template-columns:minmax(240px,28%) minmax(0,1fr); }
+  .workspace-shell .quant-decision-column,.workspace-shell .ms .ms-grid>.ms-col:last-child { grid-column:1/-1; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .workspace-shell .strategy-canvas-inspector { grid-column:1/-1; height:auto; overflow:visible; }
+  .workspace-shell .strategy-canvas-summary { grid-template-columns:1fr; }
+  .workspace-shell .ms .ms-bot { grid-template-columns:minmax(0,1fr); }
+}
+@media(max-width:1149.98px) { .workspace-shell .command-trigger>span { display:none; }.workspace-shell .command-trigger>kbd { display:inline; } }
+@media(max-width:999.98px) { .workspace-shell .workspace-navigation { display:none; }.workspace-shell .workspace-mobile-nav { display:flex; flex:1; }.workspace-shell .connection-label { display:none; } }
+@media(max-width:759.98px) {
+  .workspace-shell .quant-cockpit-grid,.workspace-shell .ms .ms-grid,.workspace-shell .strategy-canvas-layout { display:grid; grid-template-columns:minmax(0,1fr); }
+  .workspace-shell .quant-market-column,.workspace-shell .ms .ms-chart { grid-row:1; order:0; }
+  .workspace-shell .quant-diagnostics,.workspace-shell .quant-decision-column,.workspace-shell .ms .ms-grid>.ms-col { grid-column:1; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .workspace-shell .strategy-canvas-pane { height:auto; min-height:0; max-height:none; overflow:visible; }
+  .workspace-shell .strategy-canvas-library { max-height:480px; overflow:hidden; }
+  .workspace-shell .strategy-canvas-center { min-height:480px; }
+  .workspace-shell .workspace-subnav-cockpit { height:auto; min-height:36px; flex-wrap:wrap; }
+  .workspace-shell #cockpit-controls-slot { width:100%; margin-left:0; }
+  .workspace-shell .cockpit-subnav-controls { flex-wrap:wrap; }
+  .workspace-shell .workspace-mobile-nav .workspace-dropdown { position:fixed; inset:48px 8px auto; min-width:0; width:auto; }
+}
+@media(max-width:639.98px) { .workspace-shell .quant-workspace .product-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.workspace-shell .ms-mtf { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:479.98px) { .workspace-shell .command-trigger>kbd { display:none; }.workspace-shell .quant-diagnostics,.workspace-shell .quant-decision-column,.workspace-shell .ms .ms-grid>.ms-col,.workspace-shell .quant-market-widgets { grid-template-columns:minmax(0,1fr); } }
+@media(max-width:359.98px) { .workspace-shell .quant-workspace .product-kpi-grid { grid-template-columns:minmax(0,1fr); }.workspace-shell .workspace-brand { font-size:0; }.workspace-shell .workspace-brand>span { font-size:15px; }.workspace-shell .workspace-context select { max-width:76px; } }
+
+.workspace-shell .strategy-canvas-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.workspace-shell .strategy-canvas-actions>button { flex:1 1 auto; min-width:0; max-width:100%; }
+.workspace-shell .strategy-canvas-pane:focus-visible { outline:2px solid var(--accent-cyan); outline-offset:2px; }

@@ -1,0 +1,29 @@
+/* Connection UI uses the established Sapphire tokens; fixed navigation geometry is unchanged. */
+.connection-label { max-width:180px; overflow:hidden; text-overflow:ellipsis; }
+.connection-chevron { font-size:9px; color:var(--text-secondary); }
+.mt5-connect-dialog { width:min(560px,calc(100vw - 32px)); max-height:calc(100dvh - 48px); margin:auto; padding:0; color:var(--text-primary); border:1px solid var(--border-panel); border-radius:8px; background:var(--bg-panel); box-shadow:var(--card-shadow); overflow:auto; }
+.mt5-connect-dialog::backdrop { background:rgba(5,12,28,.78); }
+.mt5-connect-dialog>header { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:18px 20px; border-bottom:1px solid var(--border-subtle); background:var(--bg-card); }
+.mt5-connect-dialog h2 { font-size:17px; margin:0 0 4px; color:var(--text-primary); }
+.mt5-connect-dialog header p { font-size:11px; margin:0; color:var(--text-secondary); }
+.mt5-close { display:flex; align-items:center; padding:6px; background:none; color:var(--text-secondary); border:0; cursor:pointer; }
+.mt5-dialog-body { padding:18px 20px 20px; }
+.mt5-connect-intro { margin:0 0 16px; color:var(--text-secondary); font-size:12px; line-height:1.65; }
+.mt5-auto-attach { width:100%; display:flex; align-items:center; justify-content:center; gap:9px; padding:12px; border:1px solid var(--accent-cyan); border-radius:4px; color:var(--accent-cyan); background:var(--status-info-bg); font-size:13px; font-weight:600; cursor:pointer; }
+.mt5-connect-dialog button:disabled { opacity:.5; cursor:not-allowed; }
+.mt5-connect-note { color:var(--text-secondary); font-size:11px; line-height:1.65; margin:10px 0; }
+.mt5-connect-error { padding:10px; border:1px solid var(--status-danger-border); border-radius:4px; background:var(--status-danger-bg); color:var(--text-primary); font-size:12px; line-height:1.6; }
+.mt5-account-info { border-top:1px solid var(--border-subtle); margin-top:18px; padding-top:14px; }
+.mt5-account-info h3 { font-size:12px; color:var(--text-primary); margin:0 0 8px; display:flex; justify-content:space-between; gap:10px; }
+.mt5-account-info h3 span { font-size:10px; font-weight:400; color:var(--text-secondary); }
+.mt5-account-info dl { margin:0 0 10px; }
+.mt5-account-info dl>div { display:flex; justify-content:space-between; gap:12px; padding:6px 0; border-bottom:1px solid var(--border-subtle); font-size:12px; }
+.mt5-account-info dt { color:var(--text-secondary); }
+.mt5-account-info dd { margin:0; text-align:right; color:var(--text-primary); font-family:var(--mfe-mono); font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.mt5-input-label { display:flex; flex-direction:column; gap:6px; margin:12px 0; font-size:11px; color:var(--text-secondary); }
+.mt5-connect-dialog .mt5-input-label input,.mt5-connect-dialog .mt5-input-label select { width:100%; min-width:0; background:var(--bg-elevated); border:1px solid var(--border-panel); border-radius:4px; color:var(--text-primary); padding:8px 10px; font-size:12px; }
+.mt5-input-pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.mt5-advanced-toggle { display:flex; align-items:center; gap:7px; width:100%; margin-top:20px; padding:12px 0 0; border:0; border-top:1px solid var(--border-subtle); color:var(--text-secondary); background:none; cursor:pointer; text-align:left; font-size:12px; }
+.mt5-secondary { padding:8px 12px; border:1px solid var(--border-panel); border-radius:4px; background:var(--bg-elevated); color:var(--text-primary); font-size:12px; cursor:pointer; }
+.mt5-connect-dialog button:focus-visible,.mt5-input-label input:focus-visible,.mt5-input-label select:focus-visible { outline:2px solid var(--accent-cyan); outline-offset:3px; }
+@media(max-width:430px) { .mt5-input-pair { grid-template-columns:1fr; gap:0; }.mt5-connect-dialog>header,.mt5-dialog-body { padding:14px; }.mt5-auto-attach { font-size:12px; } }

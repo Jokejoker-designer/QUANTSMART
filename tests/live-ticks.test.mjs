@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+const require=createRequire(new URL('../mfe_ux_lab/cockpit/package.json',import.meta.url));
+const {build}=require('esbuild');
+const code=await build({entryPoints:[new URL('../mfe_ux_lab/cockpit/src/lib/liveTickModel.ts',import.meta.url).pathname.replace(/^\/(\w:)/,'$1')],bundle:true,format:'esm',platform:'node',write:false,logLevel:'silent'});
+const {parseLiveTickFrame,withFormingBar}=await import('data:text/javascript;base64,'+Buffer.from(code.outputFiles[0].text).toString('base64'));
+const at=Date.parse('2026-10-28T03:00:00Z');
+const row=(t,c=100)=>({time:new Date(t).toISOString(),open:100,high:102,low:99,close:c});
+const packet={ok:true,cursor:'1:1793156400000:2',generation:1,broker_symbol:'GOLD',ticks:[{time_msc:at,bid:100,ask:101,last:0,flags:2},{time_msc:at,bid:100.5,ask:101.5,last:0,flags:2}],bar:row(at,101),closed_bar:row(at-60000)};
+const frame=parseLiveTickFrame(packet);assert.ok(frame);assert.equal(frame.ticks.length,2);
+const closed=Object.freeze([{i:0,t:new Date(at-60000).toISOString(),o:100,h:102,l:99,c:100,r:'N'}]);
+const display=withFormingBar(closed,frame);assert.equal(display.length,2);assert.equal(display.at(-1).c,101);assert.equal(closed.length,1);assert.equal(closed[0].c,100);
+const next=parseLiveTickFrame({...packet,bar:row(at+60000,101.5),closed_bar:row(at,101)});
+assert.equal(withFormingBar(closed,next).length,3,'rollover retains actual terminal closed/forming candles');
+assert.equal(withFormingBar(closed,null),closed);
+assert.equal(parseLiveTickFrame({...packet,ticks:[{...packet.ticks[0],bid:NaN}]}),null);
+assert.equal(parseLiveTickFrame({...packet,bar:{...packet.bar,low:105}}),null);
+console.log('LIVE TICKS PASS: same-millisecond rows, validated prices, current candle display, rollover and immutable research tape.');

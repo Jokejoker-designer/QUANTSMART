@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';import {createRequire} from 'node:module';import {fileURLToPath} from 'node:url';
+const require=createRequire(new URL('../mfe_ux_lab/cockpit/package.json',import.meta.url));const {build}=require('esbuild');
+const code=await build({entryPoints:[fileURLToPath(new URL('../mfe_ux_lab/cockpit/src/lib/workspaceMerge.ts',import.meta.url))],bundle:true,write:false,format:'esm',platform:'node',logLevel:'silent'});
+const {mergeWorkspace}=await import('data:text/javascript;base64,'+Buffer.from(code.outputFiles[0].text).toString('base64'));
+const pack=cards=>({mfe_strategy_cards:JSON.stringify(cards)});
+const original=[{id:'a',name:'Old',modules:['x']}];
+const local=[{...original[0],validationReceipt:{verified:true,job_id:'job'}}];
+const remote=[{...original[0],name:'New name'},{id:'b',name:'Other tab',modules:[]}];
+const merged=JSON.parse(mergeWorkspace(pack(original),pack(local),pack(remote)).mfe_strategy_cards);
+assert.equal(merged.length,2);assert.equal(merged[0].name,'New name');assert.equal(merged[0].validationReceipt.job_id,'job');assert.equal(merged[1].id,'b');
+assert.throws(()=>mergeWorkspace(pack(original),pack([{...original[0],name:'Left'}]),pack([{...original[0],name:'Right'}])),/REVIEW_REQUIRED/);
+assert.throws(()=>mergeWorkspace(pack(original),pack([]),pack([{...original[0],name:'Changed'}])),/REVIEW_REQUIRED/);
+assert.deepEqual(JSON.parse(mergeWorkspace(pack(original),pack(original),pack(remote)).mfe_strategy_cards),remote);
+console.log('WORKSPACE MERGE PASS: independent tab edits and new Cards preserved; competing edits/deletions require review.');

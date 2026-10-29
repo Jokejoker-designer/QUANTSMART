@@ -1,0 +1,16 @@
+{
+  "name": "quantsmart",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A local workspace for testing strategies and building your own quantitative algorithms.",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "mfe": "node scripts/bootstrap.mjs",
+    "mfe:check": "node scripts/bootstrap.mjs --check",
+    "package:mfe": "node scripts/package-release.mjs",
+    "test:mfe": "node scripts/test.mjs"
+  }
+}

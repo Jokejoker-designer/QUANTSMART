@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
+const require=createRequire(new URL('../mfe_ux_lab/cockpit/package.json',import.meta.url));
+const {build}=require('esbuild');
+const bundled=await build({entryPoints:[fileURLToPath(new URL('../mfe_ux_lab/cockpit/src/lib/displayClock.ts',import.meta.url))],bundle:true,write:false,format:'esm',platform:'node',logLevel:'silent'});
+const {displayClock,candlePosition}=await import('data:text/javascript;base64,'+Buffer.from(bundled.outputFiles[0].text).toString('base64'));
+const clock=displayClock(Date.parse('2026-10-28T03:39:54Z'),'Asia/Bangkok');
+assert.equal(clock.localTime,'10:39');assert.equal(clock.utcTime,'03:39:54');assert.equal(clock.zoneLabel,'UTC+7');assert.ok(clock.localDayElapsed>44&&clock.localDayElapsed<45);
+assert.equal(displayClock(Date.parse('2026-10-28T20:30:00Z'),'Asia/Bangkok').localTime,'03:30','local day rollover');
+assert.equal(displayClock(Date.parse('2026-10-28T03:39:54Z'),'UTC').zoneLabel,'UTC');
+assert.equal(candlePosition({c:101,h:104,l:100}),25);assert.equal(candlePosition({c:100,h:104,l:100}),0);assert.equal(candlePosition({c:104,h:104,l:100}),100);
+assert.equal(candlePosition({c:100,h:100,l:100}),null);assert.equal(candlePosition(undefined),null);
+console.log('DISPLAY CLOCK PASS: local/UTC conversion, day rollover, current-clock source and descriptive candle range.');

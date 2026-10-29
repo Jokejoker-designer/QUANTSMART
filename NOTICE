@@ -1,0 +1,18 @@
+QUANTSMART
+Copyright 2026 MFE Workspace contributors
+
+The distributed QUANTSMART application source is licensed under Apache-2.0.
+Private research archives, account files, market datasets, credentials and local
+workspace artifacts are not part of this distribution.
+
+Third-party dependencies retain their own licenses. They are downloaded by the
+package managers and are not bundled in this source release:
+- React / React DOM, Three.js and Vite: MIT.
+- TypeScript: Apache-2.0.
+- MetaTrader5 Python SDK and MetaTrader terminal: MetaQuotes' own license terms.
+- FastAPI, Uvicorn, NumPy and pandas: their respective upstream license terms.
+
+QUANTSMART is not affiliated with MetaQuotes or any broker. Broker names are
+examples of compatible MT5 terminal installations, not endorsements or tested
+availability guarantees. No broker passwords or broker-supplied history are
+included in the release.
