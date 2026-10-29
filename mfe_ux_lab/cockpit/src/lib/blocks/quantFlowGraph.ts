@@ -79,22 +79,22 @@ export function nodeFromBlock(block: QuantBlockSpec, x: number, y: number): Quan
 
 // convert the graph → AST (only nodes reachable from OUTPUT, all required ports wired, no cycles). Reuses mk* helpers.
 export function graphToAst(g: QuantGraph): { ast: QuantFormulaAst | null; error: string | null } {
-  if (!g.output) return { ast: null, error: "Chưa chọn node OUTPUT — bấm ✪ trên 1 node để đặt ngõ ra." };
+  if (!g.output) return { ast: null, error: "No output node selected. Use the output marker on a node to choose it." };
   const byId = new Map(g.nodes.map((n) => [n.id, n]));
   const built: Record<string, QuantAstNode> = {};
   let err: string | null = null;
   const build = (id: string, stack: Set<string>): boolean => {
     if (built[id]) return true;
-    const n = byId.get(id); if (!n) { err = "Node mất tham-chiếu."; return false; }
-    if (stack.has(id)) { err = "Có chu-trình trong graph."; return false; }
+    const n = byId.get(id); if (!n) { err = "Node reference is missing."; return false; }
+    if (stack.has(id)) { err = "Graph contains a cycle."; return false; }
     stack.add(id);
     if (n.kind === "INPUT") built[id] = mkInput(n.inputRef ?? "ema_slope", id);
     else if (n.kind === "CONST") built[id] = mkConst(n.constValue ?? 0, id);
     else if (n.op) {
       const a = arityOf(n); const kids: string[] = [];
-      for (let k = 0; k < a; k++) { const c = n.children[k]; if (!c) { err = `Node "${OP_SPEC[n.op]?.label ?? n.op}" còn cổng vào chưa nối.`; stack.delete(id); return false; } if (!build(c, stack)) { stack.delete(id); return false; } kids.push(c); }
+      for (let k = 0; k < a; k++) { const c = n.children[k]; if (!c) { err = `Node "${OP_SPEC[n.op]?.label ?? n.op}" has an unconnected input port.`; stack.delete(id); return false; } if (!build(c, stack)) { stack.delete(id); return false; } kids.push(c); }
       built[id] = mkOp(n.op, kids, n.op === "MACRO_REF" ? { ...n.params, macroId: n.macroId } : n.params, id);   // restore macroId so macros round-trip
-    } else { err = "Node không hợp-lệ."; stack.delete(id); return false; }
+    } else { err = "Invalid node."; stack.delete(id); return false; }
     stack.delete(id); return true;
   };
   if (!build(g.output, new Set())) return { ast: null, error: err };

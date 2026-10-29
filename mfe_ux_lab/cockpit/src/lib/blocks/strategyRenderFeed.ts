@@ -37,12 +37,12 @@ export function strategyRenderFeed(input: StrategyRenderInput): StrategyRenderFe
   const overlays: ChartOverlay[] = []; const markers: ChartMarker[] = []; const layers: RenderLayer[] = []; const warnings: string[] = [];
   let oscillator: ChartOscillator | undefined;
   const n = bars.length;
-  if (n < 2) return { overlays, markers, layers, warnings: ["chưa đủ nến"] };
+  if (n < 2) return { overlays, markers, layers, warnings: ["Insufficient candles"] };
 
   // ── std indicator overlays (custom màu + live-param) — price-space ──
   for (const ind of input.indicators ?? []) {
     const spec = STD_BY_KEY[ind.key];
-    if (!spec) { warnings.push("indicator lạ: " + ind.key); continue; }
+    if (!spec) { warnings.push("Unknown indicator: " + ind.key); continue; }
     const ov = spec.compute(bars, ind.params);
     (ov.lines ?? []).forEach((ln, k) => { const color = ind.color ?? ln.color; overlays.push({ id: `${ind.key}_l${k}`, points: ln.series, color, label: ln.name }); layers.push({ id: `${ind.key}_l${k}`, label: `${spec.name} · ${ln.name}`, kind: "line", color }); });
     if (ov.bands) { const color = ind.color ?? ov.bands.color; overlays.push({ id: `${ind.key}_b`, points: ov.bands.mid ?? [], color, band: { lo: ov.bands.lower, hi: ov.bands.upper }, label: spec.name }); layers.push({ id: `${ind.key}_b`, label: `${spec.name} (band)`, kind: "band", color }); }
@@ -71,12 +71,12 @@ export function strategyRenderFeed(input: StrategyRenderInput): StrategyRenderFe
       layers.push({ id: "osc_decision", label: "Decision margin (" + input.decisionModule.role + ")", kind: "osc", color: "#79c0ff" });
       const fires = previewModule(bars, input.decisionModule).fires;
       for (const f of fires) markers.push({ i: f.i, kind: "buy" });
-      if (fires.length) layers.push({ id: "mk_fires", label: "Quyết định bắn (" + fires.length + ")", kind: "marker", color: "#2BB673" });
-    } else warnings.push("decision NO_DATA (metric cần trạng thái lệnh): " + mr.naMetrics.join(","));
+      if (fires.length) layers.push({ id: "mk_fires", label: "Research state fires (" + fires.length + ")", kind: "marker", color: "#2BB673" });
+    } else warnings.push("Decision NO_DATA: metric requires simulated position state: " + mr.naMetrics.join(","));
   } else if (input.scoreMetric) {
     const s = customMetricSeries(input.scoreMetric, bars);
     if (s && s.length === n) { const sig = computeSignature(s, { warmup: 5 }); oscillator = { series: s, states: sig.states, color: "#a371f7", label: input.scoreMetric, signed: true }; layers.push({ id: "osc_score", label: "Score " + input.scoreMetric, kind: "osc", color: "#a371f7" }); }
-    else warnings.push("scoreMetric không resolve: " + input.scoreMetric);
+    else warnings.push("Cannot resolve scoreMetric: " + input.scoreMetric);
   }
 
   return { overlays, markers, oscillator, layers, warnings };

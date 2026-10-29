@@ -19,7 +19,7 @@ export function structuralTags(card: AlbumCard, timeframe: string): AlbumStructu
 
 function needsRunPassport(card: AlbumCard): CardPassport {
   return { card_id: card.id, card_name: card.name, generated_at: "", status: "NEEDS_RUN", modeled: true,
-    needsRunReason: "Chưa chạy realistic backtest — chọn card để chạy (không bịa tag)." };
+    needsRunReason: "No realistic backtest yet. Select a Card and run a test before assigning a measured verdict." };
 }
 
 // Build entries by pairing each card with its passport (PASSPORT_MODELED if cached, else NEEDS_RUN).

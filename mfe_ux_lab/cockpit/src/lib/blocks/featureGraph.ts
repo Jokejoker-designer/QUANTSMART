@@ -15,26 +15,26 @@ export interface GraphValidation { ok: boolean; errors: string[]; warnings: stri
 export function validateGraph(g: FeatureGraph): GraphValidation {
   const errors: string[] = [], warnings: string[] = [];
   const byId = new Map(g.nodes.map((n) => [n.id, n]));
-  if (!byId.has(g.output)) errors.push(`output node "${g.output}" không tồn tại`);
+  if (!byId.has(g.output)) errors.push(`output node "${g.output}" does not exist`);
   for (const n of g.nodes) {
     const block = BLOCKS_BY_ID[n.blockId];
-    if (!block) { errors.push(`node ${n.id}: block "${n.blockId}" không có trong palette`); continue; }
+    if (!block) { errors.push(`node ${n.id}: block "${n.blockId}" is not in the palette`); continue; }
     const ports = block.inputs.filter((p) => p.type !== "STREAM_OHLC");   // ctx.inputs aligns to these
-    if (n.inputs.length !== ports.length) errors.push(`node ${n.id} (${block.blockId}): cần ${ports.length} input, có ${n.inputs.length}`);
+    if (n.inputs.length !== ports.length) errors.push(`node ${n.id} (${block.blockId}): requires ${ports.length} inputs; received ${n.inputs.length}`);
     ports.forEach((port, k) => {
       const upId = n.inputs[k];
-      if (!upId) { if (port.required) errors.push(`node ${n.id}: port "${port.name}" bắt buộc nhưng chưa nối`); return; }
+      if (!upId) { if (port.required) errors.push(`node ${n.id}: port "${port.name}" is required but unconnected`); return; }
       const up = byId.get(upId);
-      if (!up) { errors.push(`node ${n.id}: input "${port.name}" nối tới node "${upId}" không tồn tại`); return; }
+      if (!up) { errors.push(`node ${n.id}: input "${port.name}" connects to node "${upId}" does not exist`); return; }
       const upBlock = BLOCKS_BY_ID[up.blockId];
-      if (upBlock && !canConnect(upBlock.outputs[0].type, port)) errors.push(`node ${n.id}: SAI KIỂU — ${upBlock.outputs[0].type} (${upBlock.blockId}) → port "${port.name}" nhận ${[port.type, ...(port.accepts ?? [])].join("/")}`);
+      if (upBlock && !canConnect(upBlock.outputs[0].type, port)) errors.push(`node ${n.id}: TYPE MISMATCH — ${upBlock.outputs[0].type} (${upBlock.blockId}) → port "${port.name}" accepts ${[port.type, ...(port.accepts ?? [])].join("/")}`);
     });
   }
   // authority: the feature must terminate in an emitting block.
   const outBlock = BLOCKS_BY_ID[byId.get(g.output)?.blockId ?? ""];
-  if (outBlock && !outBlock.authority.canEmitFeature) errors.push(`output node phải là block emit (Emit Feature / Map-Label), đang là ${outBlock.blockId}`);
+  if (outBlock && !outBlock.authority.canEmitFeature) errors.push(`The output node must use an emit block (Emit Feature / Map-Label); received ${outBlock.blockId}`);
   // a node with no compute on the evaluable path is a runtime gap (pure FSM control not yet executable).
-  for (const n of g.nodes) { const b = BLOCKS_BY_ID[n.blockId]; if (b && !b.compute && b.group === "FSM_STATE") warnings.push(`node ${n.id} (${b.blockId}) là FSM control chưa có runtime — preview sẽ bằng 0`); }
+  for (const n of g.nodes) { const b = BLOCKS_BY_ID[n.blockId]; if (b && !b.compute && b.group === "FSM_STATE") warnings.push(`node ${n.id} (${b.blockId}) is an FSM control without a runtime implementation; its preview is zero`); }
   // cycle check
   try { topoOrder(g); } catch (e) { errors.push((e as Error).message); }
   return { ok: errors.length === 0, errors, warnings };
@@ -45,7 +45,7 @@ function topoOrder(g: FeatureGraph): FeatureNode[] {
   const order: FeatureNode[] = [], seen = new Set<string>(), inProg = new Set<string>();
   const visit = (id: string) => {
     if (seen.has(id)) return;
-    if (inProg.has(id)) throw new Error(`graph có CHU TRÌNH tại node "${id}" — L1 phải là DAG (không lặp ngược)`);
+    if (inProg.has(id)) throw new Error(`Graph contains a cycle at node "${id}". L1 must be a directed acyclic graph.`);
     const n = byId.get(id); if (!n) return;
     inProg.add(id);
     for (const up of n.inputs) if (up) visit(up);

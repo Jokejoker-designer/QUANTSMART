@@ -66,7 +66,7 @@ export function classifyCard(card: any, bt: RealisticBacktest): CardClassificati
   // role inside Beast — no portfolio model in code → heuristic suggestion, user-overridable
   const trust = honestyVerdict(a, bt.walkForward, bt.calibration?.level ?? "FULLY_PROVISIONAL").trust;
   const roleSuggest: Record<TrustLevel, string> = { ROBUST_IN_SIM: "Core candidate (still modeled)", CONDITIONAL_EDGE: "Satellite / watch", FRAGILE_EDGE: "Experimental", NO_EDGE_AFTER_COST: "Reject / library-only" };
-  const roleInBeast: Dim = card?.role ? { value: card.role, source: "user" } : { value: roleSuggest[trust] + " (gợi-ý)", source: "user", note: "Suggested from the research assessment; not a measured ensemble model." };
+  const roleInBeast: Dim = card?.role ? { value: card.role, source: "user" } : { value: roleSuggest[trust] + " (suggested)", source: "user", note: "Suggested from the research assessment; not a measured ensemble model." };
 
   const dominant = dominantSession(a.byHour as Record<string, { n: number }>);
   const liq = /overlap/.test(dominant) ? "Tight (overlap)" : /Asia/.test(dominant) ? "Wide (Asia thin)" : "Normal";

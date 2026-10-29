@@ -95,7 +95,7 @@ export function deriveCardPassport(inp: DerivePassportInput): CardPassport {
   if (!bt || !bt.manifest || !bt.manifest.run_id || !bt.analytics || bt.analytics.n == null) {
     return {
       card_id, card_name, generated_at, status: "NEEDS_RUN", modeled: true,
-      needsRunReason: "Chưa có realistic backtest run (manifest/analytics). KHÔNG bịa tag — chạy runRealisticBacktest trước.",
+      needsRunReason: "No realistic backtest manifest or analytics. Run the backtest before assigning a measured verdict.",
     };
   }
 
@@ -111,11 +111,11 @@ export function deriveCardPassport(inp: DerivePassportInput): CardPassport {
   const flags: MetricValidityFlag[] = [];
   const gReasons: string[] = [];
   let cap: TrustLevel = "ROBUST_IN_SIM";
-  if (a.n < PASSPORT_THIN_SAMPLE_N) { flags.push("THIN_SAMPLE"); gReasons.push(`n=${a.n} < ${PASSPORT_THIN_SAMPLE_N} → mẫu mỏng`); cap = minTrust(cap, "FRAGILE_EDGE"); }
-  if (pfUnbounded) { flags.push("UNBOUNDED_PF"); gReasons.push(`loss_count=${lossCount} / netPF=${a.netPF} → PF chưa chặn (chưa có thua để đo)`); cap = minTrust(cap, "FRAGILE_EDGE"); }
-  if (a.netPF >= 999) { flags.push("NOT_VALID_FOR_PROMOTION"); gReasons.push("netPF=999 sentinel → KHÔNG hợp-lệ để promote"); cap = minTrust(cap, "FRAGILE_EDGE"); }
-  if (wfInsufficient) { flags.push("WALK_FORWARD_INSUFFICIENT"); gReasons.push(`walk-forward ${wf?.verdict || "NOT_RUN"} (folds ${wfFolds}) → tối đa CONDITIONAL_EDGE`); cap = minTrust(cap, "CONDITIONAL_EDGE"); }
-  if (fragile) { flags.push("COST_PATH_FRAGILE"); gReasons.push("cost/path fragile → KHÔNG được ROBUST_IN_SIM"); cap = minTrust(cap, "FRAGILE_EDGE"); }
+  if (a.n < PASSPORT_THIN_SAMPLE_N) { flags.push("THIN_SAMPLE"); gReasons.push(`n=${a.n} < ${PASSPORT_THIN_SAMPLE_N} — thin sample`); cap = minTrust(cap, "FRAGILE_EDGE"); }
+  if (pfUnbounded) { flags.push("UNBOUNDED_PF"); gReasons.push(`loss_count=${lossCount} / netPF=${a.netPF} — unbounded PF: no losing trades observed`); cap = minTrust(cap, "FRAGILE_EDGE"); }
+  if (a.netPF >= 999) { flags.push("NOT_VALID_FOR_PROMOTION"); gReasons.push("netPF=999 is a sentinel and cannot support promotion"); cap = minTrust(cap, "FRAGILE_EDGE"); }
+  if (wfInsufficient) { flags.push("WALK_FORWARD_INSUFFICIENT"); gReasons.push(`walk-forward ${wf?.verdict || "NOT_RUN"} (folds ${wfFolds}) — at most CONDITIONAL_EDGE`); cap = minTrust(cap, "CONDITIONAL_EDGE"); }
+  if (fragile) { flags.push("COST_PATH_FRAGILE"); gReasons.push("Cost/path fragility prevents a ROBUST_IN_SIM verdict"); cap = minTrust(cap, "FRAGILE_EDGE"); }
 
   const gateStatus: MetricValidityGate["status"] =
     (flags.includes("NOT_VALID_FOR_PROMOTION") || flags.includes("UNBOUNDED_PF")) ? "INVALID_FOR_PROMOTION"
@@ -145,13 +145,13 @@ export function deriveCardPassport(inp: DerivePassportInput): CardPassport {
 
   // ── Weaknesses (guard: costFragile/pathFragile must surface) ──
   const weaknesses: string[] = [];
-  if (a.costFragile) weaknesses.push("COST_FRAGILE — edge chết khi phí base/stress");
-  if (a.pathFragilityStatus === "PATH_FRAGILE") weaknesses.push("PATH_FRAGILE — phụ-thuộc thứ-tự SL/TP trong nến M1");
-  if (wf?.verdict === "OOS_FRAGILE") weaknesses.push("OOS_FRAGILE — edge không bền qua các fold");
-  if (wfInsufficient) weaknesses.push("OOS_INSUFFICIENT — chưa đủ fold walk-forward để tin");
-  if (a.n < PASSPORT_THIN_SAMPLE_N) weaknesses.push(`THIN_SAMPLE — chỉ ${a.n} lệnh (< ${PASSPORT_THIN_SAMPLE_N})`);
-  if (pfUnbounded) weaknesses.push("UNBOUNDED_PF — chưa có lệnh thua để đo PF thật");
-  if (a.monteCarlo && a.monteCarlo.probNegative > 0.35) weaknesses.push(`MONTE_CARLO_RISK — P(âm) ${(a.monteCarlo.probNegative * 100).toFixed(0)}%`);
+  if (a.costFragile) weaknesses.push("COST_FRAGILE — the measured edge does not survive base/stress costs");
+  if (a.pathFragilityStatus === "PATH_FRAGILE") weaknesses.push("PATH_FRAGILE — depends on intrabar M1 stop/target ordering");
+  if (wf?.verdict === "OOS_FRAGILE") weaknesses.push("OOS_FRAGILE — the measured edge is unstable across folds");
+  if (wfInsufficient) weaknesses.push("OOS_INSUFFICIENT — too few walk-forward folds");
+  if (a.n < PASSPORT_THIN_SAMPLE_N) weaknesses.push(`THIN_SAMPLE — only ${a.n} trades (< ${PASSPORT_THIN_SAMPLE_N})`);
+  if (pfUnbounded) weaknesses.push("UNBOUNDED_PF — no losing trades from which to estimate PF");
+  if (a.monteCarlo && a.monteCarlo.probNegative > 0.35) weaknesses.push(`MONTE_CARLO_RISK — probability of a negative result ${(a.monteCarlo.probNegative * 100).toFixed(0)}%`);
 
   const oos: CardPassport["oos"] = wf
     ? { value: wf.verdict, source: "walk_forward", positiveFraction: wf.positiveFraction, folds: wfFolds }

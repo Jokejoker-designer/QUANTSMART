@@ -31,8 +31,8 @@ export function pickToCondition(p: L4Pick): Condition {
 export function compileL4(r: L4Recipe): L4Compiled {
   const warnings: string[] = [];
   const conditions: Condition[] = (r.picks || []).map(pickToCondition);
-  if (!conditions.length) warnings.push("Chưa chọn context-block nào — gate sẽ không lọc gì.");
-  if (conditions.some((c) => !c.metric)) warnings.push("Evidence-slot chưa chọn id — điều kiện rỗng.");
+  if (!conditions.length) warnings.push("No context block selected; the gate applies no filter.");
+  if (conditions.some((c) => !c.metric)) warnings.push("Select an evidence ID; the condition is empty.");
   const module: CustomModule = {
     id: "l4_" + Date.now().toString(36), level: 4, role: "CONTEXT_GATE",
     name: r.name.trim() || "L4 gate", explain: r.explain.trim(), why: r.why.trim(),

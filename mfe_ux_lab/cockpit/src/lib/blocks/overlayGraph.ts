@@ -19,7 +19,7 @@ export interface OverlayLineSpec {
 export const LINE_COLORS = ["#37c0ff", "#e3b341", "#21d07a", "#a371f7", "#f7768e", "#5ad1c4"];
 export const BASE_LABEL: Record<LineBase, string> = { close: "Close", high: "High", low: "Low", hl2: "(H+L)/2" };
 export const OP_LABEL: Record<LineOp, string> = { raw: "Raw", sma: "SMA", ema: "EMA", rmax: "Roll Max", rmin: "Roll Min" };
-export const BAND_LABEL: Record<BandRef, string> = { none: "không dải", std: "± Roll Std", atr: "± ATR" };
+export const BAND_LABEL: Record<BandRef, string> = { none: "No band", std: "± Roll Std", atr: "± ATR" };
 export const BASES: LineBase[] = ["close", "high", "low", "hl2"];
 export const OPS: LineOp[] = ["raw", "sma", "ema", "rmax", "rmin"];
 export const BANDS: BandRef[] = ["none", "std", "atr"];

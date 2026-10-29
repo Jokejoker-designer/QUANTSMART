@@ -17,16 +17,16 @@ export interface SemanticProjection {
 }
 
 export const STAGE_META: Record<SemanticStage, { label: string; color: string; meaning: string }> = {
-  INPUT: { label: "Source input", color: "#7aa2ff", meaning: "Dữ liệu thành phần được phép đọc" },
-  MEASURE: { label: "Measurement", color: "#5ad1c4", meaning: "Biến đổi causal thành feature/số đo" },
-  CONTEXT: { label: "Context", color: "#37c0ff", meaning: "Mô tả trạng thái, không tạo candidate" },
-  CANDIDATE: { label: "Candidate creation", color: "#ff6a3d", meaning: "Có quyền tạo vote/setup ứng viên" },
-  GATE: { label: "Veto / gate", color: "#f7768e", meaning: "Có quyền veto/quality-gate candidate" },
-  WEIGHT: { label: "Weight adjustment", color: "#e3b341", meaning: "Chỉ scale vote đã tồn tại" },
-  FUSION: { label: "Combination", color: "#a371f7", meaning: "Gộp evidence/vote, không tự tạo nguồn mới" },
-  EXIT: { label: "Exit / R:R", color: "#c792ea", meaning: "Quản lý kết thúc hoặc hình dạng RR" },
-  OUTPUT: { label: "Output", color: "#21d07a", meaning: "Đầu ra typed; authority do layer/contract quyết định" },
-  UNKNOWN: { label: "Unclassified", color: "#8295aa", meaning: "Contract chưa đủ để biểu diễn" },
+  INPUT: { label: "Source input", color: "#7aa2ff", meaning: "Permitted component data inputs" },
+  MEASURE: { label: "Measurement", color: "#5ad1c4", meaning: "Causal transform into a measurement" },
+  CONTEXT: { label: "Context", color: "#37c0ff", meaning: "Describes state without creating candidates" },
+  CANDIDATE: { label: "Candidate creation", color: "#ff6a3d", meaning: "May create simulated setup votes" },
+  GATE: { label: "Veto / gate", color: "#f7768e", meaning: "May veto or quality-filter candidates" },
+  WEIGHT: { label: "Weight adjustment", color: "#e3b341", meaning: "Scales an existing vote only" },
+  FUSION: { label: "Combination", color: "#a371f7", meaning: "Combines existing evidence/votes without adding a source" },
+  EXIT: { label: "Exit / R:R", color: "#c792ea", meaning: "Simulated exit management or R:R shaping" },
+  OUTPUT: { label: "Output", color: "#21d07a", meaning: "Typed output; layer/contract determines authority" },
+  UNKNOWN: { label: "Unclassified", color: "#8295aa", meaning: "Insufficient contract for this representation" },
 };
 
 export function mechanismStage(mechanism: Mechanism | string): SemanticStage {
@@ -41,17 +41,17 @@ export function mechanismStage(mechanism: Mechanism | string): SemanticStage {
 
 export function mechanismMeaning(mechanism: Mechanism | string): string {
   const base = STAGE_META[mechanismStage(mechanism)].meaning;
-  if (mechanism === "FALLBACK_VOTE") return base + "; chỉ chạy khi attacker chính im lặng";
-  if (mechanism === "QUALITY_GATE_ON_VOTES") return base + "; không được tự tạo vote";
+  if (mechanism === "FALLBACK_VOTE") return base + "; activates only when the primary attacker has no candidate";
+  if (mechanism === "QUALITY_GATE_ON_VOTES") return base + "; cannot create a vote independently";
   if (mechanism === "CONTEXT_STATE") return base + "; observer/advisory";
   return base;
 }
 
 export function projectBlock(block: L1PrimitiveBlockSpec): SemanticProjection {
-  const ins: SemanticNode[] = block.inputs.map((x, i) => ({ id: "in_" + i, label: x.name, stage: "INPUT", detail: x.type + (x.type === "STREAM_OHLC" ? " · runtime cấp ngầm" : x.required ? " · bắt buộc" : " · tùy chọn"), source: "BLOCK" }));
+  const ins: SemanticNode[] = block.inputs.map((x, i) => ({ id: "in_" + i, label: x.name, stage: "INPUT", detail: x.type + (x.type === "STREAM_OHLC" ? " · supplied implicitly by the runtime" : x.required ? " · required" : " · optional"), source: "BLOCK" }));
   const outs: SemanticNode[] = block.outputs.map((x, i) => ({ id: "out_" + i, label: x.name, stage: "OUTPUT", detail: x.type + (x.range ? " · " + x.range : "") + (x.scaleFree ? " · scale-free" : ""), source: "BLOCK" }));
   const op: SemanticNode = { id: "transform", label: block.label, stage: "MEASURE", detail: block.description, source: "BLOCK", warning: block.provisional ? block.note || "PROVISIONAL" : undefined };
-  const warnings = [block.provisional ? block.note || "Nguồn provisional, không dùng như measured evidence." : "", !block.compute ? "Runtime compute chưa có; chỉ biểu diễn contract/control node." : ""].filter(Boolean);
+  const warnings = [block.provisional ? block.note || "Provisional source; not measured evidence." : "", !block.compute ? "No runtime computation is implemented; contract/control representation only." : ""].filter(Boolean);
   return {
     id: block.blockId, kind: "BLOCK", name: block.label, layer: "L1", role: "FEATURE_MEASUREMENT", mechanism: block.group + " · " + block.viz,
     summary: block.description, inputs: block.inputs.map((x) => x.name + ": " + x.type), outputs: block.outputs.map((x) => x.name + ": " + x.type),
@@ -69,17 +69,17 @@ export function projectBlock(block: L1PrimitiveBlockSpec): SemanticProjection {
 
 export function projectEngineModule(module: ModuleCensusEntry): SemanticProjection {
   const stage = mechanismStage(module.mechanism);
-  const source: SemanticNode = { id: "source", label: "OHLC + engine context", stage: "INPUT", detail: "Nguồn do one-engine cấp", source: "SYSTEM" };
+  const source: SemanticNode = { id: "source", label: "OHLC + engine context", stage: "INPUT", detail: "Source supplied by the canonical engine", source: "SYSTEM" };
   const op: SemanticNode = { id: module.id, label: module.id, stage, detail: module.note, source: "MODULE" };
   const out: SemanticNode = { id: "effect", label: STAGE_META[stage].label, stage: "OUTPUT", detail: mechanismMeaning(module.mechanism), source: "MODULE" };
-  const deadlock = module.note.includes("DEADLOCK") || module.note.includes("BẪY");
+  const deadlock = module.note.includes("DEADLOCK") || module.note.includes("CAUTION");
   return {
     id: module.id, kind: "MODULE", name: module.id, layer: "ENGINE", role: module.role, mechanism: module.mechanism, summary: module.note,
     inputs: ["one-engine context"], outputs: [STAGE_META[stage].label],
     authority: [module.role === "SCOUT" ? "observer only" : "role=" + module.role, "SHADOW_ONLY", "NO_DECISION", "no order authority"],
     nodes: [source, op, out], links: [{ from: source.id, to: op.id, label: "evaluate" }, { from: op.id, to: out.id, label: module.mechanism }],
     metrics: [{ label: "Role", value: module.role, provenance: "ENGINE" }, { label: "Mechanism", value: module.mechanism, provenance: "ENGINE" }, { label: "Tribes", value: module.tribes.join(" · ") || "NONE", provenance: "ENGINE" }],
-    warnings: [deadlock ? module.note : "Per-bar internal trace chưa được engine export; không dựng marker giả."],
+    warnings: [deadlock ? module.note : "The engine does not export a per-bar internal trace; no synthetic markers are generated."],
     traceStatus: "TRACE_UNAVAILABLE", lineage: [module.id],
   };
 }
@@ -116,24 +116,24 @@ function cardMetric(card: StrategyCardArtifactRecord, key: string, label: string
 export function projectStrategyCard(card: StrategyCardArtifactRecord, census: ModuleCensusEntry[], customs: CustomModule[] = []): SemanticProjection {
   const censusById = new Map(census.map((x) => [x.id, x]));
   const customById = new Map(customs.map((x) => [x.id, x]));
-  const nodes: SemanticNode[] = [{ id: "source", label: (card.design_tf || "M15") + " closed bars", stage: "INPUT", detail: "Canonical tape phải có source/as-of", source: "SYSTEM" }];
+  const nodes: SemanticNode[] = [{ id: "source", label: (card.design_tf || "M15") + " closed bars", stage: "INPUT", detail: "Canonical tape requires source and as-of metadata", source: "SYSTEM" }];
   const warnings: string[] = [];
   for (const id of card.modules || []) {
     const custom = customById.get(id), c = censusById.get(id);
     const stage = custom ? customStage(custom) : c ? mechanismStage(c.mechanism) : "UNKNOWN";
-    nodes.push({ id, label: custom?.name || id, stage, detail: custom?.explain || c?.note || "Chưa có semantic census", source: "MODULE", warning: stage === "UNKNOWN" ? "UNRESOLVED" : undefined });
+    nodes.push({ id, label: custom?.name || id, stage, detail: custom?.explain || c?.note || "No semantic census available", source: "MODULE", warning: stage === "UNKNOWN" ? "UNRESOLVED" : undefined });
   }
-  const output: SemanticNode = { id: "review_output", label: "Strategy Card artifact", stage: "OUTPUT", detail: "Review-only artifact · không phải lệnh", source: "CARD" };
+  const output: SemanticNode = { id: "review_output", label: "Strategy Card artifact", stage: "OUTPUT", detail: "Review-only artifact; not an order", source: "CARD" };
   nodes.push(output);
   const links = nodes.filter((n) => n.source === "MODULE").flatMap((n) => [{ from: "source", to: n.id, label: "evaluate" }, { from: n.id, to: output.id, label: "contribute" }]);
-  if (!card.modules?.length) warnings.push("Card không khai báo module list.");
+  if (!card.modules?.length) warnings.push("Card has no module list.");
   const unresolved = nodes.filter((n) => n.source === "MODULE" && n.stage === "UNKNOWN").map((n) => n.id);
-  if (unresolved.length) warnings.push("Chưa có semantic census: " + unresolved.join(", "));
-  if (!nodes.some((n) => n.stage === "CANDIDATE")) warnings.push("Không thấy module tạo candidate trong census/card contract.");
+  if (unresolved.length) warnings.push("No semantic census: " + unresolved.join(", "));
+  if (!nodes.some((n) => n.stage === "CANDIDATE")) warnings.push("No candidate-generating module found in the census or Card contract.");
   const metrics = [cardMetric(card, "n", "Trades"), cardMetric(card, "winRate", "Win rate", "%"), cardMetric(card, "netR", "Net R", "R"), cardMetric(card, "costEv", "Cost EV", "R"), cardMetric(card, "maxDD", "Max DD", "R")].filter((x): x is SemanticMetric => !!x);
   return {
     id: card.id, kind: "STRATEGY_CARD", name: card.name, layer: "L0→L6", role: "COMPOSITE", mechanism: "ONE_ENGINE_PIPELINE",
-    summary: String(card.modules?.length || 0) + " module trong một artifact có identity", inputs: [(card.design_tf || "M15") + " bars", "module contracts"],
+    summary: String(card.modules?.length || 0) + " modules in an identified artifact", inputs: [(card.design_tf || "M15") + " bars", "module contracts"],
     outputs: ["Strategy Card artifact", "review metrics"], authority: [card.artifact?.authority || "SHADOW_ONLY", card.artifact?.decision || "NO_DECISION", "no live apply"],
     nodes, links, metrics, warnings, traceStatus: metrics.length ? "ARTIFACT_METRICS" : "TRACE_UNAVAILABLE",
     lineage: [card.artifact?.parent_ids?.join(" + ") || "ROOT", card.artifact?.artifact_id || card.id],

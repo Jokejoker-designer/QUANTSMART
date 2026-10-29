@@ -22,9 +22,9 @@ predicts future returns.
 
 ![Custom L1 feature graph: Wick Rejection Strength](screenshots/custom-l1-feature-graph.png)
 
-*Original development screenshot supplied by the project owner. It contains a
-legacy localized inspector sentence; the image is reproduced without altering
-its measurements or graph.*
+*Full-screen development capture supplied by the project owner. The original image
+contains one legacy Vietnamese inspector sentence; the current source explanation
+is in English. The graph and measurements are reproduced without alteration.*
 
 ## Indicators, algorithms and strategy wiring
 

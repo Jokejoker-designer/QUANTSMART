@@ -3,7 +3,7 @@
 // (vắng mọi field order = enforcement). Distinct với customL1/L2/L3 (đo) và customModule L4/L5 (rule).
 export type ZoneRole = "OBSERVE" | "RISK" | "DEMAND" | "INVALIDATE";
 export const ZONE_ROLES: ZoneRole[] = ["OBSERVE", "RISK", "DEMAND", "INVALIDATE"];
-export const ZONE_ROLE_LABEL: Record<ZoneRole, string> = { OBSERVE: "Quan sát", RISK: "Rủi ro", DEMAND: "Cầu", INVALIDATE: "Huỷ" };
+export const ZONE_ROLE_LABEL: Record<ZoneRole, string> = { OBSERVE: "Observation", RISK: "Risk", DEMAND: "Demand", INVALIDATE: "Invalidation" };
 export type ZoneAnchor = "swing_high" | "swing_low" | "poc" | "evidence" | "l5_state" | "price";
 export const ZONE_ANCHORS: ZoneAnchor[] = ["swing_high", "swing_low", "poc", "evidence", "l5_state", "price"];
 
@@ -21,15 +21,15 @@ export interface CustomL6Zone {
 export interface L6Validation { ok: boolean; errors: string[]; warnings: string[] }
 export function validateL6Zone(d: Partial<CustomL6Zone>): L6Validation {
   const errors: string[] = [], warnings: string[] = [];
-  if (!d.name || d.name.trim().length < 2) errors.push("Tên zone cần ≥2 ký tự");
-  if (!d.explain || d.explain.trim().length < 8) errors.push("Giải-nghĩa vùng cần ≥8 ký tự (cổng kiểm-soát)");
-  if (!d.anchor || !ZONE_ANCHORS.includes(d.anchor)) errors.push("anchor lạ — chỉ: " + ZONE_ANCHORS.join("/"));
-  if (!d.role || !ZONE_ROLES.includes(d.role)) errors.push("role lạ — chỉ: " + ZONE_ROLES.join("/"));
-  if ((d.anchor === "evidence" || d.anchor === "l5_state") && !d.anchorRef) errors.push("anchor evidence/l5_state cần anchorRef (id module đã build)");
-  if (typeof d.widthAtr !== "number" || !(d.widthAtr > 0)) errors.push("widthAtr phải là số > 0 (bề rộng vùng theo ATR)");
-  if (typeof d.offsetAtr !== "number" || isNaN(d.offsetAtr)) errors.push("offsetAtr phải là số");
+  if (!d.name || d.name.trim().length < 2) errors.push("Zone name must contain at least 2 characters");
+  if (!d.explain || d.explain.trim().length < 8) errors.push("Explain the zone in at least 8 characters");
+  if (!d.anchor || !ZONE_ANCHORS.includes(d.anchor)) errors.push("Unknown anchor; supported values: " + ZONE_ANCHORS.join("/"));
+  if (!d.role || !ZONE_ROLES.includes(d.role)) errors.push("Unknown role; supported values: " + ZONE_ROLES.join("/"));
+  if ((d.anchor === "evidence" || d.anchor === "l5_state") && !d.anchorRef) errors.push("Evidence/l5_state anchors require anchorRef with an existing module ID");
+  if (typeof d.widthAtr !== "number" || !(d.widthAtr > 0)) errors.push("widthAtr must be a number greater than zero");
+  if (typeof d.offsetAtr !== "number" || isNaN(d.offsetAtr)) errors.push("offsetAtr must be numeric");
   // KHÔNG cho field order/lot/SL-TP lọt vào (vắng field = enforcement)
-  for (const k of ["order_send", "lot", "risk_pct", "sl", "tp", "direction"]) if (k in (d as Record<string, unknown>)) warnings.push(`bỏ field '${k}' — L6 chỉ vẽ vùng, không vào lệnh`);
+  for (const k of ["order_send", "lot", "risk_pct", "sl", "tp", "direction"]) if (k in (d as Record<string, unknown>)) warnings.push(`Discarded field '${k}': L6 draws zones and does not place orders`);
   return { ok: errors.length === 0, errors, warnings };
 }
 

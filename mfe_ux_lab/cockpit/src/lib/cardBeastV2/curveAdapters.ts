@@ -15,7 +15,7 @@ const CLAIMED_REL: { tag: string; family: string; rel: number }[] = [
   { tag: "RSI Reclaim", family: "rsi", rel: 0.53 },
   { tag: "Sweep Reclaim", family: "sweep", rel: 0.54 },
   { tag: "Range Fade", family: "range", rel: 0.52 },
-  { tag: "EMA10 cắt", family: "emaDefault", rel: 0.52 },
+  { tag: "EMA10 crossover", family: "emaDefault", rel: 0.52 },
   { tag: "Classic ichimoku", family: "ichimoku", rel: 0.55 },
   { tag: "Classic macd", family: "macd", rel: 0.53 },
   { tag: "Classic stochastic", family: "stochastic", rel: 0.52 },
@@ -56,7 +56,7 @@ export function plateauVerdict(points: ParamPoint[], band = 0.03, minN = 30): Pl
     }
     if (run.length > best.length) best = run;
   }
-  if (best.length >= 3) return { verdict: "PLATEAU_FOUND", plateau: best.map((p) => p.value), note: `plateau ${best.length} điểm quanh exp ~${(best.reduce((s, p) => s + (p.expectancy as number), 0) / best.length).toFixed(3)}R — vùng sống ổn-định` };
+  if (best.length >= 3) return { verdict: "PLATEAU_FOUND", plateau: best.map((p) => p.value), note: `plateau ${best.length} points around expectancy ~${(best.reduce((s, p) => s + (p.expectancy as number), 0) / best.length).toFixed(3)}R; observed stable region` };
   const anyPos = valid.some((p) => (p.expectancy as number) > 0.01);
   if (anyPos) return { verdict: "SHARP_PEAK", plateau: [], note: "An isolated positive peak may be overfit. Do not select it without held-out confirmation." };
   return { verdict: "FLAT_NULL", plateau: [], note: "No measured positive region across the tested range." };
@@ -81,5 +81,5 @@ export function buildPassportGate(pp: CompatibilityPassport, tf = "M15"): Passpo
     const conds = sessions.filter((s) => SESSION_HOURS[s] && s !== "Dead_Hour").map((s) => ({ metric: "hour", op: "between" as const, value: SESSION_HOURS[s][0], value2: SESSION_HOURS[s][1] - 1 }));
     if (conds.length) gates.push(mk("session", conds, "ANY"));
   }
-  return { gates, regimes, sessions, note: gates.length ? `gate biên (marginal) từ ${good.length} cell COMPATIBLE — không phải combo chính-xác từng cell` : "passport không đủ cell COMPATIBLE để dựng gate" };
+  return { gates, regimes, sessions, note: gates.length ? `Marginal boundary gate from ${good.length} compatible cells; not the exact joint condition of every cell` : "Passport lacks enough compatible cells to construct a gate" };
 }

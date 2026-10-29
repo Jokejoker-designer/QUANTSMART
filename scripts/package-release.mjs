@@ -39,6 +39,7 @@ function add(relative){const absolute=path.resolve(root,relative);if(!absolute.s
 }
 const top=['package.json','README.md','LICENSE','NOTICE','SECURITY.md','.env.example','.gitignore','start.bat','requirements.txt','requirements-mfe.txt','requirements-dev.txt','scripts/bootstrap.mjs','scripts/package-release.mjs','scripts/test.mjs','tests/bootstrap.test.mjs','tests/mt5-proxy.test.mjs','tests/live-ticks.test.mjs','tests/display-clock.test.mjs','tests/research-operations.test.mjs','tests/workspace-merge.test.mjs','tests/element-size.test.mjs','bridge/mt5_bridge.py','bridge/demo_execution.py','bridge/tests/test_mt5_bridge.py','bridge/tests/test_demo_execution.py'];
 top.push('docs/PRODUCT_TOUR.md','docs/VERIFICATION.md','docs/CUSTOM_MODULES.md','docs/screenshots/custom-l1-feature-graph.png');
+top.push('tests/language-audit.test.mjs','docs/screenshots/cockpit-overview.png','docs/screenshots/chart-replay.png');
 // Only reviewed public screenshots are eligible; never enumerate the private artifact tree.
 for(const page of ['home','entry-danger','microscope','kidi-events','playbook','strategy-lab','strategy-canvas','blocks-modules','beast-lab','formula-lab','weekly-audit','strategy-ranking','assets','hidden-coefficients','analysis','debugger','help'])top.push(`docs/screenshots/${page}.jpg`);
 for(const file of top)add(file);

@@ -30,7 +30,7 @@ function tokenize(s: string): Tok[] {
     if (ch === "(") { out.push({ t: "LP" }); i++; continue; }
     if (ch === ")") { out.push({ t: "RP" }); i++; continue; }
     if (ch === ",") { out.push({ t: "COMMA" }); i++; continue; }
-    throw new Error(`Ký tự lạ: '${ch}'`);
+    throw new Error(`Unknown character: '${ch}'`);
   }
   return out;
 }
@@ -45,15 +45,15 @@ export function parseFormula(text: string, knownInputs?: string[]): ParseResult 
 
   try {
     const toks = tokenize(body);
-    if (!toks.length) throw new Error("Công thức rỗng");
+    if (!toks.length) throw new Error("Formula is empty");
     const nodes: Record<string, QuantAstNode> = {}, inputs = new Set<string>();
     let pos = 0;
     const peek = () => toks[pos];
     const next = () => toks[pos++];
-    const eat = (t: Tok["t"]) => { if (peek()?.t !== t) throw new Error(`Cần '${t}' tại vị trí ${pos}`); return next(); };
+    const eat = (t: Tok["t"]) => { if (peek()?.t !== t) throw new Error(`Expected '${t}' at position ${pos}`); return next(); };
     const add = (n: QuantAstNode) => { nodes[n.nodeId] = n; return n.nodeId; };
     const litOf = (id: string) => { const n = nodes[id]; return n && n.kind === "CONST" ? (n.constValue ?? 0) : null; };
-    const needWin = (name: string, args: string[]) => { const w = litOf(args[args.length - 1]); if (w == null) throw new Error(`${name}: cửa sổ phải là một số`); delete nodes[args[args.length - 1]]; return Math.max(1, Math.round(w)); };
+    const needWin = (name: string, args: string[]) => { const w = litOf(args[args.length - 1]); if (w == null) throw new Error(`${name}: window must be numeric`); delete nodes[args[args.length - 1]]; return Math.max(1, Math.round(w)); };
 
     function parseExpr(): string { return parseCmp(); }
     function parseCmp(): string { let l = parseAdd(); while (peek()?.t === "OP" && [">", "<", "=="].includes(peek()!.v!)) { const op = next().v!; l = add(mkOp(INFIX[op], [l, parseAdd()])); } return l; }
@@ -63,43 +63,43 @@ export function parseFormula(text: string, knownInputs?: string[]): ParseResult 
     function parseUnary(): string { if (peek()?.t === "OP" && peek()!.v === "-") { next(); const id = parseUnary(); const nd = nodes[id]; if (nd && nd.kind === "CONST") { nd.constValue = -(nd.constValue ?? 0); return id; } return add(mkOp("NEG", [id])); } if (peek()?.t === "OP" && peek()!.v === "+") { next(); return parseUnary(); } return parsePrimary(); }
     function parsePrimary(): string {
       const tk = peek();
-      if (!tk) throw new Error("Hết token bất ngờ");
+      if (!tk) throw new Error("Unexpected end of tokens");
       if (tk.t === "NUM") { next(); return add(mkConst(parseFloat(tk.v!), nid("c"))); }
       if (tk.t === "LP") { next(); const e = parseExpr(); eat("RP"); return e; }
       if (tk.t === "ID") {
         next();
         const name = tk.v!, lower = name.toLowerCase();
         if (peek()?.t === "LP") { next(); const args = parseArgs(); return buildCall(name, lower, args); }
-        if (BLOCKED.has(lower)) throw new Error(`Bị chặn: '${name}' không được phép`);
+        if (BLOCKED.has(lower)) throw new Error(`Blocked: '${name}' is not permitted`);
         inputs.add(name); return add(mkInput(name, nid("in")));
       }
-      throw new Error(`Token lạ '${tk.v ?? tk.t}'`);
+      throw new Error(`Unknown token '${tk.v ?? tk.t}'`);
     }
     function parseArgs(): string[] { const a: string[] = []; if (peek()?.t !== "RP") { a.push(parseExpr()); while (peek()?.t === "COMMA") { next(); a.push(parseExpr()); } } eat("RP"); return a; }
 
     function buildCall(name: string, lower: string, args: string[]): string {
-      if (BLOCKED.has(lower)) throw new Error(`Bị chặn: '${name}()' không được tạo lệnh / vùng / order`);
-      const need = (k: number) => { if (args.length !== k) throw new Error(`${name}() cần ${k} đối số, có ${args.length}`); };
+      if (BLOCKED.has(lower)) throw new Error(`Blocked: '${name}() cannot create orders, price zones or entry instructions`);
+      const need = (k: number) => { if (args.length !== k) throw new Error(`${name}() requires ${k} arguments; received ${args.length}`); };
       if (lower === "gate") { need(1); return args[0]; }
-      if (lower === "clip") { if (args.length === 1) return add(mkOp("CLIP", [args[0]])); if (args.length === 3) { const lo = litOf(args[1]), hi = litOf(args[2]); if (lo == null || hi == null) throw new Error("clip(x, lo, hi): lo/hi phải là số"); delete nodes[args[1]]; delete nodes[args[2]]; return add(mkOp("CLIP", [args[0]], { min: lo, max: hi })); } throw new Error("clip cần 1 hoặc 3 đối số"); }
+      if (lower === "clip") { if (args.length === 1) return add(mkOp("CLIP", [args[0]])); if (args.length === 3) { const lo = litOf(args[1]), hi = litOf(args[2]); if (lo == null || hi == null) throw new Error("clip(x, lo, hi): lo and hi must be numeric"); delete nodes[args[1]]; delete nodes[args[2]]; return add(mkOp("CLIP", [args[0]], { min: lo, max: hi })); } throw new Error("clip requires one or three arguments"); }
       if (lower === "ifelse") { need(3); return add(mkOp("IF_ELSE", [args[0], args[1], args[2]])); }
       if (UNARY[lower]) { need(1); return add(mkOp(UNARY[lower], [args[0]])); }
       if (BINARY_FN[lower]) { need(2); return add(mkOp(BINARY_FN[lower], [args[0], args[1]])); }
-      if (lower === "quantile" || lower === "winsorize") { if (args.length !== 3) throw new Error(`${name}(x, q, W) cần 3 đối số`); const w = needWin(name, args); const q = litOf(args[1]); if (q == null) throw new Error(`${name}: q phải là một số`); delete nodes[args[1]]; return add(mkOp(lower === "quantile" ? "QUANTILE" : "WINSOR", [args[0]], { q, window: w })); }
-      if (WINDOWED[lower]) { if (args.length !== 2) throw new Error(`${name}(x, W) cần 2 đối số`); const w = needWin(name, args); return add(mkOp(WINDOWED[lower], [args[0]], { window: w })); }
-      if (LAGGED[lower]) { if (args.length !== 2) throw new Error(`${name}(x, k) cần 2 đối số`); const k = needWin(name, args); return add(mkOp(LAGGED[lower], [args[0]], { lag: k })); }
+      if (lower === "quantile" || lower === "winsorize") { if (args.length !== 3) throw new Error(`${name}(x, q, W) requires three arguments`); const w = needWin(name, args); const q = litOf(args[1]); if (q == null) throw new Error(`${name}: q must be numeric`); delete nodes[args[1]]; return add(mkOp(lower === "quantile" ? "QUANTILE" : "WINSOR", [args[0]], { q, window: w })); }
+      if (WINDOWED[lower]) { if (args.length !== 2) throw new Error(`${name}(x, W) requires two arguments`); const w = needWin(name, args); return add(mkOp(WINDOWED[lower], [args[0]], { window: w })); }
+      if (LAGGED[lower]) { if (args.length !== 2) throw new Error(`${name}(x, k) requires two arguments`); const k = needWin(name, args); return add(mkOp(LAGGED[lower], [args[0]], { lag: k })); }
       if (MACRO_BY_NAME[lower]) {
         const macroId = MACRO_BY_NAME[lower], macro = SEED_MACROS[macroId];
         let win: number | undefined; let kids = args;
         if (WINDOWED_MACROS.has(macroId)) { win = needWin(name, args); kids = args.slice(0, -1); }
-        if (kids.length !== macro.inputs.length) throw new Error(`${macro.name} cần ${macro.inputs.length} input`);
+        if (kids.length !== macro.inputs.length) throw new Error(`${macro.name} requires ${macro.inputs.length} input`);
         return add(mkOp("MACRO_REF", kids, { macroId, window: win }));
       }
-      throw new Error(`Hàm lạ: '${name}()' không có trong whitelist`);
+      throw new Error(`Unknown function: '${name}()' is not whitelisted`);
     }
 
     const rootNodeId = parseExpr();
-    if (pos < toks.length) throw new Error(`Thừa token sau công thức (vị trí ${pos})`);
+    if (pos < toks.length) throw new Error(`Extra tokens after the formula at position ${pos})`);
     const ast: QuantFormulaAst = { formulaId: "f" + Date.now().toString(36), name: fname, version: "1", rootNodeId, nodes, inputs: [...inputs], outputType, authority: QUANT_AUTHORITY, status: "DRAFT" };
     if (knownInputs) { const v = validateAst(ast, knownInputs, Object.keys(SEED_MACROS)); if (!v.ok) errors.push(...v.errors); }
     return { ast, errors };

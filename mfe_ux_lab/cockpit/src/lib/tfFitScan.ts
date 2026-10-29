@@ -59,7 +59,7 @@ export function runTfFit(card: Record<string, unknown>, barsByTf: Partial<Record
   return {
     card_id: typeof card?.id === "string" ? card.id : "card", declaredTf, rows, recommendedTf: rec, source: "measured",
     note: rec
-      ? `Gợi-ý ${rec}: OOS dương + era-stable + verdict≥FRAGILE. ADVISORY/SHADOW — design_tf khai-báo của card KHÔNG đổi tự-động; bạn chốt.`
-      : "Không TF nào đạt (OOS dương + era-stable). Giữ design_tf khai-báo. Đây là kết-quả thành-thật, không ép.",
+      ? `Suggested ${rec}: positive OOS result, era stability and verdict at least FRAGILE. Shadow research only. The Card's declared design timeframe is unchanged until you choose it.`
+      : "No timeframe met the positive-OOS and era-stability criteria. Keep the declared design timeframe; no recommendation is forced.",
   };
 }

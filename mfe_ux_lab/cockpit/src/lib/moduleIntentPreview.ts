@@ -178,7 +178,7 @@ export function previewModule(bars: OhlcBar[], m: CustomModule, warmup = 40): Pr
       if (condsMet(ctx, m)) {
         // lý do = các điều kiện ĐANG đúng, với giá trị thực tại nến (đọc được như câu nói)
         const firing = conds.filter((c) => condsMet(ctx, { ...m, conditions: [c], logic: "ALL" }));
-        const reason = `bắn vì ${firing.map((c) => condText(c, ctx)).join(m.logic === "ANY" ? " HOẶC " : " & ")}`;
+        const reason = `Fires because ${firing.map((c) => condText(c, ctx)).join(m.logic === "ANY" ? " OR " : " & ")}`;
         fires.push({ i, time: bars[i].t, price: bars[i].c, reason });
       }
     }

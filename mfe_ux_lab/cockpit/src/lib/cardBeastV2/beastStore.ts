@@ -129,6 +129,6 @@ export function exportBeastAsCard(name: string, composed: ComposedBeast, designT
       artifact: makeArtifactIdentity({ artifactId: id, kind: "STRATEGY_CARD", modules: composed.modules, parentIds: sourceBeast?.artifact ? [sourceBeast.artifact.artifact_id] : [], extra: { source: "BEAST_EXPORT" } }),
     });
     writeStrategyCards(lib);
-    return { ok: true, note: `Đã xuất "${name}" vào Strategy Library (${composed.modules.length} modules · ${composed.customModules.length} custom). Mở Microscope → chọn card → chạy Y10 (+HARD) để có số THẬT.` };
+    return { ok: true, note: `Exported "${name}" to Strategy Library (${composed.modules.length} modules · ${composed.customModules.length} custom). Open Microscope and run the Card with declared windows and costs to obtain measured results.` };
   } catch (e) { return { ok: false, note: String(e) }; }
 }

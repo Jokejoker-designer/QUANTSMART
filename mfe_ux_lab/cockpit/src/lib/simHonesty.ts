@@ -22,8 +22,8 @@ export function honestyVerdict(a: RealisticAnalytics, wf: WalkForwardResult | un
   if (a.funding && a.funding.ruined) {
     return {
       trust: "NO_EDGE_AFTER_COST", label: "Modeled capital depleted", tone: "red", calibrationLevel: calLevel, modeled: true,
-      reasons: [`Tài-khoản về ≤ 0 tại ${a.funding.ruinAt || "lệnh #" + a.funding.ruinTradeIndex} (lệnh thứ ${a.funding.ruinTradeIndex}) → dừng giao-dịch`, "Rủi-ro/lệnh quá lớn cho số vốn này, hoặc edge âm"],
-      warnings: ["FUNDING FAILED — vốn cấp không sống nổi qua backtest. Giảm rủi-ro/lệnh hoặc tăng vốn.", "Advisory/research only — không phải lời-khuyên đầu-tư."],
+      reasons: [`Simulated account reached zero or below at ${a.funding.ruinAt || "trade #" + a.funding.ruinTradeIndex} (trade number ${a.funding.ruinTradeIndex}); simulation stops`, "Per-trade research risk is too large for this capital, or the measured edge is negative"],
+      warnings: ["FUNDING FAILED: the simulated capital did not survive this backtest. Review risk assumptions and starting capital.", "Research only; not investment advice."],
     };
   }
   const netEdge = a.netPF > 1 && a.netNetR > 0;
@@ -31,21 +31,21 @@ export function honestyVerdict(a: RealisticAnalytics, wf: WalkForwardResult | un
   const fragile = a.costFragile || a.pathFragilityStatus === "PATH_FRAGILE" || wf?.verdict === "OOS_FRAGILE" || mcRisk;
 
   let trust: TrustLevel;
-  if (!netEdge) { trust = "NO_EDGE_AFTER_COST"; reasons.push(`NET PF ${a.netPF} ≤ 1 sau phí (net ${a.netNetR}R)`); }
+  if (!netEdge) { trust = "NO_EDGE_AFTER_COST"; reasons.push(`NET PF ${a.netPF} is at most 1 after costs (net ${a.netNetR}R)`); }
   else if (fragile) {
     trust = "FRAGILE_EDGE";
-    if (a.costFragile) reasons.push("COST_FRAGILE — chết khi phí base/stress");
-    if (a.pathFragilityStatus === "PATH_FRAGILE") reasons.push("PATH_FRAGILE — phụ-thuộc thứ-tự SL/TP trong nến M1");
-    if (wf?.verdict === "OOS_FRAGILE") reasons.push("OOS_FRAGILE — edge không bền qua các fold");
-    if (mcRisk) reasons.push(`Monte-Carlo P(âm) ${(a.monteCarlo!.probNegative * 100).toFixed(0)}%`);
+    if (a.costFragile) reasons.push("COST_FRAGILE — does not survive base/stress costs");
+    if (a.pathFragilityStatus === "PATH_FRAGILE") reasons.push("PATH_FRAGILE — depends on intrabar M1 stop/target ordering");
+    if (wf?.verdict === "OOS_FRAGILE") reasons.push("OOS_FRAGILE — the measured edge is unstable across folds");
+    if (mcRisk) reasons.push(`Monte Carlo probability of a negative result ${(a.monteCarlo!.probNegative * 100).toFixed(0)}%`);
   } else if (wf?.verdict === "OOS_STABLE") {
-    trust = "ROBUST_IN_SIM"; reasons.push("net edge + OOS_STABLE + không cost/path-fragile + Monte-Carlo ổn");
+    trust = "ROBUST_IN_SIM"; reasons.push("Positive net edge, stable OOS, no cost/path fragility and acceptable Monte Carlo diagnostics");
   } else {
-    trust = "CONDITIONAL_EDGE"; reasons.push("net edge dương nhưng chưa đủ bằng-chứng OOS (walk-forward chưa STABLE)");
+    trust = "CONDITIONAL_EDGE"; reasons.push("Positive net result with insufficient stable walk-forward evidence");
   }
 
-  if (calLevel !== "FULLY_CALIBRATED") warnings.push("Số liệu MODELED — phí " + (calLevel === "FULLY_PROVISIONAL" ? "PROVISIONAL" : "calibrated một-phần") + ", M1 path APPROX. KHÔNG phải live-ready.");
-  warnings.push("Advisory/research only — không phải lời-khuyên đầu-tư, không auto-promote.");
+  if (calLevel !== "FULLY_CALIBRATED") warnings.push("Modeled measurements; costs " + (calLevel === "FULLY_PROVISIONAL" ? "PROVISIONAL" : "partially calibrated") + ", approximate M1 path. Does not establish live readiness.");
+  warnings.push("Research only; no automatic promotion or investment recommendation.");
 
   const map: Record<TrustLevel, { label: string; tone: HonestyVerdict["tone"] }> = {
     NO_EDGE_AFTER_COST: { label: "No measured edge after costs", tone: "red" },

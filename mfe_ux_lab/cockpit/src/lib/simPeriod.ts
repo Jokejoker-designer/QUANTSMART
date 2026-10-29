@@ -25,8 +25,8 @@ export function periodMonths(bars: OhlcBar[] | null, year: string): string[] {
 }
 const MON = ["", "Th1", "Th2", "Th3", "Th4", "Th5", "Th6", "Th7", "Th8", "Th9", "Th10", "Th11", "Th12"];
 export function periodLabel(p: Period): string {
-  if (p.granularity === "all") return "Toàn-bộ lịch-sử";
-  if (p.granularity === "year") return "Năm " + p.year;
+  if (p.granularity === "all") return "Full history";
+  if (p.granularity === "year") return "Year " + p.year;
   return (MON[+(p.month || "0")] || p.month) + "/" + p.year;
 }
 export { MON as PERIOD_MONTHS };

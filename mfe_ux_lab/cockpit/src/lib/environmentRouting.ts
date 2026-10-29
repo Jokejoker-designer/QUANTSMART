@@ -38,9 +38,9 @@ export function scoreCardFit(atlas: CardAtlas, fp: EnvironmentFingerprint): Card
   const verdict: RouteVerdict = !regimeCell || regimeCell.evidence === "INSUFFICIENT_SAMPLE" ? "INSUFFICIENT"
     : regimeCell.verdict === "FITS" ? "GOOD_FIT"
     : regimeCell.verdict === "HOSTILE" ? "HOSTILE" : "NEUTRAL";
-  const ev = regimeCell?.evidence === "USABLE_EVIDENCE" ? "đủ mẫu" : regimeCell?.evidence === "WEAK_EVIDENCE" ? "mẫu yếu" : "thiếu mẫu";
-  const note = !regimeCell ? `Chưa có lệnh nào ở regime ${fp.regime} — chưa đủ bằng-chứng để định-tuyến.`
-    : `Regime ${fp.regime}: ${regimeCell.trades} lệnh · ${regimeCell.netR >= 0 ? "+" : ""}${regimeCell.netR}R (${ev}). Suitability MEASURED · advisory · không phải lời-hứa.`;
+  const ev = regimeCell?.evidence === "USABLE_EVIDENCE" ? "Sufficient sample" : regimeCell?.evidence === "WEAK_EVIDENCE" ? "Weak sample" : "Insufficient sample";
+  const note = !regimeCell ? `No observed trades in regime ${fp.regime}; insufficient evidence for routing.`
+    : `Regime ${fp.regime}: ${regimeCell.trades} trades · ${regimeCell.netR >= 0 ? "+" : ""}${regimeCell.netR}R (${ev}). Measured advisory suitability is not a forecast.`;
   return { card_id: atlas.card_id, score: +score.toFixed(4), verdict, regimeCell, sessionCell, volCell, env: { regime: fp.regime, session: fp.session, volatility: fp.volatilityBucket }, totalTrades: atlas.totalTrades, note };
 }
 
@@ -52,7 +52,7 @@ export function rankCardRoutes(scores: CardRouteScore[]): CardRouteScore[] {
 
 // UX labels (controlled-optimism language: opportunity felt, win-rate never promised)
 export const ROUTE_LABEL: Record<RouteVerdict, string> = {
-  GOOD_FIT: "Hợp môi-trường", NEUTRAL: "Trung-tính", INSUFFICIENT: "Cơ-hội sớm (thiếu mẫu)", HOSTILE: "Môi-trường khắc",
+  GOOD_FIT: "Observed fit", NEUTRAL: "Neutral", INSUFFICIENT: "Early indication; insufficient sample", HOSTILE: "Adverse observed environment",
 };
 export const ROUTE_COLOR: Record<RouteVerdict, string> = {
   GOOD_FIT: "#21D07A", NEUTRAL: "#9FB2C8", INSUFFICIENT: "#E3B341", HOSTILE: "#FF4D4D",

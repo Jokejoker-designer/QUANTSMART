@@ -79,6 +79,6 @@ export function buildCardAtlas(designBars: OhlcBar[], bt: RealisticBacktest, opt
     card_id: opts.cardId || "card",
     totalTrades: trades.length, bucketedTrades: enriched.length,
     dimensions, thresholds: { weak, usable }, source: "measured",
-    note: "MEASURED per-card NET R theo môi-trường tại-entry (fingerprint causal). Mẫu < " + weak + " = INSUFFICIENT (cấm claim 'hợp'); " + weak + "–" + (usable - 1) + " = WEAK; ≥ " + usable + " = USABLE. Card không fit-param → run đầy-đủ là OOS. Suitability ≠ lời-hứa · advisory · modeled.",
+    note: "Measured per-Card net R by causal entry-environment fingerprint. Samples below " + weak + " are INSUFFICIENT; " + weak + "–" + (usable - 1) + " = WEAK; ≥ " + usable + " are USABLE. A full run is OOS only when no parameters were fitted to that data. Suitability is descriptive, modeled research.",
   };
 }

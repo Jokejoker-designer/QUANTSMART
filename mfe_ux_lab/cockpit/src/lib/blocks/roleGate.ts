@@ -23,7 +23,7 @@ function roleStat(role: FeatureUsageRole, f: number[], fwd: Fwd, idx: number[]):
   if (role === "REGIME_VOL") return { name: "corr(feature, vol forward)", value: corr(idx.map((i) => f[i]), idx.map((i) => fwd.fvol[i])) };
   void q1;
   let oc: number[], name: string;
-  if (role === "BIAS_TREND") { oc = fwd.ret; name = "spread hướng (hi−lo)"; }                                  // signed forward return
+  if (role === "BIAS_TREND") { oc = fwd.ret; name = "Directional spread (high−low)"; }                                  // signed forward return
   else if (role === "TIMING_TRIGGER") { oc = fwd.mfe.map((m, i) => (m > -fwd.mae[i] ? 1 : 0)); name = "timing lift (hi−lo)"; }  // MFE-before-MAE
   else if (role === "RISK_DANGER") { oc = fwd.mae.map((m) => -m); name = "|MAE| lift (hi−lo)"; }               // adverse magnitude
   else { oc = fwd.ret.map((r) => Math.abs(r)); name = "|ret| lift (hi−lo)"; }                                  // confirmation: clean-move
@@ -49,7 +49,7 @@ export function runRoleGate(graph: FeatureGraph, role: FeatureUsageRole, bars: O
   }
   const fwd: Fwd = { ret, mfe, mae, fvol };
   const idx: number[] = []; for (let i = 0; i + K < n; i++) if (isFinite(f[i]) && isFinite(ret[i])) idx.push(i);
-  if (idx.length < 60) return { role, metricName: "—", observed: 0, nullBand: 0, beatsNull: false, eraSigns: [], eraStable: false, sampleSize: idx.length, verdict: "REJECTED", notes: [`không đủ mẫu OOS (${idx.length}<60)`] };
+  if (idx.length < 60) return { role, metricName: "—", observed: 0, nullBand: 0, beatsNull: false, eraSigns: [], eraStable: false, sampleSize: idx.length, verdict: "REJECTED", notes: [`Insufficient OOS sample (${idx.length}<60)`] };
 
   const obs = stat(role, f, fwd, idx);
   const rng = mulberry32(seed); const nulls: number[] = [];
@@ -67,10 +67,10 @@ export function runRoleGate(graph: FeatureGraph, role: FeatureUsageRole, bars: O
   const verdict = beatsNull && eraStable && dirGood && covOk ? "OOS_QUALIFIED" : beatsNull ? "SHADOW_QUALIFIED" : "REJECTED";
 
   const notes = [
-    `${obs.name} = ${obs.value.toFixed(4)} · null95 = ${nullBand.toFixed(4)} → ${beatsNull ? "VƯỢT null" : "không hơn null"}`,
-    `era signs [${eraSigns.join(",")}] → ${eraStable ? "ổn định" : "KHÔNG ổn định qua era"}`,
-    cov !== undefined ? `coverage giữ ${(cov * 100).toFixed(0)}%` : "",
-    verdict === "OOS_QUALIFIED" ? "✓ qua gate role (OOS + null + era)" : verdict === "SHADOW_QUALIFIED" ? "hơn null nhưng chưa ổn định/đúng hướng → giữ SHADOW" : "không phân biệt được với ngẫu nhiên → REJECTED",
+    `${obs.name} = ${obs.value.toFixed(4)} · null95 = ${nullBand.toFixed(4)} → ${beatsNull ? "Above null" : "Not above null"}`,
+    `era signs [${eraSigns.join(",")}] → ${eraStable ? "Stable" : "Unstable across eras"}`,
+    cov !== undefined ? `Retained coverage ${(cov * 100).toFixed(0)}%` : "",
+    verdict === "OOS_QUALIFIED" ? "✓ qua gate role (OOS + null + era)" : verdict === "SHADOW_QUALIFIED" ? "Above null, but unstable or directionally inconsistent; remain Shadow" : "Indistinguishable from randomness; REJECTED",
   ].filter(Boolean);
   return { role, metricName: obs.name, observed: obs.value, nullBand, beatsNull, eraSigns, eraStable, coverage: cov, sampleSize: idx.length, verdict, notes };
 }

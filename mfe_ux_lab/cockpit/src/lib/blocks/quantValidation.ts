@@ -98,11 +98,11 @@ export function runValidation(score: number[], bars: OhlcBar[], cfgIn?: Partial<
   const rf = { hiTailP05: pct5(hiF), loTailP05: pct5(loF), hiLossRate: lossRate(hiF), loLossRate: lossRate(loF), hiMean: mean(hiF), loMean: mean(loF), hiN: hiF.length, loN: loF.length, usefulFilter: hiF.length >= 20 && loF.length >= 20 && ((pct5(loF) - pct5(hiF)) > 0.004 || (lossRate(hiF) - lossRate(loF)) > 0.06) };
 
   let overall: ValidationReport["overall"];
-  if (eff < cfg.minSample) { overall = "INSUFFICIENT"; notes.push(`Mẫu hiệu dụng ${eff} < tối thiểu ${cfg.minSample} — chưa đủ để kết luận.`); }
-  else if (!beatsNull) { overall = "NULL_EDGE"; notes.push("Không vượt được permutation-null (95th) — không phân biệt với nhiễu (xét theo ALPHA). Curve-fit risk cao NẾU dùng làm tín-hiệu kiếm lời."); }
+  if (eff < cfg.minSample) { overall = "INSUFFICIENT"; notes.push(`Effective sample ${eff} is below the minimum ${cfg.minSample}; insufficient for a conclusion.`); }
+  else if (!beatsNull) { overall = "NULL_EDGE"; notes.push("Does not exceed the 95th-percentile permutation null. This alpha test cannot distinguish it from noise; using it as a profit signal carries curve-fitting risk."); }
   else if (oosPass && wfStatus === "PASS") overall = "EDGE_OOS_QUALIFIED";
-  else { overall = "CONDITIONAL_EDGE"; notes.push("Vượt null nhưng OOS/walk-forward chưa ổn định ở mọi cửa sổ."); }
-  if (rf.usefulFilter) notes.push(`🛡 RISK-FILTER lens: nến score CAO có downside XẤU HƠN score thấp (tail p05 ${(rf.hiTailP05 * 100).toFixed(2)}% vs ${(rf.loTailP05 * 100).toFixed(2)}% · loss-rate ${(rf.hiLossRate * 100).toFixed(0)}% vs ${(rf.loLossRate * 100).toFixed(0)}%). Nếu đây là RISK-VETO (không phải alpha) → CHẶN nến score cao CẢI THIỆN downside; IC≈0 KHÔNG có nghĩa vô dụng. Xét theo veto: MAE/tail/loss-rate, không phải IC forward-return.`);
-  notes.push("Label = forward return thô (độc lập nguồn feature) → không phải circular-label. IC trên mẫu SIM H1 — kiểm định thống kê, KHÔNG bảo đảm live.");
+  else { overall = "CONDITIONAL_EDGE"; notes.push("Above null, but OOS/walk-forward results are not stable in every window."); }
+  if (rf.usefulFilter) notes.push(`Risk-filter view: high-score candles have worse downside than low-score candles (p05 tail ${(rf.hiTailP05 * 100).toFixed(2)}% vs ${(rf.loTailP05 * 100).toFixed(2)}% · loss-rate ${(rf.hiLossRate * 100).toFixed(0)}% vs ${(rf.loLossRate * 100).toFixed(0)}%). For a risk-veto hypothesis, excluding high-score candles may improve downside even when forward-return IC is near zero. Evaluate MAE, tails and loss rate separately from alpha IC.`);
+  notes.push("Label is the raw forward return, independent of the feature source. This avoids circular labels. Statistics on the simulated H1 sample do not establish live performance.");
   return { horizon: cfg.horizon, sample: { eff, require: cfg.minSample, ok: eff >= cfg.minSample }, realIC, oos: { isIC, oosIC, threshold: cfg.icThreshold, pass: oosPass }, walkForward: { eras, stability, meanIC, status: wfStatus }, permutation: { realIC, nullP95, pValue, beatsNull, perms: cfg.permutations }, monteCarlo: mc, riskFilter: rf, overall, notes, ranAt: new Date().toISOString() };
 }

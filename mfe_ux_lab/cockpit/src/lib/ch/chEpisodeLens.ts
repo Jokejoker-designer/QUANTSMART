@@ -35,12 +35,12 @@ export interface EpisodeLensOutput {
 
 function vocabLabel(kind: EpisodeKind, dir: number): string {
   switch (kind) {
-    case "IMPULSE": return dir >= 0 ? "Đà tăng mạnh" : "Đà giảm mạnh";
-    case "CORRECTIVE": return "Hồi / điều-chỉnh";
-    case "RANGE": return "Tích-luỹ · đi ngang";
-    case "SWEEP_RECLAIM": return dir >= 0 ? "Quét đỉnh rồi thu lại" : "Quét đáy rồi thu lại";
-    case "FAILED_BREAKOUT": return "Phá vỡ hụt";
-    default: return "Chưa rõ cấu-trúc";
+    case "IMPULSE": return dir >= 0 ? "Strong upward movement" : "Strong downward movement";
+    case "CORRECTIVE": return "Pullback / correction";
+    case "RANGE": return "Consolidation / range";
+    case "SWEEP_RECLAIM": return dir >= 0 ? "High sweep and reclaim" : "Low sweep and reclaim";
+    case "FAILED_BREAKOUT": return "Failed breakout";
+    default: return "Unclear structure";
   }
 }
 
@@ -51,9 +51,9 @@ function trendContext(swings: ConfirmedSwing[]): string {
   const hl = lows.length >= 2 && lows[lows.length - 1].price > lows[lows.length - 2].price;
   const lh = highs.length >= 2 && highs[highs.length - 1].price < highs[highs.length - 2].price;
   const ll = lows.length >= 2 && lows[lows.length - 1].price < lows[lows.length - 2].price;
-  if (hh && hl) return "Chuỗi tăng (higher-high + higher-low)";
-  if (lh && ll) return "Chuỗi giảm (lower-high + lower-low)";
-  return "Đi ngang · xu-hướng chưa rõ";
+  if (hh && hl) return "Upward sequence: higher highs and higher lows";
+  if (lh && ll) return "Downward sequence: lower highs and lower lows";
+  return "Range; no clear trend";
 }
 
 function toLens(ep: AsOfEpisode, prior: AsOfEpisode | null, bars: OhlcBar[]): LensEpisode {
@@ -75,8 +75,8 @@ export interface EpisodeLensOpts { recentN?: number; cfg?: SegmentBuilderConfig 
 
 export function chEpisodeLens(bars: OhlcBar[], tf: Timeframe, opts: EpisodeLensOpts = {}): EpisodeLensOutput {
   const cfg = opts.cfg ?? DEFAULT_BUILDER_CONFIG, recentN = opts.recentN ?? 6;
-  const note = "Mô-tả cấu-trúc (CH_AUTH_1) · KHÔNG phải tín-hiệu/dự-báo · leg 'đang hình-thành' có thể đổi.";
-  if (bars.length < 5) return { authority: "CH_AUTH_1", active_episode: null, forming_leg: null, recent_episodes: [], episode_context: "Chưa đủ nến", vocabulary_label: "—", note };
+  const note = "Descriptive structure (CH_AUTH_1), not a signal or forecast. A forming leg can change.";
+  if (bars.length < 5) return { authority: "CH_AUTH_1", active_episode: null, forming_leg: null, recent_episodes: [], episode_context: "Insufficient candles", vocabulary_label: "—", note };
 
   const eps = buildSegmentEpisodes(bars, tf, cfg);                                   // CONFIRMED legs (asOf-correct)
   const swings = confirmedSwings(bars, cfg.swing).sort((a, b) => a.k - b.k || (a.kind < b.kind ? -1 : 1));
@@ -101,12 +101,12 @@ export function chEpisodeLens(bars: OhlcBar[], tf: Timeframe, opts: EpisodeLensO
     forming = {
       episode_id: `${tf}-forming-${last.k}`, kind, direction_sign: dir, confirmed: false,
       attrs: { range_atr: rangeAtr, body_ratio: bodyRatio, duration_bars: Bk - last.k, impulse_strength: clamp01(rangeAtr / 3), pullback_depth: null },
-      vocabulary_label: vocabLabel(kind, dir) + " (đang hình-thành · chưa xác-nhận)",
+      vocabulary_label: vocabLabel(kind, dir) + " (forming; not confirmed)",
     };
   }
 
   const trend = trendContext(swings);
-  const episode_context = active ? `${active.vocabulary_label} trong ${trend}` : trend;
+  const episode_context = active ? `${active.vocabulary_label} within ${trend}` : trend;
   const headline = forming?.vocabulary_label ?? active?.vocabulary_label ?? "—";
   return { authority: "CH_AUTH_1", active_episode: active, forming_leg: forming, recent_episodes: recent, episode_context, vocabulary_label: headline, note };
 }

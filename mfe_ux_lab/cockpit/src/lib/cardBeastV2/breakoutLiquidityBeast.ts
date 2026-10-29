@@ -35,7 +35,7 @@ export const CAN_EMIT_ORDER = false as const;   // khóa cứng: beast này khô
 // ── materialize 2 custom VETO từ preset F5 đã có (block thật, không logic mới) ──
 function presetByLabel(label: string, slug: string): CustomModule {
   const p = MODULE_PRESETS.find((x) => x.label === label);
-  if (!p) throw new Error("thiếu preset: " + label);
+  if (!p) throw new Error("Missing preset: " + label);
   return { id: "cm_blb_" + slug, createdAt: "beast", status: "SHADOW", ...(p.draft as Omit<CustomModule, "id" | "createdAt" | "status">) };
 }
 export const GUARD_CUSTOMS: CustomModule[] = [

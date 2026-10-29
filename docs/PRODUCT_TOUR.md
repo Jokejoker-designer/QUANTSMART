@@ -5,6 +5,8 @@ one local workspace. Use the five navigation groups or press **Ctrl+K** (**Cmd+K
 macOS) to jump to any of the 17 screens below.
 
 These are screenshots of the running application, captured on October 29, 2026.
+The owner-supplied full-screen images preserve their displayed source state: the
+Cockpit is connected to MT5; the Chart & Replay capture uses historical fallback.
 Screens that require a missing source show that state explicitly. Example designs
 and historical results illustrate a workflow; they are not performance guarantees.
 Broker credentials, account identifiers and balances are excluded from this tour.
@@ -19,7 +21,7 @@ Switch between historical data and a connected live feed, inspect the source tim
 and run a selected Card without leaving the market view. Range rank and EMA gap are
 descriptive measurements. A missing entry assessment remains unassessed.
 
-![Cockpit overview](screenshots/home.jpg)
+![Full-screen Cockpit with price chart and Strategy Card controls](screenshots/cockpit-overview.png)
 
 ### 2. Entry & Danger
 
@@ -39,7 +41,7 @@ chronological history. Compare the design, execution and chart timeframes, inspe
 individual events, and review long-history, OOS and holdout windows. Replay uses
 modeled execution; check the recorded source, costs and fill assumptions.
 
-![Chart and replay](screenshots/microscope.jpg)
+![Full-screen Chart and Replay using historical fallback](screenshots/chart-replay.png)
 
 ### 4. KIDI Events
 

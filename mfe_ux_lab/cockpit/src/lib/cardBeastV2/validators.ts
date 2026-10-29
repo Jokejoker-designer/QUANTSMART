@@ -33,8 +33,8 @@ export function classifyCardStructure(modules: string[], graphSetupRoots?: numbe
     attackerCapable: d.count > 0,
     setupRoots: roots,
     splitRequired: split,
-    note: split ? "MULTI_ATTACKER_CARD → SPLIT_REQUIRED (nhiều setup root độc lập = Beast, không phải Card)"
-      : d.count > 0 ? `1 setup root (${d.count} trigger fused)` : d.verdict === "CUSTOM_UNCERTAIN" ? "custom modules — cần compiler phân loại" : "no setup root (không tạo candidate)",
+    note: split ? "MULTI_ATTACKER_CARD → SPLIT_REQUIRED: independent setup roots must be composed as a Beast"
+      : d.count > 0 ? `1 setup root (${d.count} trigger fused)` : d.verdict === "CUSTOM_UNCERTAIN" ? "Custom modules require compiler role classification" : "No setup root; cannot create a candidate",
   };
 }
 
@@ -51,20 +51,20 @@ export function beastPreflight(members: { card_id: string; role: Role; modules?:
   ];
   for (const [role, lim] of rules) {
     const n = count(role);
-    if (n < lim.min) errors.push(`thiếu ${role}: cần ≥${lim.min}, có ${n}`);
-    if (n > lim.max) errors.push(`thừa ${role}: tối đa ${lim.max}, có ${n}`);
+    if (n < lim.min) errors.push(`Missing ${role}: requires at least ${lim.min}; received ${n}`);
+    if (n > lim.max) errors.push(`Too many ${role}: maximum ${lim.max}; received ${n}`);
   }
   // every ATTACKER must actually be attacker-capable; FALLBACK carries fb_* modules (attacker-silent semantics,
   // V2 2026-07-03) — nó KHÔNG cần trigger thường (đứng một mình là im lặng vĩnh viễn, đúng invariant)
   for (const m of members) {
     if (m.role === "ATTACKER" && m.modules && !classifyCardStructure(m.modules).attackerCapable) {
-      errors.push(`${m.card_id} gán ${m.role} nhưng KHÔNG có trigger (không tạo được candidate)`);
+      errors.push(`${m.card_id} assigned ${m.role} but has no trigger to create a candidate`);
     }
     if (m.role === "FALLBACK" && m.modules && !m.modules.some((id) => id.startsWith("fb_"))) {
-      errors.push(`${m.card_id} gán FALLBACK nhưng không có module fb_* (fb_range_fade) — role này chỉ nhận fallback semantics`);
+      errors.push(`${m.card_id} assigned FALLBACK without a fallback module (such as fb_range_fade)`);
     }
     if (m.role === "ATTACKER" && m.modules && classifyCardStructure(m.modules).splitRequired) {
-      errors.push(`${m.card_id}: MULTI_ATTACKER_CARD → SPLIT_REQUIRED trước khi vào Beast`);
+      errors.push(`${m.card_id}: MULTI_ATTACKER_CARD → SPLIT_REQUIRED before Beast composition`);
     }
   }
   // evidence-source overlap: confirmation sharing the attacker's roots is redundancy, not independent evidence
@@ -74,7 +74,7 @@ export function beastPreflight(members: { card_id: string; role: Role; modules?:
     const aRoots = new Set(roots[atk.card_id]);
     for (const m of members) {
       if (m.role === "CONFIRMATION" && roots[m.card_id]?.every((r) => aRoots.has(r))) {
-        warnings.push(`${m.card_id} (CONFIRMATION) dùng CHUNG toàn bộ nguồn evidence với attacker → REDUNDANT, không phải bằng chứng độc lập`);
+        warnings.push(`${m.card_id} (CONFIRMATION) shares every evidence source with the attacker: REDUNDANT, not independent evidence`);
       }
     }
   }
@@ -85,7 +85,7 @@ export function beastPreflight(members: { card_id: string; role: Role; modules?:
 export interface CompatibilityInput { effect: number; sampleN: number; minN: number; stability: number }
 export function compatibilityScore(inp: CompatibilityInput): { compatibility: number | null; confidence: number; status: "COMPATIBLE" | "CONDITIONAL" | "HOSTILE" | "INSUFFICIENT_SAMPLE"; reason: string } {
   if (inp.sampleN < inp.minN) {
-    return { compatibility: null, confidence: 0, status: "INSUFFICIENT_SAMPLE", reason: `n=${inp.sampleN} < ${inp.minN} — không trả điểm trung tính` };
+    return { compatibility: null, confidence: 0, status: "INSUFFICIENT_SAMPLE", reason: `n=${inp.sampleN} < ${inp.minN} — no neutral score is substituted` };
   }
   const confidence = Math.min(1, inp.sampleN / (inp.sampleN + inp.minN));      // saturating, transparent
   const stability = Math.max(0, Math.min(1, inp.stability));

@@ -31,13 +31,13 @@ export interface StdIndicator { key: string; name: string; category: string; rol
 export const STD_INDICATORS: StdIndicator[] = [
   {
     key: "ichimoku", name: "Ichimoku Kinko Hyo", category: "Trend / Cloud", role: "BIAS_TREND",
-    desc: "Tenkan · Kijun · Mây Senkou A/B (dời trước)", context: "Price above or below the causal cloud describes trend context. Cloud width is a geometric measure, not proof of trend strength.", buildFrom: "L1: High→Roll Max, Low→Roll Min, Add, Scale ×0.5 = Tenkan/Kijun; Mây = (Tenkan+Kijun)/2 vs mid(spanB), Lag(shift).",
+    desc: "Tenkan, Kijun and displaced Senkou A/B cloud", context: "Price above or below the causal cloud describes trend context. Cloud width is a geometric measure, not proof of trend strength.", buildFrom: "L1: rolling highs/lows and their midpoint form Tenkan/Kijun. The cloud combines their midpoint with the span-B midpoint and the configured displacement.",
     params: [{ name: "tenkan", label: "Tenkan", def: 9, min: 2, max: 30 }, { name: "kijun", label: "Kijun", def: 26, min: 5, max: 60 }, { name: "spanB", label: "Span B", def: 52, min: 10, max: 120 }, { name: "shift", label: "Cloud shift", def: 26, min: 0, max: 60 }],
     compute: (b, p) => { const T = PI(p, "tenkan", 9), K = PI(p, "kijun", 26), SB = PI(p, "spanB", 52), SH = PI(p, "shift", 26); const H = b.map((x) => x.h), L = b.map((x) => x.l); const tk = H.map((_, i) => (Math.max(...winAt(H, i, T)) + Math.min(...winAt(L, i, T))) / 2); const kj = H.map((_, i) => (Math.max(...winAt(H, i, K)) + Math.min(...winAt(L, i, K))) / 2); const sA = tk.map((v, i) => (v + kj[i]) / 2); const sB = H.map((_, i) => (Math.max(...winAt(H, i, SB)) + Math.min(...winAt(L, i, SB))) / 2); return { lines: [{ name: "Tenkan", color: "#37c0ff", series: tk }, { name: "Kijun", color: "#e3b341", series: kj }], cloud: { a: shiftFwd(sA, SH), b: shiftFwd(sB, SH), up: "#21d07a", down: "#f7768e" } }; },
   },
   {
     key: "fibonacci", name: "Fibonacci Retracement", category: "Level / Context", role: "FILTER_CONTEXT",
-    desc: "Mức 0 · 23.6 · 38.2 · 50 · 61.8 · 78.6 · 100% từ swing", context: "Fibonacci levels are reference context, not execution instructions.", buildFrom: "L1: Swing High − Swing Low = range; mỗi mức = High − ratio×range.",
+    desc: "Swing levels at 0, 23.6, 38.2, 50, 61.8, 78.6 and 100%", context: "Fibonacci levels are reference context, not execution instructions.", buildFrom: "L1: Swing High − Swing Low defines the range; each level is High − ratio × range.",
     params: [{ name: "mode", label: "Mode 0=swing · 1=range", def: 0, min: 0, max: 1 }, { name: "strength", label: "Swing strength (bar)", def: 3, min: 1, max: 10 }, { name: "lookback", label: "Range lookback", def: 120, min: 20, max: 300 }],
     // SWING mode (mặc-định): neo vào pivot-high↔pivot-low ĐÃ XÁC-NHẬN gần nhất (K bar mỗi bên) → 7 mức TĨNH, chỉ đổi
     // khi swing MỚI confirm (hết staircase). CAUSAL: pivot tại q chỉ dùng khi confirm ở bar q+K, mọi nến đọc ≤ i → fib[i]
@@ -71,19 +71,19 @@ export const STD_INDICATORS: StdIndicator[] = [
   },
   {
     key: "bollinger", name: "Bollinger Bands", category: "Volatility", role: "REGIME_VOL",
-    desc: "SMA ± mult·σ — dải co/giãn theo biến động", context: "Band width describes current dispersion; contraction does not prove a future expansion.", buildFrom: "L1: SMA(close,p) = mid; Roll Std(close,p) ×mult; upper = Add, lower = Sub.",
+    desc: "SMA ± multiplier × standard deviation; bands expand with volatility", context: "Band width describes current dispersion; contraction does not prove a future expansion.", buildFrom: "L1: SMA(close,p) = mid; Roll Std(close,p) ×mult; upper = Add, lower = Sub.",
     params: [{ name: "period", label: "Period", def: 20, min: 5, max: 100 }, { name: "mult", label: "Mult σ", def: 2, min: 1, max: 4, step: 0.1 }],
     compute: (b, p) => { const N = PI(p, "period", 20), M = P(p, "mult", 2), c = b.map((x) => x.c), mid = smaArr(c, N), sd = stdArr(c, N); return { bands: { mid, upper: mid.map((m, i) => m + M * sd[i]), lower: mid.map((m, i) => m - M * sd[i]), color: "#9d8bff" } }; },
   },
   {
     key: "donchian", name: "Donchian Channel", category: "Level / Breakout", role: "FILTER_CONTEXT",
-    desc: "Đỉnh/đáy N nến — kênh giá", context: "Channel boundaries describe price location relative to the rolling range.", buildFrom: "L1: High→Roll Max(N) = trần; Low→Roll Min(N) = sàn; mid = (Add)/2.",
+    desc: "Rolling N-bar highs/lows form a price channel", context: "Channel boundaries describe price location relative to the rolling range.", buildFrom: "L1: rolling High maximum is the upper band; rolling Low minimum is the lower band; the midpoint is their average.",
     params: [{ name: "period", label: "Period", def: 20, min: 5, max: 100 }],
     compute: (b, p) => { const N = PI(p, "period", 20), up = hiArr(b.map((x) => x.h), N), lo = loArr(b.map((x) => x.l), N); return { bands: { upper: up, lower: lo, mid: up.map((u, i) => (u + lo[i]) / 2), color: "#58a6ff" } }; },
   },
   {
     key: "supertrend", name: "SuperTrend (ATR)", category: "Trend", role: "BIAS_TREND",
-    desc: "Đường trend theo ATR·mult — đổi màu khi đảo", context: "Line position relative to price describes the configured directional context.", buildFrom: "L1: ATR(p) ×mult quanh (High+Low)/2; trạng thái trend đảo chiều = FSM (State/Hysteresis).",
+    desc: "ATR-based trend line with a state change on reversal", context: "Line position relative to price describes the configured directional context.", buildFrom: "L1: ATR(p) × multiplier around (High+Low)/2; FSM or hysteresis tracks the trend state.",
     params: [{ name: "atr", label: "ATR period", def: 10, min: 2, max: 50 }, { name: "mult", label: "Mult", def: 3, min: 1, max: 6, step: 0.5 }],
     compute: (b, p) => { const AP = PI(p, "atr", 10), m = P(p, "mult", 3), n = b.length, atr = atrArr(b, AP), hl2 = b.map((x) => (x.h + x.l) / 2), c = b.map((x) => x.c); const ub = hl2.map((v, i) => v + m * atr[i]), lb = hl2.map((v, i) => v - m * atr[i]); const fU = new Array(n), fL = new Array(n), st = new Array(n); for (let i = 0; i < n; i++) { if (i === 0) { fU[i] = ub[i]; fL[i] = lb[i]; st[i] = ub[i]; continue; } fU[i] = ub[i] < fU[i - 1] || c[i - 1] > fU[i - 1] ? ub[i] : fU[i - 1]; fL[i] = lb[i] > fL[i - 1] || c[i - 1] < fL[i - 1] ? lb[i] : fL[i - 1]; st[i] = st[i - 1] === fU[i - 1] ? (c[i] <= fU[i] ? fU[i] : fL[i]) : (c[i] >= fL[i] ? fL[i] : fU[i]); } return { lines: [{ name: "SuperTrend", color: "#5ad1c4", series: st }] }; },
   },
@@ -95,7 +95,7 @@ export const STD_INDICATORS: StdIndicator[] = [
   },
   {
     key: "ema", name: "EMA Line", category: "Trend", role: "BIAS_TREND",
-    desc: "Đường EMA(p)", context: "Price position relative to the EMA describes directional context.", buildFrom: "L1: EMA(close,p).",
+    desc: "EMA(p) line", context: "Price position relative to the EMA describes directional context.", buildFrom: "L1: EMA(close,p).",
     params: [{ name: "period", label: "Period", def: 21, min: 2, max: 200 }],
     compute: (b, p) => { const N = PI(p, "period", 21), c = b.map((x) => x.c); return { lines: [{ name: "EMA", color: "#37c0ff", series: emaArr(c, N) }] }; },
   },
@@ -107,19 +107,19 @@ export const STD_INDICATORS: StdIndicator[] = [
   },
   {
     key: "sr_zone", name: "S/R Zone Context", category: "Level / Context", role: "FILTER_CONTEXT",
-    desc: "Vùng hỗ trợ / kháng cự từ pivot gần đây", context: "Nearby support/resistance levels are reference context, not execution instructions.", buildFrom: "L1: Swing High (pivot k bar) = R, Swing Low = S; gom các pivot ĐÃ xác nhận gần nhất.",
+    desc: "Support/resistance reference zones from recent pivots", context: "Nearby support/resistance levels are reference context, not execution instructions.", buildFrom: "L1: use only confirmed Swing High and Swing Low pivots to form recent reference levels.",
     params: [{ name: "lookback", label: "Lookback", def: 120, min: 30, max: 300 }, { name: "strength", label: "Strength (bar)", def: 3, min: 1, max: 10 }, { name: "zones", label: "Zones", def: 3, min: 1, max: 6 }],
     compute: (b, p) => { const LB = PI(p, "lookback", 120), K = PI(p, "strength", 3), MZ = PI(p, "zones", 3); const w = b.slice(-LB); const res: number[] = [], sup: number[] = []; for (let i = K; i < w.length - K; i++) { let ph = true, pl = true; for (let j = 1; j <= K; j++) { if (w[i].h <= w[i - j].h || w[i].h <= w[i + j].h) ph = false; if (w[i].l >= w[i - j].l || w[i].l >= w[i + j].l) pl = false; } if (ph) res.push(w[i].h); if (pl) sup.push(w[i].l); } const levels = [...res.slice(-MZ).map((pr, k) => ({ label: `R${k + 1}`, price: pr, color: "#f7768e" })), ...sup.slice(-MZ).map((pr, k) => ({ label: `S${k + 1}`, price: pr, color: "#21d07a" }))]; return { levels }; },
   },
   {
     key: "stoch_k", name: "Stochastic %K", category: "Momentum / Oscillator", role: "TIMING_TRIGGER",
-    desc: "%K = vị trí Close trong biên N nến · %D = SMA(%K)", context: "Stochastic close location within the rolling high/low range.", buildFrom: "L1: Roll Max(High,N), Roll Min(Low,N); %K = (Close−min)/(max−min)×100; SMA làm mượt = %D.",
+    desc: "%K is the close position within the N-bar range; %D is SMA(%K)", context: "Stochastic close location within the rolling high/low range.", buildFrom: "L1: rolling High/Low bounds give %K=(Close−min)/(max−min)×100; SMA smoothing gives %D.",
     params: [{ name: "k", label: "%K period", def: 14, min: 3, max: 50 }, { name: "smooth", label: "Smooth %K", def: 3, min: 1, max: 10 }, { name: "d", label: "%D period", def: 3, min: 1, max: 10 }],
     compute: (b, p) => { const KP = PI(p, "k", 14), SM = PI(p, "smooth", 3), DP = PI(p, "d", 3); const hh = hiArr(b.map((x) => x.h), KP), ll = loArr(b.map((x) => x.l), KP), c = b.map((x) => x.c); const raw = c.map((v, i) => { const d = hh[i] - ll[i]; return d > 1e-9 ? (100 * (v - ll[i])) / d : 50; }); const k = smaArr(raw, SM), d = smaArr(k, DP); return { sub: [{ name: "%K", color: "#37c0ff", series: k }, { name: "%D", color: "#e3b341", series: d }] }; },
   },
   {
     key: "ch_episode", name: "CH Episode Lens", category: "Structure / Context", role: "FILTER_CONTEXT",
-    desc: "Trạng thái 'episode' nhiều nến (bung / co / chạy 1 chiều)", context: "Episode-direction approximation, not a forecast or performance result.", buildFrom: "L1: tổng (Close−Open) trên cửa sổ W chuẩn hoá theo ATR — đo độ mạnh / độ dài của episode.",
+    desc: "Multi-bar episode state: expansion, contraction or directional movement", context: "Episode-direction approximation, not a forecast or performance result.", buildFrom: "L1: sum Close−Open over W bars and normalize by ATR to measure episode magnitude.",
     params: [{ name: "window", label: "Episode window", def: 20, min: 5, max: 60 }],
     compute: (b, p) => { const W = PI(p, "window", 20), atr = atrArr(b, 14); const score = b.map((_, i) => { if (i < W) return 50; let run = 0; for (let j = i - W + 1; j <= i; j++) run += b[j].c - b[j].o; return 50 + 50 * Math.max(-1, Math.min(1, run / (atr[i] * W * 0.5 + 1e-9))); }); return { sub: [{ name: "Episode", color: "#a371f7", series: score }] }; },
   },

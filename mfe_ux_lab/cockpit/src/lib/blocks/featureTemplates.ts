@@ -106,11 +106,11 @@ const RSI_VALUE: FeatureGraph = {
   output: "out",
 };
 export const BASE_FEATURES: FeatureTemplate[] = [
-  { key: "ema_slope", family: "BUILTIN", title: "EMA Slope", subtitle: "L1 nền · close→EMA→slope÷ATR", graph: EMA_SLOPE },
-  { key: "rsi_value", family: "BUILTIN", title: "RSI Value", subtitle: "L1 nền · RSI(14) từ block", graph: RSI_VALUE },
-  { key: "atr_percentile", family: "BUILTIN", title: "ATR Percentile", subtitle: "L1 nền · phân vị ATR", graph: ATR_PCT },
-  { key: "range_wick", family: "BUILTIN", title: "Range / Wick", subtitle: "L1 nền · range÷ATR", graph: RANGE_WICK },
-  { key: "sweep_depth", family: "BUILTIN", title: "Sweep Depth", subtitle: "L1 nền · độ sâu quét đáy", graph: SWEEP_DEPTH },
+  { key: "ema_slope", family: "BUILTIN", title: "EMA Slope", subtitle: "Built-in L1 · close → EMA → slope / ATR", graph: EMA_SLOPE },
+  { key: "rsi_value", family: "BUILTIN", title: "RSI Value", subtitle: "Built-in L1 · RSI(14) from blocks", graph: RSI_VALUE },
+  { key: "atr_percentile", family: "BUILTIN", title: "ATR Percentile", subtitle: "Built-in L1 · ATR percentile", graph: ATR_PCT },
+  { key: "range_wick", family: "BUILTIN", title: "Range / Wick", subtitle: "Built-in L1 · range / ATR", graph: RANGE_WICK },
+  { key: "sweep_depth", family: "BUILTIN", title: "Sweep Depth", subtitle: "Built-in L1 · downside sweep depth", graph: SWEEP_DEPTH },
 ];
 
 // ── proposal 6: bucket a graph's nodes into the 3 bar-graph viz layers (Raw / Normalized / FSM activation) ──

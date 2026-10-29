@@ -68,10 +68,10 @@ export function observeAffinity(pairs: PairEvidence[]): AffinityCell[] {
         cell.score = +((cell.score * prevQ + s) / (prevQ + 1)).toFixed(1);
         cell.state = cell.score > 0 ? "COMPLEMENTARY" : "CONFLICTED";
         cell.band = affinityBand(cell.score);
-        cell.note = `ĐO: dExp ${p.dExpTrain}/${p.dExpHeld} cùng dấu, n=${p.nTrain}/${p.nHeld}`;
+        cell.note = `Measured: change in expectancy ${p.dExpTrain}/${p.dExpHeld} has the same sign, n=${p.nTrain}/${p.nHeld}`;
       } else if (cell.state === "UNTESTED") {
         cell.state = "INSUFFICIENT_EVIDENCE";
-        cell.note = !enoughN ? `mẫu mỏng (n=${p.nTrain}/${p.nHeld})` : !sameSign ? `đảo dấu train/held (${p.dExpTrain}/${p.dExpHeld})` : `dưới floor ${EXP_FLOOR}R (${p.dExpTrain}/${p.dExpHeld})`;
+        cell.note = !enoughN ? `Thin sample (n=${p.nTrain}/${p.nHeld})` : !sameSign ? `Train/held sign reversal (${p.dExpTrain}/${p.dExpHeld})` : `Below the floor ${EXP_FLOOR}R (${p.dExpTrain}/${p.dExpHeld})`;
       }
       cells.set(key, cell);
     }

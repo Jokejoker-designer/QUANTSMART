@@ -12,6 +12,7 @@ run(process.execPath,['tests/display-clock.test.mjs']);
 run(process.execPath,['tests/research-operations.test.mjs']);
 run(process.execPath,['tests/workspace-merge.test.mjs']);
 run(process.execPath,['tests/element-size.test.mjs']);
+run(process.execPath,['tests/language-audit.test.mjs']);
 const isolated=bridgePythonPath(root);
 const legacy=join(root,'.venv',process.platform==='win32'?'Scripts':'bin',process.platform==='win32'?'python.exe':'python');
 const python=existsSync(isolated)?isolated:existsSync(legacy)&&pythonUsable(legacy)?legacy:process.env.MFE_PYTHON||(process.platform==='win32'?'python':'python3');

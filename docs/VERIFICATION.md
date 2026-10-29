@@ -15,6 +15,15 @@ performance.
 - Actual broker symbol resolution, current M1 candles, closed H1 history and
   server-sent tick packets through the application origin.
 - Browser inspection and screenshots of the 17 navigation workspaces.
+- English-copy audit across 281 shipped TS/TSX/JS files, including the Custom
+  Module catalogs, block explanations, validation messages and exported prompts.
+  Comments and retained legacy-input translation keys are excluded. A regression
+  test covers TS catalogs, template fragments and the distinction between a legacy
+  input key and its English display value.
+- Copy-change regression checks: executable AST structure, identifiers and numeric
+  constants matched the previous release in 42 changed source files. Six 5,000-bar
+  H1/M15 strategy cases retained identical simulator outputs after excluding
+  explanatory text and run timestamps.
 
 The live connection check observed 14 stream packets during approximately four
 seconds. This is a bounded observation, not a latency benchmark or a guarantee of
@@ -29,7 +38,9 @@ and private workspaces are excluded from the distribution. A clean installation
 therefore starts without those histories or measured results. Import your own
 authorized OHLC data or connect your own local terminal.
 
-The user-facing documentation is in English. Imported user content and independent
+The documentation and current application copy are in English. The owner's supplied
+full-screen L1 development image retains one legacy Vietnamese inspector sentence;
+its current source explanation has been translated. Imported user content and independent
 historical artifacts retain their original language and provenance. Legacy internal
 `mfe_*` identifiers remain for compatibility with saved workspaces.
 

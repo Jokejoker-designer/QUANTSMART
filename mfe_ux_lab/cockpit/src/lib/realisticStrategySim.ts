@@ -202,7 +202,7 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
   const hasVolContraction = has("vol_contraction");   // raw-alpha hunt: chỉ bắn khi biên độ NÉN cực đại rồi bung khỏi hộp
   const hasHtfAnchor = has("htf_anchor");             // raw-alpha hunt: M15 pullback CHỈ khi H1+H4 đồng pha cấu trúc
   const htf = hasHtfAnchor ? htfStructureDirs(bars) : null;
-  const hasAsiaFade = has("asia_range_fade");         // hunt v2: London/NY quét range PHIÊN Á rồi đóng lại trong → fade
+  const hasAsiaFade = has("asia_range_fade");         // hunt v2: London/NY quét range PHIÊN Á rồi đóng lại over → fade
   const asia = hasAsiaFade ? asiaRangeLevels(bars) : null;
   const hasWickExtreme = has("wick_extreme");         // hunt v2: nến kiệt sức (range>2ATR, bấc ≥60%) → fade hướng bấc
   const hasGapFade = has("gap_fade");                 // hunt v2: gap mở nến >0.6 ATR → fade về close trước
@@ -253,7 +253,7 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
   const pocDistAtrAt = (i: number, a: number) => pocDistAtrOf(bars, i, a);
   // F5 blocks (owner 2026-07-03, Break&Retest family): candleDirAt = bộ nhận diện nến L1 (Nhấn chìm → Búa/Sao băng
   // → Pin bar; nến < 0.5 ATR = nhiễu, bỏ) trả +1/−1/0 · extAtr = giá đã chạy QUA mốc 20 nến bao xa (×ATR, 0 khi
-  // còn trong biên) — nguyên liệu cho No-Chase guard chống mua/bán ngay đỉnh extension của breakout.
+  // còn over biên) — nguyên liệu cho No-Chase guard chống mua/bán ngay đỉnh extension của breakout.
   const candleDirAt = (i: number, a: number): number => {
     if (i < 1 || !(a > 0)) return 0;
     const b2 = bars[i], p2 = bars[i - 1];
@@ -295,12 +295,12 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
     for (const eb of exb) {
       const votes: { dir: number; w: number; why: string }[] = [];
       if (hasTrend) {
-        if (up && eb.l <= e10L && eb.c > e10L) votes.push({ dir: 1, w: TC.trend.w, why: "Trend Pullback intrabar (execution_tf): chạm EMA design rồi đóng lại TRÊN (↑)" });
-        if (dn && eb.h >= e10L && eb.c < e10L) votes.push({ dir: -1, w: TC.trend.w, why: "Trend Pullback intrabar (execution_tf): chạm EMA design rồi đóng lại DƯỚI (↓)" });
+        if (up && eb.l <= e10L && eb.c > e10L) votes.push({ dir: 1, w: TC.trend.w, why: "Intrabar Trend Pullback (execution_tf): touches the design EMA and closes above it (↑)" });
+        if (dn && eb.h >= e10L && eb.c < e10L) votes.push({ dir: -1, w: TC.trend.w, why: "Intrabar Trend Pullback (execution_tf): touches the design EMA and closes below it (↓)" });
       }
       if (hasSweep) {
-        if (eb.l < lo20v && eb.c > lo20v) votes.push({ dir: 1, w: TC.sweep.w, why: `Sweep Reclaim intrabar (execution_tf): quét ĐÁY 20-cây design (${lo20v.toFixed(2)}) rồi đóng lại TRÊN (↑)` });
-        if (eb.h > hi20v && eb.c < hi20v) votes.push({ dir: -1, w: TC.sweep.w, why: `Sweep Reclaim intrabar (execution_tf): quét ĐỈNH 20-cây design (${hi20v.toFixed(2)}) rồi đóng lại DƯỚI (↓)` });
+        if (eb.l < lo20v && eb.c > lo20v) votes.push({ dir: 1, w: TC.sweep.w, why: `Intrabar Sweep Reclaim (execution_tf): sweeps the 20-bar design low (${lo20v.toFixed(2)}) and closes above it (↑)` });
+        if (eb.h > hi20v && eb.c < hi20v) votes.push({ dir: -1, w: TC.sweep.w, why: `Intrabar Sweep Reclaim (execution_tf): sweeps the 20-bar design high (${hi20v.toFixed(2)}) and closes below it (↓)` });
       }
       if (!votes.length) continue;
       const score = votes.reduce((a, v) => a + v.dir * v.w, 0), sum = votes.reduce((a, v) => a + v.dir, 0);
@@ -328,8 +328,8 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
       const floor = (cfg.minStopAtrK ?? 0) * a;
       if (floor > 0 && risk < floor) { risk = floor; sl = dir === "BUY" ? entry - floor : entry + floor; }
       res.signals_seen++;
-      const why = [...votes.filter((v) => v.dir === ds).map((v) => "▸ " + v.why), `⚙ Intrabar entry (execution_tf ${cfg.executionTf} trong ${designTf}) → ${dir}`,
-        ...(has("regime_ctx") ? [`✓ Regime khớp ${dir}`] : []), ...(has("session_ctx") ? [`✓ Session ${ph}h (7–21 UTC)`] : []),
+      const why = [...votes.filter((v) => v.dir === ds).map((v) => "▸ " + v.why), `⚙ Intrabar entry (execution_tf ${cfg.executionTf} over ${designTf}) → ${dir}`,
+        ...(has("regime_ctx") ? [`Regime matches ${dir}`] : []), ...(has("session_ctx") ? [`✓ Session ${ph}h (7–21 UTC)`] : []),
         useStruct ? `🎯 ${hasDistRR ? "Distribution" : "Auto"} R:R intrabar — SL=${sl.toFixed(2)}, TP=${tp != null ? tp.toFixed(2) : "—"}` : "🎯 Fixed risk — SL=1·ATR, TP-cap +4R"];
       pos = { dir, entry, sl, risk, tp, entryI: i, signalI: i, signalTime: eb.t, fillTime: eb.t, maxR: 0, atrEntry: a, favExc: 0, advExc: 0, why };
       res.markers.push({ i, price: entry, kind: dir === "BUY" ? "buy" : "sell" });
@@ -447,18 +447,18 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
       // EMA-cross default CHỈ khi card KHÔNG có trigger NÀO — built-in HAY custom. (BUG cũ: quên !hasCustomTrigger →
       // card có custom trigger vẫn bị EMA-default đè lên → trigger của user vô hiệu, ablation báo "no trigger" + NEUTRAL.)
       if (!hasTrend && !hasRsi && !hasSweep && !hasRange && !hasPslSweep && !hasVolContraction && !hasHtfAnchor && !hasAsiaFade && !hasWickExtreme && !hasGapFade && !hasRsiExtreme && !hasFbRange && !hasBreakRetest && !anyClassicTrigger(cFlags) && !hasCustomTrigger) {
-        if (e10[i] > e34[i] && e10[i - 1] <= e34[i - 1]) votes.push({ dir: 1, w: TC.emaDefault.w, rel: TC.emaDefault.rel, why: "EMA10 cắt LÊN EMA34 (↑) — card KHÔNG có module trigger nên dùng cross mặc định" });
-        if (e10[i] < e34[i] && e10[i - 1] >= e34[i - 1]) votes.push({ dir: -1, w: TC.emaDefault.w, rel: TC.emaDefault.rel, why: "EMA10 cắt XUỐNG EMA34 (↓) — card KHÔNG có module trigger nên dùng cross mặc định" });
+        if (e10[i] > e34[i] && e10[i - 1] <= e34[i - 1]) votes.push({ dir: 1, w: TC.emaDefault.w, rel: TC.emaDefault.rel, why: "EMA10 crosses above EMA34 (↑): shared fallback because this Card has no trigger module" });
+        if (e10[i] < e34[i] && e10[i - 1] >= e34[i - 1]) votes.push({ dir: -1, w: TC.emaDefault.w, rel: TC.emaDefault.rel, why: "EMA10 crosses below EMA34 (↓): shared fallback because this Card has no trigger module" });
       } else {
-        if (hasTrend) { if (up && pb.l <= e10[i - 1] && b.c > e10[i]) votes.push({ dir: 1, w: TC.trend.w, rel: TC.trend.rel, why: "Trend Pullback: uptrend · giá hồi chạm EMA10 rồi đóng lại TRÊN (↑)" }); if (dn && pb.h >= e10[i - 1] && b.c < e10[i]) votes.push({ dir: -1, w: TC.trend.w, rel: TC.trend.rel, why: "Trend Pullback: downtrend · giá hồi chạm EMA10 rồi đóng lại DƯỚI (↓)" }); }
-        if (hasRsi) { if (rsi[i - 1] < 35 && rsi[i] >= 35) votes.push({ dir: 1, w: TC.rsi.w, rel: TC.rsi.rel, why: `RSI Reclaim: RSI cắt LÊN 35 từ quá-bán (${rsi[i].toFixed(0)}) (↑)` }); if (rsi[i - 1] > 65 && rsi[i] <= 65) votes.push({ dir: -1, w: TC.rsi.w, rel: TC.rsi.rel, why: `RSI Reclaim: RSI cắt XUỐNG 65 từ quá-mua (${rsi[i].toFixed(0)}) (↓)` }); }
-        if (hasSweep) { const w = bars.slice(Math.max(0, i - 20), i); const lo = Math.min(...w.map((x) => x.l)), hi = Math.max(...w.map((x) => x.h)); if (b.l < lo && b.c > lo) votes.push({ dir: 1, w: TC.sweep.w, rel: TC.sweep.rel, why: `Sweep Reclaim: quét ĐÁY 20-nến (${lo.toFixed(2)}) rồi đóng lại TRÊN (↑)` }); if (b.h > hi && b.c < hi) votes.push({ dir: -1, w: TC.sweep.w, rel: TC.sweep.rel, why: `Sweep Reclaim: quét ĐỈNH 20-nến (${hi.toFixed(2)}) rồi đóng lại DƯỚI (↓)` }); }
-        if (hasRange) { const w = bars.slice(Math.max(0, i - 20), i); const lo = Math.min(...w.map((x) => x.l)), hi = Math.max(...w.map((x) => x.h)); if (b.h >= hi) votes.push({ dir: -1, w: TC.range.w, rel: TC.range.rel, why: `Range Fade: chạm BIÊN TRÊN range (${hi.toFixed(2)}) → fade (↓)` }); if (b.l <= lo) votes.push({ dir: 1, w: TC.range.w, rel: TC.range.rel, why: `Range Fade: chạm BIÊN DƯỚI range (${lo.toFixed(2)}) → fade (↑)` }); }
-        // PSL Sweep — mean reversion theo mốc phiên: quét thủng High/Low PHIÊN TRƯỚC rồi đóng lại trong (đi cùng
+        if (hasTrend) { if (up && pb.l <= e10[i - 1] && b.c > e10[i]) votes.push({ dir: 1, w: TC.trend.w, rel: TC.trend.rel, why: "Trend Pullback: uptrend, pullback touches EMA10 and closes above it (↑)" }); if (dn && pb.h >= e10[i - 1] && b.c < e10[i]) votes.push({ dir: -1, w: TC.trend.w, rel: TC.trend.rel, why: "Trend Pullback: downtrend, pullback touches EMA10 and closes below it (↓)" }); }
+        if (hasRsi) { if (rsi[i - 1] < 35 && rsi[i] >= 35) votes.push({ dir: 1, w: TC.rsi.w, rel: TC.rsi.rel, why: `RSI Reclaim: crosses above 35 from oversold (${rsi[i].toFixed(0)}) (↑)` }); if (rsi[i - 1] > 65 && rsi[i] <= 65) votes.push({ dir: -1, w: TC.rsi.w, rel: TC.rsi.rel, why: `RSI Reclaim: crosses below 65 from overbought (${rsi[i].toFixed(0)}) (↓)` }); }
+        if (hasSweep) { const w = bars.slice(Math.max(0, i - 20), i); const lo = Math.min(...w.map((x) => x.l)), hi = Math.max(...w.map((x) => x.h)); if (b.l < lo && b.c > lo) votes.push({ dir: 1, w: TC.sweep.w, rel: TC.sweep.rel, why: `Sweep Reclaim: sweeps the 20-bar low (${lo.toFixed(2)}) and closes above it (↑)` }); if (b.h > hi && b.c < hi) votes.push({ dir: -1, w: TC.sweep.w, rel: TC.sweep.rel, why: `Sweep Reclaim: sweeps the 20-bar high (${hi.toFixed(2)}) and closes below it (↓)` }); }
+        if (hasRange) { const w = bars.slice(Math.max(0, i - 20), i); const lo = Math.min(...w.map((x) => x.l)), hi = Math.max(...w.map((x) => x.h)); if (b.h >= hi) votes.push({ dir: -1, w: TC.range.w, rel: TC.range.rel, why: `Range Fade: touches the upper range boundary (${hi.toFixed(2)}) → fade (↓)` }); if (b.l <= lo) votes.push({ dir: 1, w: TC.range.w, rel: TC.range.rel, why: `Range Fade: touches the lower range boundary (${lo.toFixed(2)}) → fade (↑)` }); }
+        // PSL Sweep — mean reversion theo mốc phiên: quét thủng High/Low PHIÊN TRƯỚC rồi đóng lại over (đi cùng
         // nhịp stop-hunt của vàng M15). Causal: mốc là phiên đã ĐÓNG (prevSessionLevels gán trước khi cộng bar i).
         if (hasPslSweep && psl && !isNaN(psl.lo[i])) {
-          if (b.l < psl.lo[i] && b.c > psl.lo[i]) votes.push({ dir: 1, w: TC.sweep.w, rel: TC.sweep.rel, why: `PSL Sweep: quét ĐÁY phiên trước (${psl.lo[i].toFixed(2)}) rồi đóng lại TRÊN (↑)` });
-          if (b.h > psl.hi[i] && b.c < psl.hi[i]) votes.push({ dir: -1, w: TC.sweep.w, rel: TC.sweep.rel, why: `PSL Sweep: quét ĐỈNH phiên trước (${psl.hi[i].toFixed(2)}) rồi đóng lại DƯỚI (↓)` });
+          if (b.l < psl.lo[i] && b.c > psl.lo[i]) votes.push({ dir: 1, w: TC.sweep.w, rel: TC.sweep.rel, why: `PSL Sweep: sweeps the previous session low (${psl.lo[i].toFixed(2)}) and closes above it (↑)` });
+          if (b.h > psl.hi[i] && b.c < psl.hi[i]) votes.push({ dir: -1, w: TC.sweep.w, rel: TC.sweep.rel, why: `PSL Sweep: sweeps the previous session high (${psl.hi[i].toFixed(2)}) and closes below it (↓)` });
         }
         // Vol-Contraction — chỉ khi hộp 12 nến TRƯỚC nén cực đại (kép: box < 1.2 ATR và ATR < 0.8 ATR-chậm) rồi
         // close BUNG khỏi hộp. Hiếm khi bắn → ép số lệnh xuống. Causal: hộp kết thúc ở i−1.
@@ -466,33 +466,33 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
           let bhi = -Infinity, blo = Infinity;
           for (let k = i - 12; k < i; k++) { if (bars[k].h > bhi) bhi = bars[k].h; if (bars[k].l < blo) blo = bars[k].l; }
           if (bhi - blo < 1.5 * (atrSlow[i] || atr[i])) {   // nén so với ATR NỀN (breakout bar tự đẩy ATR hiện tại lên → không dùng nó làm điều kiện)
-            if (b.c > bhi) votes.push({ dir: 1, w: TC.trend.w, rel: TC.trend.rel, why: `Vol-Contraction: nén ${(bhi - blo).toFixed(2)} (<1.2 ATR) rồi BUNG LÊN khỏi hộp (↑)` });
-            if (b.c < blo) votes.push({ dir: -1, w: TC.trend.w, rel: TC.trend.rel, why: `Vol-Contraction: nén ${(bhi - blo).toFixed(2)} rồi BUNG XUỐNG khỏi hộp (↓)` });
+            if (b.c > bhi) votes.push({ dir: 1, w: TC.trend.w, rel: TC.trend.rel, why: `Volatility Contraction: compression ${(bhi - blo).toFixed(2)} (<1.2 ATR), followed by an upside box break (↑)` });
+            if (b.c < blo) votes.push({ dir: -1, w: TC.trend.w, rel: TC.trend.rel, why: `Volatility Contraction: compression ${(bhi - blo).toFixed(2)} followed by a downside box break (↓)` });
           }
         }
-        // Asia-Range Fade — trong London/NY (7-21h): quét thủng range PHIÊN Á ĐÃ ĐÓNG của hôm nay rồi close lại trong → fade.
+        // Asia-Range Fade — over London/NY (7-21h): quét thủng range PHIÊN Á ĐÃ ĐÓNG của hôm nay rồi close lại over → fade.
         if (hasAsiaFade && asia && !isNaN(asia.lo[i]) && pt.h >= 7 && pt.h < 21) {
-          if (b.h > asia.hi[i] && b.c < asia.hi[i]) votes.push({ dir: -1, w: TC.sweep.w, rel: TC.sweep.rel, why: `Asia-Range Fade: quét ĐỈNH range Á (${asia.hi[i].toFixed(2)}) rồi đóng lại DƯỚI (↓)` });
-          if (b.l < asia.lo[i] && b.c > asia.lo[i]) votes.push({ dir: 1, w: TC.sweep.w, rel: TC.sweep.rel, why: `Asia-Range Fade: quét ĐÁY range Á (${asia.lo[i].toFixed(2)}) rồi đóng lại TRÊN (↑)` });
+          if (b.h > asia.hi[i] && b.c < asia.hi[i]) votes.push({ dir: -1, w: TC.sweep.w, rel: TC.sweep.rel, why: `Asia-Range Fade: sweeps the Asia range high (${asia.hi[i].toFixed(2)}) and closes below it (↓)` });
+          if (b.l < asia.lo[i] && b.c > asia.lo[i]) votes.push({ dir: 1, w: TC.sweep.w, rel: TC.sweep.rel, why: `Asia-Range Fade: sweeps the Asia range low (${asia.lo[i].toFixed(2)}) and closes above it (↑)` });
         }
         // Wick-Extreme — nến kiệt sức: range > 2 ATR + bấc một phía ≥ 60% range + close ở third đối diện → fade hướng bấc.
         if (hasWickExtreme) {
           const rng = b.h - b.l;
           if (rng > 2 * atr[i]) {
             const upW = b.h - Math.max(b.o, b.c), loW = Math.min(b.o, b.c) - b.l;
-            if (upW / rng >= 0.6 && b.c <= b.l + rng / 3) votes.push({ dir: -1, w: TC.sweep.w, rel: TC.sweep.rel, why: `Wick-Extreme: bấc trên ${(upW / rng * 100).toFixed(0)}% của nến ${(rng / atr[i]).toFixed(1)} ATR → từ-chối đỉnh (↓)` });
-            if (loW / rng >= 0.6 && b.c >= b.h - rng / 3) votes.push({ dir: 1, w: TC.sweep.w, rel: TC.sweep.rel, why: `Wick-Extreme: bấc dưới ${(loW / rng * 100).toFixed(0)}% của nến ${(rng / atr[i]).toFixed(1)} ATR → từ-chối đáy (↑)` });
+            if (upW / rng >= 0.6 && b.c <= b.l + rng / 3) votes.push({ dir: -1, w: TC.sweep.w, rel: TC.sweep.rel, why: `Wick Extreme: upper wick ${(upW / rng * 100).toFixed(0)}% of a ${(rng / atr[i]).toFixed(1)} ATR bar; upside rejection (↓)` });
+            if (loW / rng >= 0.6 && b.c >= b.h - rng / 3) votes.push({ dir: 1, w: TC.sweep.w, rel: TC.sweep.rel, why: `Wick Extreme: lower wick ${(loW / rng * 100).toFixed(0)}% of a ${(rng / atr[i]).toFixed(1)} ATR bar; downside rejection (↑)` });
           }
         }
         // Gap-Fade — open nhảy khỏi close trước > 0.6 ATR → kỳ vọng lấp: fade về phía close cũ.
         if (hasGapFade) {
           const gap = b.o - pb.c;
-          if (Math.abs(gap) > 0.6 * atr[i]) votes.push({ dir: gap > 0 ? -1 : 1, w: TC.sweep.w, rel: TC.sweep.rel, why: `Gap-Fade: gap ${(gap / atr[i]).toFixed(1)} ATR → fade lấp gap (${gap > 0 ? "↓" : "↑"})` });
+          if (Math.abs(gap) > 0.6 * atr[i]) votes.push({ dir: gap > 0 ? -1 : 1, w: TC.sweep.w, rel: TC.sweep.rel, why: `Gap-Fade: gap ${(gap / atr[i]).toFixed(1)} ATR; candidate gap-fill fade (${gap > 0 ? "↓" : "↑"})` });
         }
         // RSI-Extreme — cực trị sâu quay đầu (khác rsi_reclaim 35/65): <22 hếch lên → BUY · >78 gãy xuống → SELL.
         if (hasRsiExtreme) {
-          if (rsi[i - 1] < 22 && rsi[i] > rsi[i - 1]) votes.push({ dir: 1, w: TC.rsi.w, rel: TC.rsi.rel, why: `RSI-Extreme: RSI ${rsi[i - 1].toFixed(0)} quá-bán SÂU quay đầu lên (↑)` });
-          if (rsi[i - 1] > 78 && rsi[i] < rsi[i - 1]) votes.push({ dir: -1, w: TC.rsi.w, rel: TC.rsi.rel, why: `RSI-Extreme: RSI ${rsi[i - 1].toFixed(0)} quá-mua SÂU gãy xuống (↓)` });
+          if (rsi[i - 1] < 22 && rsi[i] > rsi[i - 1]) votes.push({ dir: 1, w: TC.rsi.w, rel: TC.rsi.rel, why: `RSI-Extreme: RSI ${rsi[i - 1].toFixed(0)} turns upward from deeply oversold (↑)` });
+          if (rsi[i - 1] > 78 && rsi[i] < rsi[i - 1]) votes.push({ dir: -1, w: TC.rsi.w, rel: TC.rsi.rel, why: `RSI-Extreme: RSI ${rsi[i - 1].toFixed(0)} turns downward from deeply overbought (↓)` });
         }
         // Break & Retest — 3 màn causal: (1) nến j (trong 12 nến trước) ĐÓNG vượt đỉnh/thủng đáy 20-nến-tính-đến-j;
         // (2) từ j tới i-1 mức GIỮ được trên cơ sở giá đóng (±0.25 ATR); (3) nến i quay về CHẠM mức rồi ĐÓNG bật lại
@@ -505,15 +505,15 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
             const upBreak = bars[j].c > hiJ, dnBreak = bars[j].c < loJ;
             if (!upBreak && !dnBreak) continue;
             const bodyJ = Math.abs(bars[j].c - bars[j].o) / (atr[j] || 1);
-            const decis = bodyJ >= 0.9 ? `nến phá vỡ DỨT KHOÁT (thân ${bodyJ.toFixed(1)} ATR)` : `⚠ nến phá vỡ yếu (thân ${bodyJ.toFixed(1)} ATR — hồ sơ giống fakeout)`;
+            const decis = bodyJ >= 0.9 ? `Decisive breakout candle (body ${bodyJ.toFixed(1)} ATR)` : `Weak breakout candle (body ${bodyJ.toFixed(1)} ATR; resembles a failed breakout)`;
             if (upBreak) {
               let held = true; for (let k = j + 1; k < i; k++) if (bars[k].c < hiJ - tol) { held = false; break; }
               if (held && b.l <= hiJ + tol && b.c > hiJ && b.c > b.o)
-                votes.push({ dir: 1, w: TC.trend.w, rel: TC.trend.rel, why: `Break & Retest: phá ${hiJ.toFixed(2)} rồi retest GIỮ mức — đóng bật lên (trần cũ thành sàn) · ${decis} (↑)` });
+                votes.push({ dir: 1, w: TC.trend.w, rel: TC.trend.rel, why: `Break & Retest: breaks above ${hiJ.toFixed(2)} then holds the retest and closes higher; former resistance becomes support · ${decis} (↑)` });
             } else {
               let held = true; for (let k = j + 1; k < i; k++) if (bars[k].c > loJ + tol) { held = false; break; }
               if (held && b.h >= loJ - tol && b.c < loJ && b.c < b.o)
-                votes.push({ dir: -1, w: TC.trend.w, rel: TC.trend.rel, why: `Break & Retest: thủng ${loJ.toFixed(2)} rồi retest BỊ CHẶN — đóng bật xuống (sàn cũ thành trần) · ${decis} (↓)` });
+                votes.push({ dir: -1, w: TC.trend.w, rel: TC.trend.rel, why: `Break & Retest: breaks below ${loJ.toFixed(2)} then rejects the retest and closes lower; former support becomes resistance · ${decis} (↓)` });
             }
             break;   // chỉ xét cú phá vỡ GẦN NHẤT — cú cũ hơn đã hết vai
           }
@@ -521,8 +521,8 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
         // HTF-Anchor — M15 pullback-reclaim CHỈ khi cấu trúc H1 và H4 (bucket 4×/16× đã đóng, causal) đồng pha.
         if (hasHtfAnchor && htf) {
           const hd = htf.d1[i] !== 0 && htf.d1[i] === htf.d4[i] ? htf.d1[i] : 0;
-          if (hd === 1 && pb.l <= e10[i - 1] && b.c > e10[i]) votes.push({ dir: 1, w: TC.trend.w, rel: TC.trend.rel, why: "HTF-Anchor: H1+H4 đồng pha TĂNG · pullback chạm EMA rồi đóng lại TRÊN (↑)" });
-          if (hd === -1 && pb.h >= e10[i - 1] && b.c < e10[i]) votes.push({ dir: -1, w: TC.trend.w, rel: TC.trend.rel, why: "HTF-Anchor: H1+H4 đồng pha GIẢM · pullback chạm EMA rồi đóng lại DƯỚI (↓)" });
+          if (hd === 1 && pb.l <= e10[i - 1] && b.c > e10[i]) votes.push({ dir: 1, w: TC.trend.w, rel: TC.trend.rel, why: "HTF Anchor: H1/H4 upward alignment; pullback touches EMA and closes above it (↑)" });
+          if (hd === -1 && pb.h >= e10[i - 1] && b.c < e10[i]) votes.push({ dir: -1, w: TC.trend.w, rel: TC.trend.rel, why: "HTF Anchor: H1/H4 downward alignment; pullback touches EMA and closes below it (↓)" });
         }
       }
       // classic indicators (Ichimoku/MACD/Stoch/Bollinger/Fib) → vote into the SAME fusion/combine (src = which indicator)
@@ -540,8 +540,8 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
           // bẫy FUSION-DEADLOCK đã đo); "không tranh tiếng" được bảo đảm bằng điều kiện votes.length===0, không bằng weight
           const fbW = Math.max(+(TC.range.w * 0.8).toFixed(3), TC.fusionThreshold);
           const w20 = bars.slice(Math.max(0, i - 20), i); const fLo = Math.min(...w20.map((x) => x.l)), fHi = Math.max(...w20.map((x) => x.h));
-          if (b.h >= fHi) votes.push({ dir: -1, w: fbW, rel: TC.range.rel, why: `FALLBACK Range Fade: attacker im lặng · chạm BIÊN TRÊN range 20 nến (${fHi.toFixed(2)}) → fade (↓)` });
-          if (b.l <= fLo) votes.push({ dir: 1, w: fbW, rel: TC.range.rel, why: `FALLBACK Range Fade: attacker im lặng · chạm BIÊN DƯỚI range 20 nến (${fLo.toFixed(2)}) → fade (↑)` });
+          if (b.h >= fHi) votes.push({ dir: -1, w: fbW, rel: TC.range.rel, why: `Fallback Range Fade: no attacker candidate; touches the 20-bar upper boundary (${fHi.toFixed(2)}) → fade (↓)` });
+          if (b.l <= fLo) votes.push({ dir: 1, w: fbW, rel: TC.range.rel, why: `Fallback Range Fade: no attacker candidate; touches the 20-bar lower boundary (${fLo.toFixed(2)}) → fade (↑)` });
         }
       }
       if (!votes.length) continue;
@@ -625,28 +625,28 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
       // ── REAL entry rationale: the votes that AGREED with the chosen direction (the triggers that actually fired) +
       // how they combined + every active gate that PASSED + the RR design. Derived from the engine, accurate, not a label.
       const sumV = votes.reduce((s2, v) => s2 + v.dir, 0), scoreV = votes.reduce((s2, v) => s2 + v.dir * v.w, 0);
-      const combineStr = useFusion ? `Score Fusion: Σ(dir·w)=${scoreV.toFixed(2)} (≥0.8 ✓)` : useBayes ? `Bayesian: posterior ${(1 / (1 + Math.exp(-votes.reduce((s2, v) => s2 + v.dir * lnLR(v.rel), 0))) * 100).toFixed(0)}%` : `Majority: tổng vote=${sumV > 0 ? "+" : ""}${sumV}`;
+      const combineStr = useFusion ? `Score Fusion: Σ(dir·w)=${scoreV.toFixed(2)} (≥0.8 ✓)` : useBayes ? `Bayesian: posterior ${(1 / (1 + Math.exp(-votes.reduce((s2, v) => s2 + v.dir * lnLR(v.rel), 0))) * 100).toFixed(0)}%` : `Majority: total votes=${sumV > 0 ? "+" : ""}${sumV}`;
       const gp: string[] = [];
-      if (has("regime_ctx")) gp.push(`✓ Regime Context — regime khớp hướng ${dir}`);
-      if (has("markov")) gp.push(hasRange ? "✓ Markov — regime chưa quá-bền" : `✓ Markov — regime đủ bền (persist=${persist})`);
-      if (has("state_machine")) gp.push("✓ State-Machine — đã armed (pullback ≥2 nến → reclaim)");
-      if (has("session_ctx")) gp.push(`✓ Session — giờ ${hour}h trong phiên (7–21 UTC)`);
-      if (has("dead_hour")) gp.push(`✓ Dead-Hour — giờ ${hour}h không phải giờ chết`);
-      if (has("news_ctx")) gp.push("✓ News — ngoài cửa-sổ tin (NFP/CPI)");
-      if (has("no_trade_chop")) gp.push("✓ No-Trade Chop — EMA10/34 tách đủ rộng");
-      if (has("atr_vol") || has("atr_pct")) gp.push("✓ ATR-Vol — biến-động đủ cao");
-      if (cSeries && cFlags.adx) gp.push("✓ ADX — đủ sức trend (≥20)");
-      if (hasDrift) gp.push("✓ Drift-Guard — PF cuộn còn ổn (≥0.6)");
-      if (hasSr) gp.push("✓ S/R Zone — không vào ngược cấu-trúc");
-      if (hasLvlMem) gp.push("✓ Level-Memory — level chưa yếu");
-      if (has("calib_trust")) gp.push("✓ Calib-Trust — ≥2 vote đồng-thuận");
-      if (has("range_size")) gp.push("✓ Range/Wick — nến vào sạch (không bấc lớn ngược)");
-      if (has("topk_fit")) gp.push("✓ Top-K Fit — conviction trong top ~40%");
-      if (useEV && evWins + evLoss >= 10) gp.push("✓ EV — kỳ-vọng EV(R) > 0");
+      if (has("regime_ctx")) gp.push(`Regime Context: regime matches direction ${dir}`);
+      if (has("markov")) gp.push(hasRange ? "Markov: regime has not persisted excessively" : `Markov: regime persistence is sufficient (persist=${persist})`);
+      if (has("state_machine")) gp.push("State Machine: armed after a pullback of at least two bars and reclaim");
+      if (has("session_ctx")) gp.push(`Session: hour ${hour}h is within 07–21 UTC`);
+      if (has("dead_hour")) gp.push(`Dead Hour: hour ${hour}h is outside the excluded hours`);
+      if (has("news_ctx")) gp.push("News: outside the configured NFP/CPI event window");
+      if (has("no_trade_chop")) gp.push("Chop guard: EMA10/34 separation is sufficient");
+      if (has("atr_vol") || has("atr_pct")) gp.push("ATR volatility is above the configured threshold");
+      if (cSeries && cFlags.adx) gp.push("ADX trend strength is at least 20");
+      if (hasDrift) gp.push("Drift guard: rolling PF is at least 0.6");
+      if (hasSr) gp.push("S/R context: candidate does not oppose structural levels");
+      if (hasLvlMem) gp.push("Level memory: reference level has not weakened");
+      if (has("calib_trust")) gp.push("Calibration trust: at least two aligned votes");
+      if (has("range_size")) gp.push("Range/wick: no large opposing wick on the entry candle");
+      if (has("topk_fit")) gp.push("✓ Top-K Fit — conviction over top ~40%");
+      if (useEV && evWins + evLoss >= 10) gp.push("EV: expected R is positive");
       const triggers = votes.filter((v) => v.dir === ds).map((v) => "▸ " + v.why);
-      const rrStr = (hasDistRR && favHistATR.length >= 20) ? "🎯 Distribution R:R — SL≈p90 MAE, TP≈p75 MFE (từ lệnh quá-khứ của card)"
-        : useAutoRR ? `🎯 Auto R:R — SL=swing 5n (${sl.toFixed(2)}), TP=mức đối-diện 20n (${tp != null ? tp.toFixed(2) : "—"})`
-        : "🎯 Fixed risk — SL=1 ATR, TP-cap +4R · time-stop 28 nến";
+      const rrStr = (hasDistRR && favHistATR.length >= 20) ? "Distribution R:R: stop near p90 MAE and target near p75 MFE from this Card's completed historical trades"
+        : useAutoRR ? `🎯 Auto R:R — SL=swing 5n (${sl.toFixed(2)}), target at the opposing 20-bar level (${tp != null ? tp.toFixed(2) : "—"})`
+        : "Fixed research risk: 1 ATR stop, +4R target cap, 28-bar timeout";
       const whyArr = [...triggers, "⚙ " + combineStr + " → " + dir, ...gp, rrStr];
       pos = { dir, entry, sl, risk, tp, entryI: fill.fillIndex, signalI: i, signalTime: b.t, fillTime: fill.fillTime, maxR: 0, atrEntry: a, favExc: 0, advExc: 0, why: whyArr };
       res.markers.push({ i: fill.fillIndex, price: entry, kind: dir === "BUY" ? "buy" : "sell" });

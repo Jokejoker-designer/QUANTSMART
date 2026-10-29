@@ -31,7 +31,7 @@ export const METRICS: MetricDef[] = [
   { key: "spread", label: "Modeled spread", scope: "entry", unit: "$", hint: "Session-dependent spread assumption" },
   { key: "atrPct", label: "ATR %", scope: "both", unit: "%", hint: "ATR divided by price, in percent" },
   { key: "atrRatio", label: "ATR / slow ATR", scope: "both", unit: "×", hint: "Above one indicates higher volatility relative to the baseline" },
-  { key: "emaGapAtr", label: "Khe EMA (×ATR)", scope: "both", unit: "×ATR", hint: "EMA10 minus EMA34, normalized by ATR" },
+  { key: "emaGapAtr", label: "EMA gap (×ATR)", scope: "both", unit: "×ATR", hint: "EMA10 minus EMA34, normalized by ATR" },
   { key: "priceEmaAtr", label: "Price distance from EMA10, in ATR", scope: "both", unit: "×ATR", hint: "Close minus EMA10, divided by ATR" },
   { key: "brokeHigh20", label: "Break above 20-bar high", scope: "entry", unit: "0/1", hint: "One when the close exceeds the prior 20-bar high" },
   { key: "brokeLow20", label: "Break below 20-bar low", scope: "entry", unit: "0/1", hint: "One when the close falls below the prior 20-bar low" },
@@ -57,13 +57,13 @@ export const metricsForScope = (s: "entry" | "exit") => METRICS.filter((m) => m.
 // ── per-level template registry: each level has ONE role-faithful shape ──
 export interface LevelTemplate { level: Level; roles: Role[]; title: string; role_desc: string; scope: "entry" | "exit"; outputs: string; executable: boolean }
 export const LEVEL_TEMPLATES: Record<Level, LevelTemplate> = {
-  0: { level: 0, roles: ["SAFETY_VETO"], title: "L0 · Governance", role_desc: "Chạy TRƯỚC mọi thứ; điều-kiện đúng → VETO cả chiến-lược.", scope: "entry", outputs: "veto-all", executable: true },
-  1: { level: 1, roles: ["FEATURE"], title: "L1 · Features", role_desc: "Đặt tên 1 số-liệu nguyên-thuỷ từ OHLC (tham-khảo trong điều-kiện).", scope: "entry", outputs: "số (advisory)", executable: false },
-  2: { level: 2, roles: ["INDICATOR"], title: "L2 · Indicators", role_desc: "Chia số-liệu thành TRẠNG-THÁI (cao/thường/thấp). Không BUY/SELL.", scope: "entry", outputs: "state (advisory)", executable: false },
-  3: { level: 3, roles: ["ALGORITHM"], title: "L3 · Algorithms", role_desc: "Ghép nhiều số-liệu có trọng-số → score/ngưỡng. Không ra lệnh.", scope: "entry", outputs: "score (advisory)", executable: false },
-  4: { level: 4, roles: ["CONTEXT_GATE"], title: "L4 · Context", role_desc: "Điều-kiện bật/tắt: nếu KHÔNG thoả → cấm vào lệnh.", scope: "entry", outputs: "gate (chạy thật)", executable: true },
-  5: { level: 5, roles: ["TRIGGER", "VETO", "CONFIRM", "EXIT"], title: "L5 · Logic", role_desc: "Bộ-não: TRIGGER (vote LONG/SHORT) · VETO (bỏ lệnh) · CONFIRM (scale trọng-số vote, KHÔNG tự tạo tín-hiệu) · EXIT (đóng lệnh).", scope: "entry", outputs: "vote / veto / confirm-weight / exit (chạy thật)", executable: true },
-  6: { level: 6, roles: ["ZONE"], title: "L6 · Zones", role_desc: "Xuất 1 VÙNG để vẽ (quan-sát/rủi-ro/cầu/huỷ). KHÔNG vào lệnh.", scope: "entry", outputs: "zone (advisory)", executable: false },
+  0: { level: 0, roles: ["SAFETY_VETO"], title: "L0 · Governance", role_desc: "Runs before the other modules. A true condition vetoes the simulated strategy.", scope: "entry", outputs: "veto-all", executable: true },
+  1: { level: 1, roles: ["FEATURE"], title: "L1 · Features", role_desc: "Name an OHLC measurement to reference in conditions.", scope: "entry", outputs: "number (advisory)", executable: false },
+  2: { level: 2, roles: ["INDICATOR"], title: "L2 · Indicators", role_desc: "Classify a measurement into a state, such as high, normal or low. Does not generate broker orders.", scope: "entry", outputs: "state (advisory)", executable: false },
+  3: { level: 3, roles: ["ALGORITHM"], title: "L3 · Algorithms", role_desc: "Combine weighted measurements into a score or threshold. Does not place orders.", scope: "entry", outputs: "score (advisory)", executable: false },
+  4: { level: 4, roles: ["CONTEXT_GATE"], title: "L4 · Context", role_desc: "Context condition: when false, prevents simulated entry.", scope: "entry", outputs: "gate (engine evaluated)", executable: true },
+  5: { level: 5, roles: ["TRIGGER", "VETO", "CONFIRM", "EXIT"], title: "L5 · Logic", role_desc: "Strategy logic: TRIGGER creates a simulated entry vote; VETO rejects it; CONFIRM scales existing votes; EXIT closes a simulated position.", scope: "entry", outputs: "vote / veto / confirm-weight / exit (simulated)", executable: true },
+  6: { level: 6, roles: ["ZONE"], title: "L6 · Zones", role_desc: "Output a reference zone for the chart: observation, risk, demand or invalidation. Does not place orders.", scope: "entry", outputs: "zone (advisory)", executable: false },
 };
 export const EXECUTABLE_ROLES: Role[] = ["SAFETY_VETO", "CONTEXT_GATE", "TRIGGER", "VETO", "CONFIRM", "EXIT"];
 
@@ -72,26 +72,26 @@ export const EXECUTABLE_ROLES: Role[] = ["SAFETY_VETO", "CONTEXT_GATE", "TRIGGER
 // [[block-is-fixed-foundation-doctrine]]). Default undefined → hành vi CŨ y hệt (chỉ 29 catalog) → regression-safe.
 export function validateModule(m: Partial<CustomModule>, allowedExtra?: Set<string>): { ok: boolean; errors: string[] } {
   const e: string[] = [];
-  if (!m.name || m.name.trim().length < 3) e.push("Tên ≥ 3 ký-tự.");
-  if (m.level == null || !(m.level in LEVEL_TEMPLATES)) e.push("Level không hợp-lệ.");
-  if (!m.role || (m.level != null && !LEVEL_TEMPLATES[m.level as Level].roles.includes(m.role))) e.push("Role không khớp level.");
+  if (!m.name || m.name.trim().length < 3) e.push("Name must contain at least 3 characters.");
+  if (m.level == null || !(m.level in LEVEL_TEMPLATES)) e.push("Invalid level.");
+  if (!m.role || (m.level != null && !LEVEL_TEMPLATES[m.level as Level].roles.includes(m.role))) e.push("Role does not match the level.");
   const condRoles: Role[] = ["SAFETY_VETO", "CONTEXT_GATE", "TRIGGER", "VETO", "CONFIRM", "EXIT"];
   if (m.role && condRoles.includes(m.role)) {
-    if (!m.conditions || !m.conditions.length) e.push("Cần ≥ 1 điều-kiện.");
+    if (!m.conditions || !m.conditions.length) e.push("At least one condition is required.");
     const scope = m.role === "EXIT" ? "exit" : "entry";
     const allowed = new Set(metricsForScope(scope).map((x) => x.key));
     if (allowedExtra) for (const k of allowedExtra) allowed.add(k);   // + metric block-native (id module evidence đã build)
     (m.conditions || []).forEach((c, i) => {
-      if (!allowed.has(c.metric)) e.push(`ĐK ${i + 1}: metric "${c.metric}" không dùng được ở ${scope}.`);
-      if (typeof c.value !== "number" || isNaN(c.value)) e.push(`ĐK ${i + 1}: giá-trị không hợp-lệ.`);
-      if ((c.op === "between" || c.op === "outside") && (c.value2 == null || isNaN(c.value2))) e.push(`ĐK ${i + 1}: cần giá-trị thứ-2.`);
+      if (!allowed.has(c.metric)) e.push(`Condition ${i + 1}: metric "${c.metric}" is unavailable at ${scope}.`);
+      if (typeof c.value !== "number" || isNaN(c.value)) e.push(`Condition ${i + 1}: invalid value.`);
+      if ((c.op === "between" || c.op === "outside") && (c.value2 == null || isNaN(c.value2))) e.push(`Condition ${i + 1}: a second value is required.`);
     });
   }
-  if (m.role === "TRIGGER" && !m.direction) e.push("TRIGGER cần hướng (LONG/SHORT/REGIME).");
-  if (m.role === "EXIT" && m.exitAction === "LOCK_SL" && (typeof m.lockR !== "number" || m.lockR < 0)) e.push("LOCK_SL cần lockR ≥ 0 (khoá lãi tại +lockR R).");
+  if (m.role === "TRIGGER" && !m.direction) e.push("TRIGGER requires a direction (LONG/SHORT/REGIME).");
+  if (m.role === "EXIT" && m.exitAction === "LOCK_SL" && (typeof m.lockR !== "number" || m.lockR < 0)) e.push("LOCK_SL requires lockR ≥ 0 to lock simulated profit at +lockR R.");
   // explainability gate
-  if (!m.explain || m.explain.trim().length < 12) e.push("Giải-nghĩa 'làm gì' ≥ 12 ký-tự (BLOCKED nếu không).");
-  if (!m.why || m.why.trim().length < 12) e.push("Giải-nghĩa 'vì-sao' ≥ 12 ký-tự.");
+  if (!m.explain || m.explain.trim().length < 12) e.push("Explain what the module does in at least 12 characters.");
+  if (!m.why || m.why.trim().length < 12) e.push("Explain why the module is appropriate in at least 12 characters.");
   return { ok: e.length === 0, errors: e };
 }
 

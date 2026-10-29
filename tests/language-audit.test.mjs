@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {auditRuntimeCopy} from '../mfe_ux_lab/cockpit/tools/audit-product-source.mjs';
+assert.equal(auditRuntimeCopy('src/catalog.ts','export const label="Giá đóng cửa";').length,1);
+assert.equal(auditRuntimeCopy('src/catalog.ts','export const label="Score trong window";').length,1);
+assert.equal(auditRuntimeCopy('src/View.tsx','const x=<p>Kiểm định</p>;').length,1);
+assert.equal(auditRuntimeCopy('src/formula.ts','const text=`Output ${value} chưa xác nhận`;').length,1);
+assert.equal(auditRuntimeCopy('src/catalog.ts','// Giá đóng cửa\nexport const label="Closing price";').length,0);
+assert.equal(auditRuntimeCopy('src/lib/legacyDisplayCopy.ts','const keys=[["Giá đóng cửa","Closing price"]];').length,0);
+assert.equal(auditRuntimeCopy('src/lib/legacyDisplayCopy.ts','const keys=[["Giá đóng cửa","Chưa dịch"]];').length,1);
+assert.equal(auditRuntimeCopy('src/ordinary.ts','const keys=[["Giá đóng cửa","Closing price"]];').length,1);
+console.log('LANGUAGE AUDIT PASS: TS catalogs, JSX, template fragments and legacy display values are checked; comments and explicit legacy-input keys are distinct.');

@@ -18,22 +18,22 @@ export interface AstValidation { ok: boolean; errors: string[]; report: AstRepor
 
 export function validateAst(ast: QuantFormulaAst, knownInputs: string[], macroIds: string[] = []): AstValidation {
   const errors: string[] = [], opsUsed = new Set<QuantOp>(), inputsUsed = new Set<string>();
-  if (!ast.nodes[ast.rootNodeId]) errors.push("thiếu root node");
+  if (!ast.nodes[ast.rootNodeId]) errors.push("Missing root node");
   for (const id of Object.keys(ast.nodes)) {
     const nd = ast.nodes[id];
-    if (nd.kind === "INPUT") { if (!nd.inputRef) errors.push(`${id}: INPUT thiếu inputRef`); else { inputsUsed.add(nd.inputRef); if (!knownInputs.includes(nd.inputRef)) errors.push(`${id}: input lạ '${nd.inputRef}'`); } continue; }
-    if (nd.kind === "CONST") { if (typeof nd.constValue !== "number" || !isFinite(nd.constValue)) errors.push(`${id}: CONST không hợp lệ`); continue; }
-    if (!nd.op || !(nd.op in OP_SPEC)) { errors.push(`${id}: op không trong whitelist`); continue; }
+    if (nd.kind === "INPUT") { if (!nd.inputRef) errors.push(`${id}: INPUT requires inputRef`); else { inputsUsed.add(nd.inputRef); if (!knownInputs.includes(nd.inputRef)) errors.push(`${id}: unknown input '${nd.inputRef}'`); } continue; }
+    if (nd.kind === "CONST") { if (typeof nd.constValue !== "number" || !isFinite(nd.constValue)) errors.push(`${id}: invalid CONST`); continue; }
+    if (!nd.op || !(nd.op in OP_SPEC)) { errors.push(`${id}: operation is not whitelisted`); continue; }
     opsUsed.add(nd.op);
     const spec = OP_SPEC[nd.op], kids = nd.children ?? [];
-    if (nd.op === "MACRO_REF") { if (!nd.params?.macroId || !macroIds.includes(nd.params.macroId)) errors.push(`${id}: macro lạ`); }
-    else if (spec.arity >= 0 && kids.length !== spec.arity) errors.push(`${id}: ${nd.op} cần ${spec.arity} con, có ${kids.length}`);
-    for (const c of kids) if (!ast.nodes[c]) errors.push(`${id}: con '${c}' không tồn tại`);
+    if (nd.op === "MACRO_REF") { if (!nd.params?.macroId || !macroIds.includes(nd.params.macroId)) errors.push(`${id}: unknown macro`); }
+    else if (spec.arity >= 0 && kids.length !== spec.arity) errors.push(`${id}: ${nd.op} requires ${spec.arity} children; received ${kids.length}`);
+    for (const c of kids) if (!ast.nodes[c]) errors.push(`${id}: con '${c}' does not exist`);
   }
   const grey = new Set<string>(), black = new Set<string>(); let cyclic = false;
   const visit = (id: string) => { if (black.has(id)) return; if (grey.has(id)) { cyclic = true; return; } grey.add(id); for (const c of ast.nodes[id]?.children ?? []) if (ast.nodes[c]) visit(c); grey.delete(id); black.add(id); };
   if (ast.nodes[ast.rootNodeId]) visit(ast.rootNodeId);
-  if (cyclic) errors.push("AST có chu trình (cycle)");
+  if (cyclic) errors.push("AST contains a cycle");
   const ok = errors.length === 0;
   return { ok, errors, report: { kidiSafe: ok, domainSafe: ok, nanInfSafe: ok, causalSafe: ok, noLookahead: ok, opsUsed: [...opsUsed], inputsUsed: [...inputsUsed] } };
 }

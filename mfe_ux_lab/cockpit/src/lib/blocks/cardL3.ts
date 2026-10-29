@@ -8,12 +8,12 @@ export interface L3Eligibility { eligible: boolean; verdict: string; reason: str
 
 export function l3CardEligibility(m: CustomL3Module): L3Eligibility {
   const v = m.validationReport;
-  if (!v) return { eligible: false, verdict: "NOT_RUN", reason: "Chưa chạy validation QL-8 — sang Passport bấm ▶ Chạy validation.", color: "#8b949e" };
+  if (!v) return { eligible: false, verdict: "NOT_RUN", reason: "QL-8 validation has not run. Open Passport and choose Run validation.", color: "#8b949e" };
   switch (v.overall) {
-    case "EDGE_OOS_QUALIFIED": return { eligible: true, verdict: "EDGE · OOS QUALIFIED", reason: "Đủ điều kiện gắn card (vượt null + OOS + walk-forward).", color: "#3fb950" };
-    case "CONDITIONAL_EDGE": return { eligible: false, verdict: "CONDITIONAL", reason: "Vượt null nhưng OOS/walk-forward chưa ổn định ở mọi cửa sổ.", color: "#e3b341" };
-    case "NULL_EDGE": return { eligible: false, verdict: "NULL_EDGE", reason: "Không phân biệt được với nhiễu (curve-fit risk) — KHÔNG được gắn card.", color: "#f7768e" };
-    default: return { eligible: false, verdict: "INSUFFICIENT", reason: "Mẫu hiệu dụng chưa đủ để kết luận.", color: "#8b949e" };
+    case "EDGE_OOS_QUALIFIED": return { eligible: true, verdict: "EDGE · OOS QUALIFIED", reason: "Eligible for research Card attachment after null, OOS and walk-forward checks.", color: "#3fb950" };
+    case "CONDITIONAL_EDGE": return { eligible: false, verdict: "CONDITIONAL", reason: "Above null, but OOS/walk-forward results are not stable in every window.", color: "#e3b341" };
+    case "NULL_EDGE": return { eligible: false, verdict: "NULL_EDGE", reason: "Indistinguishable from noise; cannot attach to a Card.", color: "#f7768e" };
+    default: return { eligible: false, verdict: "INSUFFICIENT", reason: "Effective sample is insufficient for a conclusion.", color: "#8b949e" };
   }
 }
 

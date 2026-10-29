@@ -15,6 +15,8 @@
 !/docs/screenshots/
 !/docs/screenshots/*.jpg
 !/docs/screenshots/custom-l1-feature-graph.png
+!/docs/screenshots/cockpit-overview.png
+!/docs/screenshots/chart-replay.png
 !/start.bat
 !/requirements.txt
 !/requirements-mfe.txt

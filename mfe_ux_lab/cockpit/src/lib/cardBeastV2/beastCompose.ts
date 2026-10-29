@@ -60,7 +60,7 @@ export function composeBeast(members: BeastMember[]): ComposedBeast {
   // FALLBACK (V2): engine ĐÃ có attacker-silent semantics — fb_* chỉ vote khi mọi trigger chính im lặng ở nến đó.
   // Vẫn bắt buộc có ATTACKER thật (fb đứng một mình = im lặng vĩnh viễn); chỉ nhận mechanism FALLBACK_VOTE.
   if (members.some((m) => m.role === "FALLBACK") && !members.some((m) => m.role === "ATTACKER")) {
-    errors.push("FALLBACK cần một ATTACKER chính trong đội — fallback một mình không bao giờ lên tiếng (NO_CANDIDATE)");
+    errors.push("FALLBACK requires a primary ATTACKER. A fallback alone produces NO_CANDIDATE.");
   }
   const modules: string[] = []; const customModules: CustomModule[] = [];
   const contributions: ComposedBeast["contributions"] = [];
@@ -77,7 +77,7 @@ export function composeBeast(members: BeastMember[]): ComposedBeast {
       if (allowCustom.includes(c.role)) { customModules.push(c); if (!modules.includes(c.id)) modules.push(c.id); used.push(c.id); }
       else dropped.push(c.id + " (custom " + c.role + ")");
     }
-    if (dropped.length) warnings.push(`${m.card_id} [${m.role}]: DROP ${dropped.join(", ")} — ngoài quyền role (không smuggle)`);
+    if (dropped.length) warnings.push(`${m.card_id} [${m.role}]: DROP ${dropped.join(", ")} — stripped because it is outside this role's authority`);
     contributions.push({ card_id: m.card_id, role: m.role, used, dropped });
   }
   // interaction LINT (measured trap 2026-07-02): calib_trust requires ≥2 agreeing vote SOURCES — composed over a
@@ -85,7 +85,7 @@ export function composeBeast(members: BeastMember[]): ComposedBeast {
   // after a silent dead backtest.
   const trigCount = diagnoseCardTriggers(modules).count + customModules.filter((c) => c.role === "TRIGGER").length;
   if (modules.includes("calib_trust") && trigCount < 2) {
-    errors.push(`OVER-GATE: calib_trust cần ≥2 nguồn vote — Beast này chỉ có ${trigCount} trigger → sẽ 0 lệnh. Bỏ calib_trust hoặc thêm nguồn trigger thứ 2.`);
+    errors.push(`OVER-GATE: calib_trust requires at least two vote sources; this Beast has only ${trigCount} trigger source(s). Remove calib_trust or add a second source to avoid blocking every simulated trade.`);
   }
   const fd = fusionDeadlock(modules);   // trap 2: trigger yếu (w<0.8) + fusion threshold 0.8 = 0 lệnh vĩnh viễn
   if (fd.deadlocked) errors.push(fd.note);
@@ -128,7 +128,7 @@ export function rolePowerReport(bars: OhlcBar[], members: BeastMember[], hard = 
       role, withoutRole: m,
       dExp: full.exp != null && m.exp != null ? +((full.exp - m.exp)).toFixed(4) : null,
       dTrades: full.n - m.n,
-      note: role === "GUARD" ? `guard lọc ${m.n - full.n} lệnh (${m.n}→${full.n})` : role === "CONFIRMATION" ? "confirm đổi trọng-số → đổi tập lệnh qua fusion" : role === "EXIT_SENTINEL" ? "exit đổi cách thoát của cùng entries" : role === "FALLBACK" ? `fallback tạo ${Math.max(0, full.n - m.n)} lệnh khi attacker im lặng` : "context observer",
+      note: role === "GUARD" ? `Guard filters ${m.n - full.n} trades (${m.n}→${full.n})` : role === "CONFIRMATION" ? "Confirmation changes vote weights and therefore the fusion-selected trade set" : role === "EXIT_SENTINEL" ? "Exit changes how the same entries are closed" : role === "FALLBACK" ? `Fallback creates ${Math.max(0, full.n - m.n)} trades when the attacker has no candidate` : "context observer",
     });
   }
   const hasFallback = members.some((m) => m.role === "FALLBACK");

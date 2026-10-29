@@ -97,20 +97,20 @@ export function simulateCard(bars: OhlcBar[], modules: string[], autoRR = false)
       const up = regime > 0, dn = regime < 0;
       const votes: { dir: number; w: number; rel: number; why: string }[] = [];
       if (!hasTrend && !hasRsi && !hasSweep && !hasRange) {
-        if (e10[i] > e34[i] && e10[i - 1] <= e34[i - 1]) votes.push({ dir: 1, w: 1, rel: 0.52, why: "EMA10 vừa cắt LÊN EMA34 (↑)" });
-        if (e10[i] < e34[i] && e10[i - 1] >= e34[i - 1]) votes.push({ dir: -1, w: 1, rel: 0.52, why: "EMA10 vừa cắt XUỐNG EMA34 (↓)" });
+        if (e10[i] > e34[i] && e10[i - 1] <= e34[i - 1]) votes.push({ dir: 1, w: 1, rel: 0.52, why: "EMA10 just crossed above EMA34 (↑)" });
+        if (e10[i] < e34[i] && e10[i - 1] >= e34[i - 1]) votes.push({ dir: -1, w: 1, rel: 0.52, why: "EMA10 just crossed below EMA34 (↓)" });
       } else {
-        if (hasTrend) { if (up && pb.l <= e10[i - 1] && b.c > e10[i]) votes.push({ dir: 1, w: 1, rel: 0.55, why: "Trend Pullback: uptrend · giá hồi chạm EMA10 rồi đóng lại TRÊN (↑)" }); if (dn && pb.h >= e10[i - 1] && b.c < e10[i]) votes.push({ dir: -1, w: 1, rel: 0.55, why: "Trend Pullback: downtrend · giá hồi chạm EMA10 rồi đóng lại DƯỚI (↓)" }); }
-        if (hasRsi) { if (rsi[i - 1] < 35 && rsi[i] >= 35) votes.push({ dir: 1, w: 0.8, rel: 0.53, why: `RSI Reclaim: RSI cắt LÊN 35 từ quá-bán (${rsi[i].toFixed(0)}) (↑)` }); if (rsi[i - 1] > 65 && rsi[i] <= 65) votes.push({ dir: -1, w: 0.8, rel: 0.53, why: `RSI Reclaim: RSI cắt XUỐNG 65 từ quá-mua (${rsi[i].toFixed(0)}) (↓)` }); }
-        if (hasSweep) { const w = bars.slice(Math.max(0, i - 20), i); const lo = Math.min(...w.map((x) => x.l)), hi = Math.max(...w.map((x) => x.h)); if (b.l < lo && b.c > lo) votes.push({ dir: 1, w: 0.9, rel: 0.54, why: `Sweep Reclaim: quét ĐÁY 20-nến (${lo.toFixed(2)}) rồi đóng lại TRÊN (↑)` }); if (b.h > hi && b.c < hi) votes.push({ dir: -1, w: 0.9, rel: 0.54, why: `Sweep Reclaim: quét ĐỈNH 20-nến (${hi.toFixed(2)}) rồi đóng lại DƯỚI (↓)` }); }
-        if (hasRange) { const w = bars.slice(Math.max(0, i - 20), i); const lo = Math.min(...w.map((x) => x.l)), hi = Math.max(...w.map((x) => x.h)); if (b.h >= hi) votes.push({ dir: -1, w: 0.7, rel: 0.52, why: `Range Fade: chạm BIÊN TRÊN range (${hi.toFixed(2)}) → fade (↓)` }); if (b.l <= lo) votes.push({ dir: 1, w: 0.7, rel: 0.52, why: `Range Fade: chạm BIÊN DƯỚI range (${lo.toFixed(2)}) → fade (↑)` }); }
+        if (hasTrend) { if (up && pb.l <= e10[i - 1] && b.c > e10[i]) votes.push({ dir: 1, w: 1, rel: 0.55, why: "Trend Pullback: uptrend, pullback touches EMA10 and closes above it (↑)" }); if (dn && pb.h >= e10[i - 1] && b.c < e10[i]) votes.push({ dir: -1, w: 1, rel: 0.55, why: "Trend Pullback: downtrend, pullback touches EMA10 and closes below it (↓)" }); }
+        if (hasRsi) { if (rsi[i - 1] < 35 && rsi[i] >= 35) votes.push({ dir: 1, w: 0.8, rel: 0.53, why: `RSI Reclaim: crosses above 35 from oversold (${rsi[i].toFixed(0)}) (↑)` }); if (rsi[i - 1] > 65 && rsi[i] <= 65) votes.push({ dir: -1, w: 0.8, rel: 0.53, why: `RSI Reclaim: crosses below 65 from overbought (${rsi[i].toFixed(0)}) (↓)` }); }
+        if (hasSweep) { const w = bars.slice(Math.max(0, i - 20), i); const lo = Math.min(...w.map((x) => x.l)), hi = Math.max(...w.map((x) => x.h)); if (b.l < lo && b.c > lo) votes.push({ dir: 1, w: 0.9, rel: 0.54, why: `Sweep Reclaim: sweeps the 20-bar low (${lo.toFixed(2)}) and closes above it (↑)` }); if (b.h > hi && b.c < hi) votes.push({ dir: -1, w: 0.9, rel: 0.54, why: `Sweep Reclaim: sweeps the 20-bar high (${hi.toFixed(2)}) and closes below it (↓)` }); }
+        if (hasRange) { const w = bars.slice(Math.max(0, i - 20), i); const lo = Math.min(...w.map((x) => x.l)), hi = Math.max(...w.map((x) => x.h)); if (b.h >= hi) votes.push({ dir: -1, w: 0.7, rel: 0.52, why: `Range Fade: touches the upper range boundary (${hi.toFixed(2)}) → fade (↓)` }); if (b.l <= lo) votes.push({ dir: 1, w: 0.7, rel: 0.52, why: `Range Fade: touches the lower range boundary (${lo.toFixed(2)}) → fade (↑)` }); }
       }
       if (!votes.length) continue;
       // ── combine (the algorithm module decides HOW) ──
       let dir: "BUY" | "SELL" | null = null; let combineStr = "Majority vote";
       if (useFusion) { const score = votes.reduce((a, v) => a + v.dir * v.w, 0); combineStr = `Score Fusion: Σ(dir·w)=${score.toFixed(2)} ${Math.abs(score) >= 0.8 ? "≥0.8 ✓" : "<0.8"}`; if (Math.abs(score) >= 0.8) dir = score > 0 ? "BUY" : "SELL"; }
       else if (useBayes) { const lo = votes.reduce((a, v) => a + v.dir * lnLR(v.rel), 0); const p = 1 / (1 + Math.exp(-lo)); combineStr = `Bayesian: posterior p=${(p * 100).toFixed(0)}%`; if (p >= 0.52) dir = "BUY"; else if (p <= 0.48) dir = "SELL"; }
-      else { const sum = votes.reduce((a, v) => a + v.dir, 0); combineStr = `Majority: tổng vote=${sum > 0 ? "+" : ""}${sum}`; dir = sum > 0 ? "BUY" : sum < 0 ? "SELL" : null; }
+      else { const sum = votes.reduce((a, v) => a + v.dir, 0); combineStr = `Majority: total votes=${sum > 0 ? "+" : ""}${sum}`; dir = sum > 0 ? "BUY" : sum < 0 ? "SELL" : null; }
       if (!dir) continue;
       const ds = dir === "BUY" ? 1 : -1;
       // ── gates (each module = a real veto) ──
@@ -131,18 +131,18 @@ export function simulateCard(bars: OhlcBar[], modules: string[], autoRR = false)
       if (useEV && evWins + evLoss >= 10) { const p = evWins / (evWins + evLoss); const aw = evWins ? evSumWin / evWins : 1, al = evLoss ? evSumLoss / evLoss : 1; if (p * aw - (1 - p) * al <= 0) continue; }
       // ── build the entry RATIONALE: triggers (for this dir) + combine + every active gate that PASSED + sizing ──
       const gatesPassed: string[] = [];
-      if (has("regime_ctx")) gatesPassed.push(`✓ Regime Context — regime khớp hướng ${dir}`);
-      if (has("markov")) gatesPassed.push(hasRange ? "✓ Markov — regime chưa quá-bền (persist≤5)" : `✓ Markov — regime đủ bền (persist=${persist}≥4)`);
-      if (has("state_machine")) gatesPassed.push("✓ State-Machine — đã armed (pullback ≥2 nến → reclaim)");
-      if (has("session_ctx")) gatesPassed.push(`✓ Session — giờ ${hour}h trong phiên (7–21 UTC)`);
-      if (has("dead_hour")) gatesPassed.push(`✓ Dead-Hour — giờ ${hour}h không phải giờ chết`);
-      if (has("news_ctx")) gatesPassed.push("✓ News — ngoài cửa-sổ tin (NFP/CPI)");
-      if (has("no_trade_chop")) gatesPassed.push("✓ No-Trade Chop — EMA10/34 tách đủ rộng (không chop)");
-      if (has("atr_vol") || has("atr_pct")) gatesPassed.push("✓ ATR-Vol — biến-động đủ cao");
-      if (has("calib_trust")) gatesPassed.push("✓ Calib-Trust — ≥2 vote đồng-thuận");
-      if (has("range_size")) gatesPassed.push("✓ Range/Wick — nến vào sạch (không bấc lớn ngược)");
-      if (has("topk_fit")) gatesPassed.push("✓ Top-K Fit — conviction trong top ~40%");
-      if (useEV && evWins + evLoss >= 10) gatesPassed.push("✓ EV — kỳ-vọng EV(R) > 0");
+      if (has("regime_ctx")) gatesPassed.push(`Regime Context: regime matches direction ${dir}`);
+      if (has("markov")) gatesPassed.push(hasRange ? "Markov: persistence at most five bars" : `Markov: regime persistence is sufficient (persist=${persist}≥4)`);
+      if (has("state_machine")) gatesPassed.push("State Machine: armed after a pullback of at least two bars and reclaim");
+      if (has("session_ctx")) gatesPassed.push(`Session: hour ${hour}h is within 07–21 UTC`);
+      if (has("dead_hour")) gatesPassed.push(`Dead Hour: hour ${hour}h is outside the excluded hours`);
+      if (has("news_ctx")) gatesPassed.push("News: outside the configured NFP/CPI event window");
+      if (has("no_trade_chop")) gatesPassed.push("Chop guard: EMA10/34 separation is sufficient (not classified as chop)");
+      if (has("atr_vol") || has("atr_pct")) gatesPassed.push("ATR volatility is above the configured threshold");
+      if (has("calib_trust")) gatesPassed.push("Calibration trust: at least two aligned votes");
+      if (has("range_size")) gatesPassed.push("Range/wick: no large opposing wick on the entry candle");
+      if (has("topk_fit")) gatesPassed.push("✓ Top-K Fit — conviction is in the top ~40%");
+      if (useEV && evWins + evLoss >= 10) gatesPassed.push("EV: expected R is positive");
       const triggers = votes.filter((v) => v.dir === ds).map((v) => "▸ " + v.why);
       // ── enter ──
       const a = atr[i] || 1; const entry = b.c;
@@ -152,10 +152,10 @@ export function simulateCard(bars: OhlcBar[], modules: string[], autoRR = false)
         const tp = dir === "BUY" ? Math.max(...w20.map((x) => x.h)) : Math.min(...w20.map((x) => x.l));
         const risk = Math.abs(entry - sl), reward = Math.abs(tp - entry);
         if (risk <= 0 || reward / risk < MINRR) continue;
-        const why = [...triggers, "⚙ " + combineStr + " → " + dir, ...gatesPassed, `🎯 Auto R:R — SL=swing 5n (${sl.toFixed(2)}), TP=mức đối-diện 20n (${tp.toFixed(2)}), RR=${(reward / risk).toFixed(2)} ≥1.3 ✓`];
+        const why = [...triggers, "⚙ " + combineStr + " → " + dir, ...gatesPassed, `🎯 Auto R:R — SL=swing 5n (${sl.toFixed(2)}), target at the opposing 20-bar level (${tp.toFixed(2)}), RR=${(reward / risk).toFixed(2)} ≥1.3 ✓`];
         pos = { dir, entry, sl, risk, tp, entryI: i, why };
       } else {
-        const why = [...triggers, "⚙ " + combineStr + " → " + dir, ...gatesPassed, `🎯 Fixed risk — SL = 1 ATR (${a.toFixed(2)}), TP-cap +4R · time-stop 28 nến`];
+        const why = [...triggers, "⚙ " + combineStr + " → " + dir, ...gatesPassed, `🎯 Fixed risk — SL = 1 ATR (${a.toFixed(2)}), +4R target cap and 28-bar timeout`];
         pos = { dir, entry, sl: dir === "BUY" ? entry - a : entry + a, risk: a, tp: null, entryI: i, why };
       }
       markers.push({ i, price: entry, kind: dir === "BUY" ? "buy" : "sell" });

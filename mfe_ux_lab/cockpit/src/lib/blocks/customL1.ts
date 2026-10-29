@@ -53,9 +53,9 @@ export interface L1Validation { ok: boolean; errors: string[]; warnings: string[
 export function validateL1Draft(d: { name: string; explain: string; why: string; graph: FeatureGraph }): L1Validation {
   const g = validateGraph(d.graph);
   const errors = [...g.errors];
-  if (d.name.trim().length < 2) errors.push("Tên module cần ≥2 ký tự");
-  if (d.explain.trim().length < 12) errors.push("Giải nghĩa LÀM GÌ cần ≥12 ký tự (cổng kiểm soát)");
-  if (d.why.trim().length < 12) errors.push("VÌ SAO hợp lý cần ≥12 ký tự (cổng kiểm soát)");
+  if (d.name.trim().length < 2) errors.push("Module name must contain at least 2 characters");
+  if (d.explain.trim().length < 12) errors.push("Explain what it does in at least 12 characters");
+  if (d.why.trim().length < 12) errors.push("Explain the rationale in at least 12 characters");
   return { ok: errors.length === 0, errors, warnings: g.warnings };
 }
 

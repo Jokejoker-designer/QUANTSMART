@@ -24,7 +24,7 @@ function build(idBase: string, name: string, text: string, outSeries: number[], 
   const out = mkVar(outId, name + " · signal (what-if)", outSeries, "L3_AST_NODE", "FORMULA_OUTPUT");
   const ast: FormulaNode = { kind: "var", id: outId };
   return {
-    formulaId: idBase, formulaName: name + "  ⚠ what-if · KHÔNG phải backtest", formulaAst: ast, formulaText: text,
+    formulaId: idBase, formulaName: name + " · What-if preview; not a backtest", formulaAst: ast, formulaText: text,
     variables: [out, ...inputs], rollingVarIds: [outId, ...inputs.map((v) => v.id)],
     safety: { kidiSafe: true, noLookahead: true, finiteOutput: outSeries.every((v) => !Number.isFinite(v) || Number.isFinite(v)) },
   };
@@ -32,12 +32,12 @@ function build(idBase: string, name: string, text: string, outSeries: number[], 
 
 export function l1ToFormulaLab(m: Pick<CustomL1Module, "id" | "name" | "graph">, bars: OhlcBar[]): FormulaCoordinateInput {
   const s = evalGraph(m.graph, bars);
-  return build("l1_" + m.id, m.name + " (L1 feature)", "feature = số đo L1 «" + m.name + "»", s, []);
+  return build("l1_" + m.id, m.name + " (L1 feature)", "L1 measurement «" + m.name + "»", s, []);
 }
 export function l2ToFormulaLab(m: CustomL2Module, bars: OhlcBar[]): FormulaCoordinateInput {
   const s = l2ModuleSeries(m, bars);
   const inputs = m.featureKeys.map((k) => mkVar("in_" + k, k, l1Series(k, bars), "L1", "CONTEXT"));
-  return build("l2_" + m.id, m.name + " (L2 indicator)", "indicator = weighted-sum của " + m.featureKeys.length + " feature", s, inputs);
+  return build("l2_" + m.id, m.name + " (L2 indicator)", "Weighted indicator sum of " + m.featureKeys.length + " feature", s, inputs);
 }
 // L4/L5: SATISFACTION-MARGIN (dương=thoả, âm=chưa) — tín-hiệu liên tục TRƯỚC ngưỡng gate/trigger.
 export function moduleToFormulaLab(m: CustomModule, bars: OhlcBar[]): FormulaCoordinateInput {
@@ -48,9 +48,9 @@ export function moduleToFormulaLab(m: CustomModule, bars: OhlcBar[]): FormulaCoo
     const ev = customMetricSeries(k, bars); return mkVar("in_" + k, k, ev ?? bars.map(() => NaN), "L1", "CONTEXT");
   });
   const lvl = m.level === 4 ? "L4 gate" : "L5 " + (m.role || "decision");
-  return build("cm_" + m.id, m.name + " (" + lvl + ")", "margin = khoảng-cách tới ngưỡng (dương = MỞ/bắn) · " + (m.logic === "ANY" ? "max" : "min") + " các điều-kiện", r.series, inputs);
+  return build("cm_" + m.id, m.name + " (" + lvl + ")", "Margin to threshold (positive means the condition is open/active) · " + (m.logic === "ANY" ? "max" : "min") + " conditions", r.series, inputs);
 }
 export function l6ToFormulaLab(z: CustomL6Zone, bars: OhlcBar[]): FormulaCoordinateInput {
   const s = zoneCenterSeries(z, bars);
-  return build("l6_" + z.id, z.name + " (L6 zone)", "center = mức neo «" + z.anchor + "» + offset·ATR (bề rộng ±" + z.widthAtr + " ATR)", s, []);
+  return build("l6_" + z.id, z.name + " (L6 zone)", "Center: anchor «" + z.anchor + "» + offset × ATR (half-width ±" + z.widthAtr + " ATR)", s, []);
 }

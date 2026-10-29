@@ -1,42 +1,63 @@
 # QUANTSMART
 
-**Test strategies. Build your own quantitative algorithms. Inspect the evidence.**
+**Build a strategy you can explain. Test it on data you can inspect.**
 
-QUANTSMART is a local research workspace for turning a trading idea into an explicit,
-testable strategy. Build with reusable blocks, compose Strategy Cards, replay historical
-prices, and compare results across chronological validation windows. Connect an MT5
-desktop terminal when you want to inspect actual broker prices alongside your research.
+A trading idea is easy to describe. Turning it into precise rules—and understanding
+what happened when those rules were tested—takes more work.
 
-The Sapphire Navy interface brings charts, multi-timeframe diagnostics, circular
-telemetry gauges and Card controls into one desktop workspace. Your data and saved
-experiments stay on your machine.
+QUANTSMART brings that process into one local-first research workspace. Start with a feature or
+formula, assemble it into a Strategy Card, then replay the price history and inspect
+the results. The visual editors expose the calculations; the research tools keep the
+dataset, costs and validation windows attached to the experiment.
 
-![QUANTSMART Cockpit](docs/screenshots/home.jpg)
+![QUANTSMART Cockpit with six telemetry gauges, live price chart, structural zones, timeframe observations and Strategy Card controls](docs/screenshots/cockpit-overview.png)
 
-[Explore all 17 workspaces](docs/PRODUCT_TOUR.md) · [Get started](#quick-start) ·
-[Connect MT5](#connect-xm--another-mt5-broker) · [Security](SECURITY.md)
+*Cockpit: the supplied full-screen capture shows actual MT5 prices, six telemetry
+gauges, timeframe observations and structural reference zones. Entry assessment and
+Card evidence remain unavailable until their respective sources exist. [Open the
+full-resolution image](docs/screenshots/cockpit-overview.png).*
 
-See the [Custom Module walkthrough](docs/CUSTOM_MODULES.md) for the visual feature
-graph, authoring lanes and formula inspection workflow.
+[Get started](#quick-start) · [Explore the 17 workspaces](docs/PRODUCT_TOUR.md) ·
+[Build custom modules](docs/CUSTOM_MODULES.md) · [Connect MT5](#connect-xm--another-mt5-broker)
 
-## What you can build
+## Make the rules your own
 
-- **Strategy experiments:** assemble primitives, indicators, context filters, triggers
-  and simulated exits into a versioned Card.
-- **Custom quantitative algorithms:** define reusable modules and formula-driven
-  experiments, inspect their wiring, and combine Cards into role-based ensembles.
-- **Measured validation:** run backtests with stated costs, review OOS and holdout
-  coverage, inspect component ablations, and keep source-linked receipts.
-- **Market inspection:** explore historical OHLC, chart regions, multi-timeframe
-  structure, data-quality events and an optional MT5 tick stream.
+Build a candle measurement from primitive blocks, combine indicators into a formula,
+or add context and strategy logic in Canvas. Inspect the connections and intermediate
+values before saving a component to your library. Templates give you somewhere to
+start; your definitions determine the experiment. You can also combine Cards into
+role-based ensembles and inspect how their members contribute.
 
-Start with a hypothesis, test it against a declared dataset, and review its limitations
-before changing the design. Built-in templates are editable starting points; they do
-not carry proven performance. Missing inputs remain unavailable.
+![Strategy Canvas with module library, L0–L6 composition lanes and dependency checks](docs/screenshots/strategy-canvas.jpg)
 
-**License:** Apache-2.0 for the distributed application source. See [LICENSE](LICENSE)
-and [NOTICE](NOTICE). Research runs never place trades. Optional manual execution
-is restricted to MT5 Demo accounts and requires a reviewed ticket.
+[See the Custom Module walkthrough](docs/CUSTOM_MODULES.md) for a worked feature-graph
+example and formula inspection in Coordinate Lab.
+
+## Understand the result, trade by trade
+
+A backtest total is only the beginning. Microscope lets you inspect the price action
+around individual observations. Strategy Lab keeps the Card's composition and saved
+results together; Compatibility Map shows which historical, out-of-sample and holdout
+windows have actually been tested.
+
+![Strategy Lab with saved Cards, measured backtest evidence and run controls](docs/screenshots/strategy-lab.jpg)
+
+Change a hypothesis, run it again, and compare the evidence. Review sample size,
+execution costs and fill assumptions alongside the result. A valid graph or a positive
+backtest does not establish future performance.
+
+## Use your own data
+
+Import authorized OHLC history for research, or connect an installed MT5 terminal on
+Windows to inspect broker prices and tick updates. Historical replay remains available
+without MT5. The source release includes no account credentials, private workspace or
+market-history files; your local installation supplies those inputs.
+
+QUANTSMART is open source under **Apache-2.0**. Research jobs never place broker
+orders. An optional, separately enabled manual ticket workflow supports MT5 **Demo**
+accounts with review and confirmation. Real accounts cannot use that execution path.
+See [verification and limits](docs/VERIFICATION.md), [LICENSE](LICENSE) and
+[SECURITY.md](SECURITY.md).
 
 ## Quick start
 

@@ -37,38 +37,38 @@ export const PACK_LAYERS: PackLayer[] = ["L1", "L2", "L3", "L4", "L5", "L6", "CO
 
 // authority/output/chaining — hard-coded khớp type từng tầng (xem L2Authority/L5Authority trong *BlockTypes.ts)
 const LAYER_META: Record<PackLayer, { title: string; authority: string; output: string; place: string }> = {
-  L1: { title: "L1 · Feature", authority: "canEmitFeature — CHỈ ĐO. KHÔNG order · KHÔNG zone · KHÔNG signal/vào-lệnh.", output: "number / measurement (một con số causal từ OHLC)", place: "gốc dây chuyền — L2 sẽ đọc feature của bạn" },
-  L2: { title: "L2 · Indicator", authority: "advisoryOnly · noEntry · noExit · noZone · noOrderSend · notLiveReady — chỉ TƯ VẤN trạng-thái.", output: "context / indicator state (cao/thường/thấp, regime…)", place: "đọc feature L1 → xuất state; L5 sẽ đọc state của bạn" },
-  L3: { title: "L3 · QuantLab formula", authority: "number-only · no order — AST safe-math (whitelist), xuất SỐ, không lệnh, không zone.", output: "number (score/tín-hiệu số, đã qua permutation-null trước khi tin)", place: "ghép nhiều feature/indicator → một số; feed L4/L5 làm evidence" },
-  L4: { title: "L4 · Context", authority: "market-context — bật/tắt GATE theo regime/state. KHÔNG order/lot/SL-TP.", output: "gate state (cho phép / cấm vào lệnh)", place: "đọc L1/L2/L3 → quyết môi-trường có phù hợp không (gate cho L5)" },
-  L5: { title: "L5 · Decision", authority: "advisoryOnly · zoneOnly · noOrderSend · noAutoLot · noExactSlTp · humanDecides — ra QUYẾT-ĐỊNH-TRẠNG-THÁI, NGƯỜI quyết, hệ KHÔNG tự đặt lệnh/lot/SL-TP chính xác.", output: "decision-state (setup → confirm → ready → veto → exit-hint · zone-only)", place: "đọc context L4 + indicator L2 → trạng-thái quyết-định; người bấm nút cuối" },
-  L6: { title: "L6 · Zone", authority: "zone-only · advisory — xuất VÙNG để vẽ (quan-sát/rủi-ro/cầu/huỷ). KHÔNG vào lệnh.", output: "zone (dải giá để vẽ trên chart)", place: "cuối dây chuyền — hiển-thị vùng, không ra lệnh" },
-  CONDITIONS: { title: "Executable conditions within the declared role", authority: "advisory-only · no-order · no-lookahead — module ĐỌC 29 metric cố-định, chạy mỗi nến, KHÔNG lệnh thật.", output: "vote / gate / veto / confirm-weight / exit — chạy trong engine + xem live trong Intent Sandbox", place: "đây là module IMPORT-được + PREVIEW-được (round-trip): AI trả JSON → hệ validate → bạn thấy nó bắn trên nến" },
+  L1: { title: "L1 · Feature", authority: "canEmitFeature: numeric measurement only; no broker orders, zones or entry instructions.", output: "number / causal OHLC measurement", place: "Start of the chain; L2 consumes the feature" },
+  L2: { title: "L2 · Indicator", authority: "advisoryOnly · noEntry · noExit · noZone · noOrderSend · notLiveReady; descriptive state only.", output: "Context or indicator state: high, normal, low or regime", place: "Read L1 features and emit a state for downstream logic" },
+  L3: { title: "L3 · QuantLab formula", authority: "Whitelisted safe-math AST; numeric output only, without orders or price zones.", output: "Numeric score; validate against the permutation null before interpreting it", place: "Combine features/indicators into numeric evidence for L4/L5" },
+  L4: { title: "L4 · Context", authority: "Context gate based on regime/state; no broker orders, volume or exact stops/targets.", output: "Context gate state for simulated entry eligibility", place: "Read L1/L2/L3 evidence and evaluate context for L5" },
+  L5: { title: "L5 · Decision", authority: "advisoryOnly · zoneOnly · noOrderSend · noAutoLot · noExactSlTp · humanDecides. Produces research states, not automatic broker instructions.", output: "decision-state (setup → confirm → ready → veto → exit-hint · zone-only)", place: "Read L4 context and L2 indicators to form a research state" },
+  L6: { title: "L6 · Zone", authority: "Advisory reference zones: observation, risk, demand or invalidation; no orders.", output: "Reference price band for chart display", place: "End of the chain: display a reference zone without placing orders" },
+  CONDITIONS: { title: "Executable conditions within the declared role", authority: "Advisory, no-order, no-lookahead conditions evaluated on the declared per-bar metric catalog.", output: "Simulated vote / gate / veto / confirmation weight / exit, with Intent Sandbox preview", place: "Import and preview workflow: generate JSON, validate it and inspect its per-bar behavior" },
 };
 
 // ví-dụ IMPORT-được (đã kiểm PASS bởi validateGraph/parseAiIndicator/parseAiFormula — dùng trong pack + harness)
 export const L1_EXAMPLE = {
   name: "Body Ratio Feature", explain: "Measures candle body relative to its high/low range", why: "A geometry measurement; directional interpretation needs context",
   graph: { nodes: [{ id: "f", blockId: "body_ratio", inputs: [] }, { id: "out", blockId: "emit_feature", inputs: ["f"] }], output: "out" },
-  explanation: "Feature đo body/range mỗi nến — số càng gần 1 nến càng đặc thân.",
+  explanation: "Measure candle body divided by range; values near one indicate a larger body fraction.",
 };
 export const L2_EXAMPLE = {
   name: "Trend-Vol Context", explain: "Combines EMA slope and ATR percentile as a trend-context input", kind: "indicator",
   featureKeys: ["ema_slope", "atr_percentile", "rsi_value"], weights: { ema_slope: 1.0, atr_percentile: 0.6, rsi_value: 0.4 },
-  explanation: "Weighted-sum: EMA slope dẫn, ATR percentile lọc vol, RSI phụ.",
+  explanation: "Weighted sum led by EMA slope, with ATR percentile and RSI context.",
 };
 export const L3_EXAMPLE = {
   name: "Close-EMA over ATR", ast: { op: "DIV", args: [{ op: "SUB", args: ["close", "ema20"] }, "atr"] }, outputType: "SCORE",
-  explanation: "(close − ema20) / atr — độ lệch giá so với EMA20 theo đơn vị ATR (scale-free).",
+  explanation: "(close − ema20) / atr: price deviation from EMA20 in ATR units.",
 };
 export const L6_EXAMPLE = {
   name: "Swing-low demand zone", explain: "A reference band around a recent swing low",
   anchor: "swing_low", role: "DEMAND", offsetAtr: 0, widthAtr: 0.5,
-  explanation: "Zone cầu neo vào swing-low; chỉ để vẽ + quan sát, không sinh lệnh.",
+  explanation: "Demand reference band anchored to a swing low; visualization only.",
 };
 
 const OPS: Op[] = [">", "<", ">=", "<=", "==", "between", "outside"];
-const CHAIN = "Dây chuyền: **L1 feature (đo)** → **L2 indicator (state)** → **L3 score** → **L4 context-gate** → **L5 decision (zone-only, người quyết)** → **L6 zone (vẽ)**. Conditions (29 metric) là ngôn ngữ điều-kiện cho L0/L4/L5 executable.";
+const CHAIN = "Chain: **L1 feature (measurement)** → **L2 indicator (state)** → **L3 score** → **L4 context gate** → **L5 research state** → **L6 reference zone**. Conditions use the declared metric catalog for engine-evaluated L0/L4/L5 rules.";
 
 // liệt kê block theo nhóm (chỉ tầng đó — KHÔNG lẫn tầng khác)
 function blockTable<T extends { blockId: string; group: string; label: string; description: string }>(blocks: T[], groups: readonly string[]): string {
@@ -88,48 +88,64 @@ export const KNOWN_L3_INPUTS = ["close", "open", "high", "low", "ema10", "ema20"
 function availableL1ForPrompt(): string {
   const builtin = L1_PICKABLE.map((t) => `\`${t.key}\``).join(" · ");
   const custom = loadCustomL1();
-  let s = `- **Feature L1 CÓ SẴN để nối vào \`featureKeys\`** — CHỈ chọn từ đây, **ĐỪNG bịa key mới**:\n  · built-in (luôn có): ${builtin}`;
-  if (custom.length) s += `\n  · của bạn (đã build ở L1 — dùng ĐÚNG id này): ${custom.map((m) => `\`${m.id}\` (${m.name} · ${m.status})`).join(" · ")}`;
-  else s += `\n  · (bạn CHƯA build feature L1 riêng nào). Nếu cần một feature MỚI (vd hình-học đảo-chiều nến), **XÂY nó ở tầng L1 trước**, rồi quay lại L2 tham chiếu bằng id của nó. ĐỪNG bịa tên feature chưa tồn tại.`;
+  let s = `- **Available L1 features for \`featureKeys\`**: use these exact keys; do not invent inputs.
+  Built-in: ${builtin}`;
+  if (custom.length) s += `
+  User-defined L1 features; use their exact IDs: ${custom.map((m) => `\`${m.id}\` (${m.name} · ${m.status})`).join(" · ")}`;
+  else s += `
+  No custom L1 features exist yet. Build any new measurement in L1 first, then reference its ID from L2.`;
   return s;
 }
 
 function l3FormulaVocab(): string {
   const ops = (Object.keys(OP_SPEC) as QuantOp[]).map((o) => `\`${o}\`(${OP_SPEC[o].label})`).join(" · ");
   const macros = Object.values(SEED_MACROS).map((m) => `\`${m.macroId}\``).join(" · ");
-  return `L3 KHÔNG chọn-ghép block rời — bạn **viết MỘT công thức** (cây biểu thức AST) trên chuỗi evidence L1/L2 + hằng số. Output LUÔN là **number** (score/xác-suất/chỉ-báo), không bao giờ order/zone/entry.
+  return `L3 uses **one formula AST** over L1/L2 evidence and constants. Output is always numeric; it cannot be an order, zone or entry instruction.
 
-**Toán tử whitelist** (chỉ được dùng các op này): ${ops}
-**Macros có sẵn** (dựng lại được như subtree): ${macros}
-**⚠ SỐ CON (arity) + THAM SỐ — sai chỗ hay gặp nhất:** đa số op ăn ĐÚNG số con cố định; op có tham số KHÔNG để tham số thành \`args\` mà để riêng ở \`params\`:
-  · 2 con: \`POW\`/\`GT\`/\`LT\`/\`EQ\` — vd \`{"op":"POW","args":["atr",2]}\`
-  · **≥2 con (kết-hợp, hệ tự gộp trái)**: \`ADD\`/\`SUB\`/\`MUL\`/\`DIV\`/\`MIN\`/\`MAX\`/\`AND\`/\`OR\` — viết \`MUL(a,b,c)\` cũng được (thành \`MUL(MUL(a,b),c)\`); vd \`{"op":"MUL","args":[1.4,"ema_slope"]}\` hay \`{"op":"MAX","args":[0,"x","y"]}\`
-  · 1 con: \`ABS\`/\`NEG\`/\`SIGN\`/\`LOG\`/\`EXP\`/\`SQRT\`/\`SIGMOID\`/\`TANH\`/\`NOT\`
-  · 3 con: \`IF_ELSE\` (cond, khi-đúng, khi-sai)
-  · **\`CLIP\` = 1 CON + params {min,max}** (KHÔNG phải clip(x,0,1) 3 args!): \`{"op":"CLIP","args":[<biểu-thức>],"params":{"min":0,"max":1}}\`
-  · **cửa-sổ** (\`ROLL_MEAN\`/\`ROLL_STD\`/\`ROLL_SUM\`/\`ROLL_MAX\`/\`ROLL_MIN\`/\`PERCENTILE_RANK\`/\`EMA\`/\`MEDIAN\`/\`MAD\`/\`IQR\`/\`ROBUSTZ\`/\`OUTLIER\`) = 1 con + \`params:{"window":N}\`: \`{"op":"ROLL_MEAN","args":[<bt>],"params":{"window":20}}\`
-  · **\`LAG\`/\`DELTA\`** = 1 con + \`params:{"lag":k}\` · **\`QUANTILE\`/\`WINSOR\`** = 1 con + \`params:{"q":0.9,"window":N}\`
-  · **\`MACRO_REF\`**: \`{"op":"MACRO_REF","args":["zscore",<bt>],"params":{"window":50}}\` (macroId ở args[0]; các con còn lại là biểu-thức)
-  (Hệ CŨNG chấp nhận dạng hằng-số-đuôi kiểu hàm — clip(x,0,1)·mean(x,20)·lag(x,1) — tự chuyển sang params; nhưng khai \`params\` là chắc nhất.)
-**Input hợp lệ**: tham chiếu series ${KNOWN_L3_INPUTS.map((i) => `\`${i}\``).join(" · ")} + feature L1/L2 đã build (dùng ĐÚNG id) + hằng số (CONST). **KHÔNG dùng \`volume\`** — vàng có volume tick RÁC, hệ sẽ REJECT như input-ma. ⛔ ĐỪNG bịa tên input chưa tồn tại — input không resolve → công thức ra 0 (phẳng).
+**Whitelisted operations**: ${ops}
+**Available macros**, expandable as expression subtrees: ${macros}
+**Arity and parameters**
+- Two children: \`POW\`, \`GT\`, \`LT\`, \`EQ\`; example: \`{"op":"POW","args":["atr",2]}\`.
+- Two or more children, left-associated: \`ADD\`, \`SUB\`, \`MUL\`, \`DIV\`, \`MIN\`, \`MAX\`, \`AND\`, \`OR\`. For example, \`MUL(a,b,c)\` becomes \`MUL(MUL(a,b),c)\`.
+- One child: \`ABS\`, \`NEG\`, \`SIGN\`, \`LOG\`, \`EXP\`, \`SQRT\`, \`SIGMOID\`, \`TANH\`, \`NOT\`.
+- Three children: \`IF_ELSE\` (condition, true result, false result).
+- \`CLIP\`: one expression plus \`params:{"min":0,"max":1}\`.
+- Window operations (\`ROLL_MEAN\`, \`ROLL_STD\`, \`ROLL_SUM\`, \`ROLL_MAX\`, \`ROLL_MIN\`, \`PERCENTILE_RANK\`, \`EMA\`, \`MEDIAN\`, \`MAD\`, \`IQR\`, \`ROBUSTZ\`, \`OUTLIER\`): one expression plus \`params:{"window":N}\`.
+- \`LAG\`/\`DELTA\`: one expression plus \`params:{"lag":k}\`.
+- \`QUANTILE\`/\`WINSOR\`: one expression plus \`params:{"q":0.9,"window":N}\`.
+- \`MACRO_REF\`: \`{"op":"MACRO_REF","args":["zscore",<expression>],"params":{"window":50}}\`. The first argument is the macro ID.
+Trailing constant arguments in function syntax are also normalized to parameters, but explicit \`params\` is preferred.
+**Valid input series**: ${KNOWN_L3_INPUTS.map((i) => `\`${i}\``).join(" · ")} plus existing L1/L2 feature IDs and constants. \`volume\` is not in the default input set because the source may not provide suitable measured volume. Never invent an unresolved input.
 ${availableL1ForPrompt().replace("`featureKeys`", "input L3")}
-**Guardrails**: causalOnly (chỉ đọc quá-khứ) · **number-only** · advisoryOnly · noEntry · noZone · **noOrderSend** · noAutoLot. Mọi safe-math (safeDiv/safeLog/safeSqrt/safePow) tự seal NaN/∞.
-**Ví dụ** — zscore của độ lệch giá so EMA20 theo ATR: \`zscore((close − ema20) / atr)\` (macro zscore là subtree; DIV an toàn qua safeDiv).
-**Cửa chặn riêng**: import L3 dùng \`validateAst\` (KHÔNG phải validateModule của L4/L5) — enforce whitelist op, arity, input hợp lệ, macro đã khai, không cycle. Op ngoài whitelist / input ma → REJECT.`;
+**Guardrails**: causalOnly, numeric output, advisoryOnly, noEntry, noZone, noOrderSend, noAutoLot. Safe-math operations guard NaN and infinity.
+**Example**: \`zscore((close − ema20) / atr)\`.
+L3 import uses \`validateAst\`, not the L4/L5 module validator. It checks operation whitelist, arity, input references, declared macros and cycles.`;
 }
 
 // ── layerSection: nội-dung "③ Nguyên-liệu" của MỘT tầng — dùng CHUNG bởi buildLayerPack + buildMasterPrompt.
 // Vì master ghép NGUYÊN các section này, per-tầng luôn là TẬP CON LITERAL của master (kiểm được bằng includes). ──
 export function layerSection(layer: PackLayer): string {
   const m = LAYER_META[layer];
-  const auth = `### ${m.title}\n- **Authority**: ${m.authority}\n- **Output type**: ${m.output}\n- **Vị trí**: ${m.place}`;
-  if (layer === "L1") return `${auth}\n- **Nguyên-liệu** — ${L1_BLOCKS.length} feature block / ${L1_GROUPS.length} nhóm (chọn & ghép):\n${blockTable(L1_BLOCKS, L1_GROUPS)}`;
-  if (layer === "L2") return `${auth}\n${availableL1ForPrompt()}\n- **Nguyên-liệu** — ${L2_BLOCKS.length} indicator block / ${L2_GROUPS.length} nhóm (chọn & ghép):\n${blockTable(L2_BLOCKS, L2_GROUPS)}`;
-  if (layer === "L5") return `${auth}\n- **Nguyên-liệu** — ${L5_BLOCKS.length} decision block / ${L5_GROUPS.length} nhóm (chọn & ghép); L5 executable dùng điều-kiện 29 metric:\n${blockTable(L5_BLOCKS, L5_GROUPS)}`;
-  if (layer === "L3") return `${auth}\n- **Nguyên-liệu** (KHUÔN CÔNG THỨC):\n${l3FormulaVocab()}`;
-  if (layer === "L4" || layer === "CONDITIONS") return `${auth}\n- **Nguyên-liệu** — điều-kiện 29 metric:\n${metricList()}`;
+  const auth = `### ${m.title}\n- **Authority**: ${m.authority}\n- **Output type**: ${m.output}
+- **Position in the chain**: ${m.place}`;
+  if (layer === "L1") return `${auth}
+- **Available components**: ${L1_BLOCKS.length} feature block / ${L1_GROUPS.length} groups:
+${blockTable(L1_BLOCKS, L1_GROUPS)}`;
+  if (layer === "L2") return `${auth}\n${availableL1ForPrompt()}
+- **Available components**: ${L2_BLOCKS.length} indicator block / ${L2_GROUPS.length} groups:
+${blockTable(L2_BLOCKS, L2_GROUPS)}`;
+  if (layer === "L5") return `${auth}
+- **Available components**: ${L5_BLOCKS.length} decision block / ${L5_GROUPS.length} groups; executable L5 conditions use the declared metric catalog:
+${blockTable(L5_BLOCKS, L5_GROUPS)}`;
+  if (layer === "L3") return `${auth}
+- **Formula vocabulary**:
+${l3FormulaVocab()}`;
+  if (layer === "L4" || layer === "CONDITIONS") return `${auth}
+- **Condition metric catalog**:
+${metricList()}`;
   // L6
-  return `${auth}\n- **Nguyên-liệu** — xuất một VÙNG (dải giá) để vẽ; không điều-kiện vào lệnh.`;
+  return `${auth}
+- **Output**: one reference price band for chart display; not an entry instruction.`;
 }
 
 export const FEW_SHOT_PRESETS: { name: string; module: Partial<CustomModule> }[] = [
@@ -138,83 +154,135 @@ export const FEW_SHOT_PRESETS: { name: string; module: Partial<CustomModule> }[]
   { name: "RSI reclaim trigger", module: { level: 5, role: "TRIGGER", name: "RSI oversold reclaim", explain: "Contributes a long candidate after the configured RSI reclaim", why: "A mean-reversion hypothesis requiring held-out confirmation", conditions: [{ metric: "rsi", op: "between", value: 30, value2: 45 }], logic: "ALL", direction: "LONG", weight: 0.8, reliability: 0.53 } },
 ];
 
-const RULES = `## LUẬT BẤT DI của tầng này (vi phạm = hệ TỪ CHỐI)
-1. **advisory-only** — module KHÔNG đặt lệnh thật, không lot/risk/SL-TP số.
-2. **no-order** — cấm order_send/lot/risk_pct/buy/sell; hệ sẽ BỎ chúng, đừng thêm.
-3. **no-lookahead** — chỉ đọc dữ liệu tại/trước nến hiện tại.
-4. **đúng authority của tầng** (xem mục Authority) — không xây vượt quyền, không lẫn tầng.
-5. Chỉ dùng nguyên-liệu (block/metric) của CHÍNH tầng này liệt kê bên dưới; metric/op ngoài danh mục → hệ REJECT.
-
-> ⛔ **VÍ DỤ SAI** (đừng làm): \`{ "order_send": true, "lot": 0.1, "risk_pct": 2 }\` → hệ BỎ 3 field này (module vẫn nhận nhưng advisory). \`{ "metric": "order_book_delta" }\` → REJECT (metric không có trong danh mục). Bịa metric/op = module bị từ chối.`;
+const RULES = `## Layer rules
+1. Research/advisory only; do not create broker-order, volume or exact-stop instructions.
+2. Unsupported execution fields such as \`order_send\`, \`lot\` and \`risk_pct\` are discarded; do not include them.
+3. No lookahead: read only observations available at or before the current completed candle.
+4. Respect the selected layer's authority and output type.
+5. Use only the listed blocks, metrics and operations. Unknown inputs are rejected.
+For example, \`order_book_delta\` is invalid unless it exists in the supplied metric catalog.`;
 
 // Ví dụ HỎI-ĐÁP (làm rõ ý mơ hồ) + luật output "chỉ JSON" + cấu trúc explanation — chỉ vào MASTER (user mơ hồ).
-const ASK_AND_OUTPUT = `## CÁCH LÀM VIỆC — HỎI TRƯỚC, XÂY SAU (quan trọng nhất)
-Ý tưởng user thường mơ hồ. **ĐỪNG xây ngay với giả định** — hỏi 2-4 câu làm rõ trước. Ví dụ mẫu:
-> **User**: "Tôi muốn bắt sóng hồi sau khi giá phá đỉnh."
-> **AI**: Để xây đúng ý, cho tôi hỏi: (1) phá đỉnh bao nhiêu nến gần nhất (vd 20)? (2) vào ngay khi phá, hay chờ giá HỒI về test lại rồi mới vào? (3) có tránh lúc thị trường đi ngang (chop) không?
-> **User**: "Phá đỉnh 20 nến, chờ hồi test, tránh chop."
-> **AI**: (giờ mới xây) → trả JSON + explanation.
+const ASK_AND_OUTPUT = `## Clarify the idea before building
+When the idea is ambiguous, ask a few specific questions about timeframe, setup, confirmation and exclusions. For example, a breakout-retest hypothesis needs a reference lookback, a retest definition and a choice of context filters.
 
-## OUTPUT — trả về ĐÚNG MỘT khối \`\`\`json … \`\`\`, KHÔNG văn bản ngoài khối
-Mọi lời giải thích đặt vào trường \`explanation\` BÊN TRONG JSON. \`explanation\` nên trả lời 3 ý đời thường: (a) module BẮT khoảnh-khắc gì · (b) bằng BẰNG-CHỨNG nào (metric nào vượt ngưỡng nào) · (c) khi nào nó KHÔNG bắn.`;
+## Output
+Once requirements are clear, return one JSON object in a fenced JSON block. Put the explanation inside \`explanation\`: describe what the module measures or detects, which observations satisfy it, and when it remains inactive.`;
 
-const METRIC_HINTS = `## GỢI Ý chọn metric theo ý tưởng (tham khảo — vẫn phải dùng key CÓ trong danh mục 29)
-- Thuận **trend** → \`emaGapAtr\` · \`htfAlign\` · \`priceEmaAtr\`   |   Tránh **chop** → \`atrRatio\` · \`flowConsistency\` · \`regime\`
-- Chống **đuổi đỉnh** → \`extAtr\` · \`rsi\`   |   Bắt **phá vỡ** → \`brokeHigh20\`/\`brokeLow20\` · \`wickRatio\` · \`bodyRatio\`
-- Quản **phiên/chi phí** → \`overlap\` · \`spread\` · \`hour\``;
+const METRIC_HINTS = `## Metric suggestions
+Use only keys present in the catalog.
+- Trend: \`emaGapAtr\`, \`htfAlign\`, \`priceEmaAtr\`.
+- Chop context: \`atrRatio\`, \`flowConsistency\`, \`regime\`.
+- Extension: \`extAtr\`, \`rsi\`.
+- Breakouts: \`brokeHigh20\`, \`brokeLow20\`, \`wickRatio\`, \`bodyRatio\`.
+- Session/cost context: \`overlap\`, \`spread\`, \`hour\`.`;
 
 // SCHEMA JSON — level/role ĐÚNG THEO TẦNG (không cứng level:4). Master (mọi tầng) dùng bản neutral; pack L4/L5 dùng
 // bản cố-định level của tầng đó (chống lỗi doc-conflict "pack L5 mà schema ghi level:4/CONTEXT_GATE").
 function conditionSchema(layer?: "L4" | "L5"): string {
-  const levelLine = layer === "L5" ? `"level": 5` : layer === "L4" ? `"level": 4` : `"level": <4 hoặc 5>`;
+  const levelLine = layer === "L5" ? `"level": 5` : layer === "L4" ? `"level": 4` : `"level": <4 or 5>`;
   const roleLine = layer === "L5" ? `"role": "<TRIGGER | VETO | CONFIRM | EXIT>"` : layer === "L4" ? `"role": "CONTEXT_GATE"` : `"role": "<CONTEXT_GATE (L4) | TRIGGER/VETO/CONFIRM/EXIT (L5)>"`;
-  const l5note = layer === "L5" ? `\n- **L5**: mọi \`conditions\` được nạp thẳng vào SETUP của builder; role TRIGGER mà \`conditions\` RỖNG → hệ TỪ CHỐI (không nạp module rỗng).` : "";
-  return `## SCHEMA JSON (trả ĐÚNG một object — module điều-kiện chạy được)
+  const l5note = layer === "L5" ? `
+- **L5**: conditions feed the builder setup. A TRIGGER with no conditions is rejected.` : "";
+  return `## JSON condition-module schema
 \`\`\`json
-{ ${levelLine}, ${roleLine}, "name": "tên ≥3 ký tự",
-  "explain": "làm gì (≥12 ký tự)", "why": "vì sao hợp lý (≥12 ký tự)",
-  "conditions": [ { "metric": "<key trong 29 metric HOẶC id evidence L1/L2/L3>", "op": "<toán tử>", "value": 0, "value2": 0 } ],
-  "logic": "ALL", "direction": "LONG", "exitAction": "CLOSE", "lockR": 0.5 }
+{ ${levelLine}, ${roleLine}, "name": "Name with at least 3 characters",
+  "explain": "What it does; at least 12 characters", "why": "Rationale; at least 12 characters",
+  "conditions": [{"metric":"<catalog key or existing L1/L2/L3 evidence ID>","op":"<operator>","value":0,"value2":0}],
+  "logic":"ALL","direction":"LONG","exitAction":"CLOSE","lockR":0.5 }
 \`\`\`
-- \`direction\` chỉ role TRIGGER (LONG/SHORT/REGIME) · \`exitAction\`/\`lockR\` chỉ role EXIT · \`between\`/\`outside\` cần \`value2\`.${l5note}`;
+\`direction\` applies to TRIGGER only (LONG/SHORT/REGIME); \`exitAction\` and \`lockR\` apply to EXIT only; \`between\` and \`outside\` require \`value2\`.${l5note}`;
 }
 const CONDITION_SCHEMA = conditionSchema();
 
 // ── OUTPUT-LOCK: khóa ĐẦU RA của MỘT tầng ngay đầu pack. Chống lỗi "chọn L1 nhưng AI trả L5": mỗi tầng có
 // format riêng, cấm trả format tầng khác. L1/L2/L6 KHÔNG import-JSON (visual-authored) → AI phải MÔ TẢ block. ──
 function outputLock(layer: PackLayer): string {
-  const L = `> ⚡ **BẠN LÀ trợ-lý xây tầng ${layer} — KHÔNG phải review tài-liệu.** Đây là pack của RIÊNG tầng ${layer}.`;
-  if (layer === "L4") return `${L}\n> **OUTPUT tầng L4 = MỘT khối \`\`\`json\`\`\` với \`level:4, role:"CONTEXT_GATE"\`.** TUYỆT ĐỐI KHÔNG trả level khác (không level:5). Chỉ hỏi làm rõ HOẶC trả đúng JSON L4.`;
-  if (layer === "L5") return `${L}\n> **OUTPUT tầng L5 = MỘT khối \`\`\`json\`\`\` với \`level:5, role\` ∈ {TRIGGER,VETO,CONFIRM,EXIT}.** TUYỆT ĐỐI KHÔNG trả level:4. Chỉ hỏi làm rõ HOẶC trả đúng JSON L5.`;
-  if (layer === "CONDITIONS") return `${L}\n> **OUTPUT = MỘT khối \`\`\`json\`\`\` condition-module (level 0/4/5).** Chỉ hỏi làm rõ HOẶC trả đúng JSON.`;
-  if (layer === "L3") return `${L}\n> **OUTPUT tầng L3 = MỘT khối \`\`\`json\`\`\` CÔNG THỨC AST: \`{ "name":"…", "ast": {…}, "outputType": "SCORE", "explanation": "…" }\`.** \`ast\` được phép là cây LỒNG NHAU \`{ "op":"…", "args":[…] }\` (hệ tự chuyển sang dạng phẳng khi import). TUYỆT ĐỐI KHÔNG trả condition-module (level/role/conditions) — đó là L4/L5.`;
-  if (layer === "L1") return `${L}\n> **OUTPUT tầng L1 = MỘT khối \`\`\`json\`\`\` FeatureGraph: \`{ "name","explain","why","graph": { "nodes":[{"id","blockId","params?","inputs":[…]}], "output":"<id node emit>" }, "explanation" }\`.** Chỉ dùng \`blockId\` trong 85 block dưới; \`inputs\` nối \`id\` node khác (port STREAM_OHLC KHÔNG tính — để \`inputs:[]\`); node \`output\` PHẢI là \`emit_feature\`. Hệ có nút **Import JSON** → \`validateGraph\`. ⛔ KHÔNG trả level:4/level:5.`;
-  if (layer === "L2") return `${L}\n> **OUTPUT tầng L2 = MỘT khối \`\`\`json\`\`\` weighted-sum: \`{ "name","explain","kind":"indicator|regime|bias|confidence","featureKeys":[…],"weights":{"<key>":<số>},"explanation" }\`.** ⛔ \`featureKeys\` **PHẢI** chọn từ danh sách "Feature L1 CÓ SẴN" ở §③ — **ĐỪNG bịa key mới** (bịa key không tồn tại → L2 đọc RỖNG, không đóng góp gì). Cần feature chưa có → build ở L1 trước. Hệ có nút **Import JSON**. ⛔ KHÔNG trả JSON module L4/L5.`;
-  return `${L}\n> **OUTPUT tầng L6 = MỘT khối \`\`\`json\`\`\` ZONE: \`{ "name","explain","anchor","anchorRef?","role","offsetAtr","widthAtr","explanation" }\`.** \`anchor\` ∈ {swing_high/swing_low/poc/evidence/l5_state/price}; \`role\` ∈ {OBSERVE/RISK/DEMAND/INVALIDATE}; \`anchorRef\` = id evidence/L5 khi anchor=evidence/l5_state. Hệ có nút **Import JSON**. ⛔ KHÔNG vào lệnh, KHÔNG trả JSON module L4/L5.`;
+  const L = `> You are helping build layer ${layer}. Use the schema and components for layer ${layer}.`;
+  if (layer === "L4") return `${L}
+> L4 output: one JSON object with \`level:4, role:"CONTEXT_GATE"\`. Do not return a different layer.`;
+  if (layer === "L5") return `${L}
+> L5 output: one JSON object with \`level:5\` and role TRIGGER, VETO, CONFIRM or EXIT. Do not return level 4.`;
+  if (layer === "CONDITIONS") return `${L}
+> Output one condition-module JSON object for level 0, 4 or 5, or ask for missing requirements.`;
+  if (layer === "L3") return `${L}
+> L3 output: one formula AST JSON object with \`name\`, \`ast\`, \`outputType:"SCORE"\` and \`explanation\`. Nested \`{op,args}\` expressions are normalized on import. Do not return an L4/L5 condition module.`;
+  if (layer === "L1") return `${L}
+> L1 output: a FeatureGraph JSON object with \`name\`, \`explain\`, \`why\`, \`graph:{nodes:[{id,blockId,params?,inputs}],output:<emit-node ID>}\` and \`explanation\`. Use the listed block IDs. Inputs reference node IDs; STREAM_OHLC ports do not count toward the inputs array. Output must be \`emit_feature\`. Import JSON runs graph validation.`;
+  if (layer === "L2") return `${L}
+> L2 output: weighted-sum JSON with \`name\`, \`explain\`, \`kind\` (indicator/regime/bias/confidence), \`featureKeys\`, numeric \`weights\` and \`explanation\`. Feature keys must already exist in the supplied L1 list. Build missing L1 features first. Do not return L4/L5 module JSON.`;
+  return `${L}
+> L6 output: reference-zone JSON with \`name\`, \`explain\`, \`anchor\`, optional \`anchorRef\`, \`role\`, \`offsetAtr\`, \`widthAtr\` and \`explanation\`. Anchors: swing_high/swing_low/poc/evidence/l5_state/price. Roles: OBSERVE/RISK/DEMAND/INVALIDATE. Evidence/l5_state anchors require an existing module ID. Do not create order instructions.`;
 }
 
 /** Pack cho MỘT tầng — OUTPUT-LOCK trước + section của tầng (chuỗi con literal của master) + schema nếu executable. */
 export function buildLayerPack(layer: PackLayer): string {
   const m = LAYER_META[layer];
-  const head = `# MFE Context Pack — ${m.title}\n\n${outputLock(layer)}\n\nBạn (AI) giúp một trader biến MỘT ý tưởng ở **${m.title}** thành module hệ MFE. Chỉ dùng nguyên-liệu của tầng này.\n${CHAIN}\n\n${RULES}\n\n## ③ Nguyên-liệu tầng này\n${layerSection(layer)}`;
+  const head = `# MFE Context Pack — ${m.title}\n\n${outputLock(layer)}
+
+Help the user turn one idea for **${m.title}** into a QUANTSMART module using this layer's components.
+${CHAIN}\n\n${RULES}
+
+## Available layer components
+${layerSection(layer)}`;
   if (layer === "L5" || layer === "L4" || layer === "CONDITIONS") {
     const shots = FEW_SHOT_PRESETS.filter((p) => (layer === "L4" ? p.module.level === 4 : layer === "L5" ? p.module.level === 5 : true)).map((p) => `\`\`\`json\n${JSON.stringify(p.module, null, 2)}\n\`\`\``).join("\n\n");
-    return `${head}\n\n## ④ ${conditionSchema(layer === "L4" ? "L4" : layer === "L5" ? "L5" : undefined)}\n\n### Ví dụ hợp lệ\n${shots}`;
+    return `${head}\n\n## ④ ${conditionSchema(layer === "L4" ? "L4" : layer === "L5" ? "L5" : undefined)}
+
+### Valid example
+${shots}`;
   }
-  if (layer === "L3") return `${head}\n\n## ④ Import (dán JSON vào nút Import)\nHệ dùng \`validateAst\` (KHÔNG validateModule): whitelist op · arity · input hợp lệ · macro đã khai · không cycle. \`ast\` được LỒNG NHAU \`{op,args}\` — hệ tự làm phẳng.\n\n### Ví dụ hợp lệ\n\`\`\`json\n${JSON.stringify(L3_EXAMPLE, null, 2)}\n\`\`\``;
-  if (layer === "L1") return `${head}\n\n## ④ Import (dán JSON vào nút Import)\nHệ dùng \`validateGraph\`: đúng \`blockId\` · đúng kiểu port · node \`output\` phải \`emit_feature\`. Port STREAM_OHLC KHÔNG tính vào \`inputs\`.\n\n### Ví dụ hợp lệ\n\`\`\`json\n${JSON.stringify(L1_EXAMPLE, null, 2)}\n\`\`\``;
-  if (layer === "L2") return `${head}\n\n## ④ Import (dán JSON vào nút Import)\nHệ kiểm \`kind\` hợp lệ · \`featureKeys\` ≥1 · mỗi key có \`weights\`. Key lạ → cảnh báo (L2 đọc rỗng tới khi bạn build/promote feature đó).\n\n### Ví dụ hợp lệ\n\`\`\`json\n${JSON.stringify(L2_EXAMPLE, null, 2)}\n\`\`\``;
-  return `${head}\n\n## ④ Import (dán JSON vào nút Import)\nHệ kiểm anchor/role hợp-lệ + widthAtr>0; anchor evidence/l5_state cần anchorRef đã build. Zone chỉ VẼ, không vào lệnh.\n\n### Ví dụ hợp lệ\n\`\`\`json\n${JSON.stringify(L6_EXAMPLE, null, 2)}\n\`\`\``;
+  if (layer === "L3") return `${head}
+
+## Import JSON
+\`validateAst\` checks operation whitelist, arity, inputs, macros and cycles. Nested \`{op,args}\` expressions are flattened on import.
+
+### Valid example
+\`\`\`json
+${JSON.stringify(L3_EXAMPLE, null, 2)}\n\`\`\``;
+  if (layer === "L1") return `${head}
+
+## Import JSON
+\`validateGraph\` checks block IDs, port types and an \`emit_feature\` output. STREAM_OHLC ports are excluded from \`inputs\`.
+
+### Valid example
+\`\`\`json
+${JSON.stringify(L1_EXAMPLE, null, 2)}\n\`\`\``;
+  if (layer === "L2") return `${head}
+
+## Import JSON
+Checks include valid kind, at least one feature key and numeric weights for each key. Unknown keys are reported and remain unavailable until the referenced feature exists.
+
+### Valid example
+\`\`\`json
+${JSON.stringify(L2_EXAMPLE, null, 2)}\n\`\`\``;
+  return `${head}
+
+## Import JSON
+Checks include supported anchor/role, positive widthAtr and an existing anchorRef for evidence/l5_state. Zones are visual references only.
+
+### Valid example
+\`\`\`json
+${JSON.stringify(L6_EXAMPLE, null, 2)}\n\`\`\``;
 }
 
 function metricList(): string {
-  const base = "| key | nhãn | scope | ý nghĩa |\n|---|---|---|---|\n" + METRICS.map((x) => `| \`${x.key}\` | ${x.label} | ${x.scope} | ${x.hint} |`).join("\n") + `\n\nToán tử: \`${OPS.join("` `")}\`.`;
+  const base = "| key | label | scope | meaning |\n|---|---|---|---|\n" + METRICS.map((x) => `| \`${x.key}\` | ${x.label} | ${x.scope} | ${x.hint} |`).join("\n") + `
+
+Operators: \`${OPS.join("` `")}\`.`;
   const ev = listCustomMetrics();
   // [[block-is-fixed-foundation-doctrine]] metric BLOCK-NATIVE: dùng id module L1/L2/L3 đã build làm metric → decision đọc bằng chứng riêng
   const evBlock = ev.length
-    ? `\n\n**Metric BLOCK-NATIVE — module evidence BẠN ĐÃ BUILD** (dùng \`id\` này làm \`metric\` để TRIGGER/GATE/VETO đọc bằng chứng L1/L2/L3, đồng hạng 29 metric trên):\n` + ev.map((m) => `- \`${m.key}\` — ${m.label} (${m.layer})`).join("\n")
-    : `\n\n(Chưa có module evidence L1/L2/L3 nào được build → chỉ có 29 metric built-in. Muốn quyết định đọc bằng-chứng RIÊNG của bạn, build L1/L2/L3 trước rồi tham chiếu bằng id của nó.)`;
-  const triggerRule = `\n\n⚠ **BẮT BUỘC để evidence có tác dụng**: L1/L2/L3 CHỈ là bằng chứng — **chúng KHÔNG tự vào lệnh**. Một chiến-lược hoàn-chỉnh PHẢI có **≥1 module role=\`TRIGGER\`** đọc bằng chứng (qua \`metric = id\` của L1/L2/L3, hoặc metric built-in). Chỉ có GATE/CONFIRM mà KHÔNG có TRIGGER → engine dùng trigger mặc định, module của bạn **đóng góp 0** (đây là lỗi hay gặp).`;
+    ? `
+
+**Existing block-native evidence metrics**: use these exact IDs in TRIGGER/GATE/VETO conditions to read L1/L2/L3 evidence alongside the built-in metric catalog.
+` + ev.map((m) => `- \`${m.key}\` — ${m.label} (${m.layer})`).join("\n")
+    : `
+
+No custom L1/L2/L3 evidence exists yet. Build the measurement first, then reference its ID from a condition.`;
+  const triggerRule = `
+
+L1/L2/L3 are evidence sources, not entry triggers. A complete custom entry hypothesis needs a directional TRIGGER referencing that evidence or a built-in metric. Gates and confirmations alone leave the simulator using its fallback trigger.`;
   return base + evBlock + triggerRule;
 }
 
@@ -222,39 +290,34 @@ function metricList(): string {
 // phân rã setup/confirm/veto/exit qua các tầng (mỗi tầng authority riêng — nhúng NGUYÊN section bên dưới), rồi trả
 // MỘT module chạy được + explanation nguyên-văn. per-tầng = layerSection(L) ⊂ master (kiểm bằng includes). ──
 export function buildMasterPrompt(userIdea = ""): string {
-  const idea = userIdea.trim() ? `\n## Ý TƯỞNG CỦA NGƯỜI DÙNG (tổng quát — có thể mơ hồ, bạn phải hiểu và làm rõ)\n> ${userIdea.trim().replace(/\n/g, "\n> ")}\n` : "";
+  const idea = userIdea.trim() ? `
+## User idea
+> ${userIdea.trim().replace(/\n/g, "\n> ")}\n` : "";
   const sections = (["L1", "L2", "L3", "L4", "L5", "L6"] as PackLayer[]).map((L) => layerSection(L)).join("\n\n");
-  return `# MFE — Biến ý tưởng của trader thành MỘT module chạy được
+  return `# QUANTSMART — turn an idea into a testable module
 
-> ⚡ **BẠN LÀ trợ-lý XÂY MODULE của hệ MFE — KHÔNG phải người review tài-liệu.** Văn-bản này KHÔNG phải "một file" để bạn hỏi "muốn xử-lý theo hướng nào / rà lỗi / viết lại prompt". Nhiệm-vụ DUY NHẤT của bạn: biến **ý-tưởng của người dùng** (ngay dưới) thành MỘT module. Bạn CHỈ được làm 1 trong 2 việc:
-> **(a)** nếu ý-tưởng chưa đủ rõ → **HỎI 2-4 câu** làm rõ (khung TF? vào khi nào? thoát? tránh gì?), rồi chờ trả lời;
-> **(b)** nếu đã đủ rõ → trả về **ĐÚNG MỘT khối \`\`\`json … \`\`\`** theo schema cuối (không văn-bản ngoài khối).
-> TUYỆT ĐỐI KHÔNG: tóm-tắt/đánh-giá tài-liệu · hỏi "bạn muốn tôi làm gì với file này" · trả nhiều phương-án.
+Help build one module. If requirements are unclear, ask specific questions about timeframe, setup, confirmation, exits and exclusions. Once clear, return one schema-compliant JSON object, with the rationale in its \`explanation\` field.
 ${idea}
-Người dùng mô tả một ý tưởng giao dịch **tổng quát** và thường KHÔNG quan tâm hệ chia tầng thế nào. Việc của **BẠN (AI)**:
-1. **Hiểu** ý tưởng; nếu **mơ hồ**, HỎI-ĐÁP làm rõ (khung thời gian? vào khi nào? thoát khi nào? tránh gì?) trước khi xây.
-2. **Tự phân rã** ý tưởng thành các mảnh **setup → confirm → veto → exit** rồi map vào tầng đúng (mỗi tầng có AUTHORITY riêng — mọi section nhúng bên dưới).
-3. Trả về **MỘT** module điều-kiện chạy được (JSON schema cuối), dùng CHỈ 29 metric; hoặc công thức L3 (AST) nếu ý tưởng là một chỉ-số.
-4. Kèm trường **\`explanation\`**: giải thích tiếng Việt ĐỜI THƯỜNG — module LÀM GÌ, khi nào bật, vì sao hợp ý người dùng. Hệ hiển thị NGUYÊN VĂN lời bạn (không sửa) + tự thêm disclaimer riêng.
+The user may describe a strategy without knowing the layer model. Clarify the idea, separate setup, confirmation, veto and exit behavior, then choose the appropriate layer. Use only the supplied component and metric catalogs. Return an L4/L5 condition module, or an L3 numeric AST when the idea is a measurement. Write the explanation in plain English: what it does, what activates it, and why it matches the stated hypothesis.
 
-🔗 **Dây chuyền tầng** (để map ý tưởng vào đúng tầng) — ${CHAIN}
+Layer chain: ${CHAIN}
 
 ${ASK_AND_OUTPUT}
 
 ${RULES}
 
-## Catalog mọi tầng (tự chứa — bạn không cần hỏi thêm tài liệu)
+## Layer catalogs
 ${sections}
 
 ${METRIC_HINTS}
 
-${CONDITION_SCHEMA.replace('## SCHEMA JSON', '## SCHEMA JSON (module L4/L5 — thêm trường "explanation")').replace('"lockR": 0.5 }', '"lockR": 0.5, "explanation": "giải thích đời thường module này làm gì" }')}
+${CONDITION_SCHEMA.replace('## SCHEMA JSON', "## L4/L5 module JSON schema with explanation").replace('"lockR": 0.5 }', "\"lockR\":0.5,\"explanation\":\"Explain the module in plain English\" }")}
 
-## Ví dụ module
-${FEW_SHOT_PRESETS.map((p) => `\`\`\`json\n${JSON.stringify({ ...p.module, explanation: "…(một câu đời thường)" }, null, 2)}\n\`\`\``).join("\n")}
+## Example module
+${FEW_SHOT_PRESETS.map((p) => `\`\`\`json\n${JSON.stringify({ ...p.module, explanation: "…(one plain-English sentence)" }, null, 2)}\n\`\`\``).join("\n")}
 
-## GHI NHỚ
-Module hợp-lệ + bắn đúng ý ≠ có lời. Người dùng tự chạy Microscope full-decade để biết số thật.`;
+## Research limits
+Valid wiring and expected activation do not establish profitability. Run measured historical validation in Microscope and inspect its assumptions.`;
 }
 /** alias giữ tương thích — buildIdeaPack === buildMasterPrompt (master tự chứa). */
 export const buildIdeaPack = buildMasterPrompt;
@@ -262,28 +325,28 @@ export const buildIdeaPack = buildMasterPrompt;
 // ── ORCHESTRATOR (điều phối): master GỌN — user tả chiến lược, AI phân rã rồi TỰ XIN prompt từng tầng để hoàn
 // thiện sản phẩm nhiều tầng. Khác master tự-chứa (một phát): đây tiết-kiệm context, AI làm từng tầng một. ──
 export function buildOrchestratorPrompt(userIdea = ""): string {
-  const idea = userIdea.trim() ? `\n## Ý TƯỞNG CHIẾN-LƯỢC CỦA NGƯỜI DÙNG\n> ${userIdea.trim().replace(/\n/g, "\n> ")}\n` : "";
+  const idea = userIdea.trim() ? `
+## User strategy idea
+> ${userIdea.trim().replace(/\n/g, "\n> ")}\n` : "";
   const authRows = (["L1", "L2", "L3", "L4", "L5", "L6"] as PackLayer[]).map((L) => `| ${L} | ${LAYER_META[L].output} | ${LAYER_META[L].authority.split("—")[0].trim()} |`).join("\n");
-  return `# MFE — Điều-phối xây chiến-lược nhiều tầng
+  return `# QUANTSMART — build a strategy one layer at a time
 
-> ⚡ **BẠN LÀ trợ-lý xây chiến-lược MFE — KHÔNG review tài-liệu, KHÔNG hỏi "làm gì với file này".** Nhiệm-vụ: biến ý-tưởng dưới thành sản-phẩm, LÀM TỪNG TẦNG MỘT.
+Turn the supplied hypothesis into the required components while respecting each layer's schema and authority.
 ${idea}
-Một chiến-lược hoàn-chỉnh thường cần NHIỀU tầng. Việc của bạn — theo THỨ TỰ:
-1. **Hiểu** ý-tưởng; nếu mơ-hồ → **HỎI 2-4 câu** làm rõ (TF? vào? thoát? tránh gì?), chờ trả lời.
-2. **Phân rã** thành setup → confirm → veto → exit; xác-định CẦN những tầng nào (không phải ý-tưởng nào cũng cần đủ 6 tầng — nhiều ý-tưởng chỉ cần MỘT module L5 hoặc L4).
-3. Với **MỖI tầng cần**, viết đúng một dòng: **"▶ Cho tôi PROMPT tầng L\<n\>"** rồi DỪNG chờ — người dùng sẽ dán pack tầng đó (kèm block + authority + OUTPUT format của tầng). Xây phần tầng đó ĐÚNG format tầng, rồi mới xin tầng kế.
-4. **Nhắc người dùng**: phần **L3/L4/L5** dán JSON vào hệ là chạy được; phần **L1/L2/L6** ráp trong màn Sandbox trực-quan (không import JSON).
+1. Clarify missing timeframe, setup, confirmation, exit and exclusion requirements.
+2. Identify only the layers the hypothesis actually needs; a single L4 or L5 module may suffice.
+3. For each required layer, request its context pack using the layer-specific prompt button. Build that component in the supplied format before moving on.
+4. Use the studio's Import JSON workflow where available, inspect the result, and validate dependencies before attaching it to a Card.
 
-## Bản đồ tầng (tóm tắt — chi-tiết bạn XIN từng pack ở bước 3)
-| tầng | output | quyền |
+## Layer map
+| layer | output | authority |
 |---|---|---|
 ${authRows}
 
 ## ${CHAIN}
 
-## LƯU Ý
-- Mỗi pack tầng khi nhận có OUTPUT-LOCK riêng — trả đúng format tầng đó, KHÔNG lẫn (vd pack L1 → liệt-kê block, KHÔNG trả JSON L5).
-- Module hợp-lệ + bắn đúng ý ≠ có lời. Người dùng tự chạy Microscope để biết số thật.`;
+## Limits
+Respect each pack's output type; do not substitute L5 JSON for an L1 graph. A valid component is a hypothesis, not a profitable strategy. Test it in Microscope.`;
 }
 
 const LAYER_OF = (lvl: Level): PackLayer => (lvl === 0 ? "CONDITIONS" : (["L1", "L2", "L3", "L4", "L5", "L6"][lvl - 1] as PackLayer));
@@ -293,13 +356,13 @@ const LAYER_OF = (lvl: Level): PackLayer => (lvl === 0 ? "CONDITIONS" : (["L1", 
 export interface ExplainSections { whatItDoes: string; mechanism: string; position: string; authority: string; limits: string }
 export function explainSections(m: Partial<CustomModule>, aiExplanation?: string): ExplainSections {
   const lvl = (m.level ?? 5) as Level; const meta = LAYER_META[LAYER_OF(lvl)];
-  const roleAct = m.role === "TRIGGER" ? `vote ${m.direction || "?"}` : m.role === "VETO" || m.role === "SAFETY_VETO" ? "BỎ lệnh" : m.role === "CONTEXT_GATE" ? "CHỈ cho vào lệnh" : m.role === "CONFIRM" ? "tăng trọng-số vote (không tự tạo tín-hiệu)" : m.role === "EXIT" ? (m.exitAction || "đóng lệnh") : "advisory";
+  const roleAct = m.role === "TRIGGER" ? `vote ${m.direction || "?"}` : m.role === "VETO" || m.role === "SAFETY_VETO" ? "Veto simulated entry" : m.role === "CONTEXT_GATE" ? "Permit simulated entry only when conditions match" : m.role === "CONFIRM" ? "Scale an existing vote; do not create a signal" : m.role === "EXIT" ? (m.exitAction || "Close simulated position") : "advisory";
   return {
     whatItDoes: aiExplanation || m.explain || "—",
-    mechanism: `Nhận: 29 metric tại nến hiện-tại → kiểm điều-kiện (${describeModuleAsBlocks(m).replace(/^Ghép từ block: /, "").replace(/ \(Bạn đã sửa.*$/, "")}) → xuất: ${roleAct}.`,
-    position: `${meta.title} — ${meta.place}. Kết-quả chảy theo dây-chuyền L1→L2→L3→L4→L5→L6.`,
+    mechanism: `Read current-bar metrics, evaluate conditions (${describeModuleAsBlocks(m).replace(/^Ghép từ block: /, "").replace(/ \(Bạn đã sửa.*$/, "")}) and emit: ${roleAct}.`,
+    position: `${meta.title} — ${meta.place}. Output follows the declared L1 → L2 → L3 → L4 → L5 → L6 dependencies.`,
     authority: meta.authority,   // ← từ type-system của HỆ, không phải AI khai (chống vượt quyền)
-    limits: `${m.why || "—"} · trạng-thái SHADOW (chưa tin cho tới khi qua calibration + walk-forward). Hợp-lệ ≠ có lời — chạy Microscope mới có số thật.`,
+    limits: `${m.why || "—"} · Shadow status until calibration and walk-forward checks. Validity does not establish an edge; run a measured test.`,
   };
 }
 
@@ -310,33 +373,32 @@ export function describeModuleAsBlocks(m: Partial<CustomModule>): string {
     const rhs = c.op === "between" || c.op === "outside" ? `${c.value}…${c.value2 ?? "?"}` : String(c.value);
     return `【${mLabelPack(c.metric)}】 ${c.op} 【${rhs}】`;
   });
-  if (!conds.length) return "Chưa có block điều-kiện nào.";
-  const glue = m.logic === "ANY" ? " HOẶC " : " VÀ ";
-  const roleAct = m.role === "TRIGGER" ? `→ vote ${m.direction || "?"}` : m.role === "VETO" || m.role === "SAFETY_VETO" ? "→ BỎ lệnh" : m.role === "CONTEXT_GATE" ? "→ CHỈ cho vào lệnh" : m.role === "CONFIRM" ? "→ tăng trọng-số vote" : m.role === "EXIT" ? `→ ${m.exitAction || "đóng lệnh"}` : "→ (advisory)";
-  return `Ghép từ block: ${conds.join(glue)} ${roleAct}. (Bạn đã sửa tay — giải thích theo block, không phải lời AI.)`;
+  if (!conds.length) return "No condition block selected.";
+  const glue = m.logic === "ANY" ? " OR " : " AND ";
+  const roleAct = m.role === "TRIGGER" ? `→ vote ${m.direction || "?"}` : m.role === "VETO" || m.role === "SAFETY_VETO" ? "→ Veto simulated entry" : m.role === "CONTEXT_GATE" ? "→ Permit simulated entry" : m.role === "CONFIRM" ? "→ Scale existing vote" : m.role === "EXIT" ? `→ ${m.exitAction || "Close simulated position"}` : "→ (advisory)";
+  return `Composed from blocks: ${conds.join(glue)} ${roleAct}. This explanation follows the edited blocks rather than an earlier generated description.`;
 }
 
 /** Pack "toàn cảnh" điều-kiện chạy được (L0/L4/L5) — module IMPORT + PREVIEW round-trip. */
 export function buildContextPack(): string {
-  const levelRows = Object.values(LEVEL_TEMPLATES).map((t) => `| ${t.level} | ${t.roles.join(", ")} | ${t.title} | ${t.executable ? "chạy thật" : "advisory"} |`).join("\n");
+  const levelRows = Object.values(LEVEL_TEMPLATES).map((t) => `| ${t.level} | ${t.roles.join(", ")} | ${t.title} | ${t.executable ? "engine evaluated" : "advisory"} |`).join("\n");
   const shots = FEW_SHOT_PRESETS.map((p) => `#### ${p.name}\n\`\`\`json\n${JSON.stringify(p.module, null, 2)}\n\`\`\``).join("\n\n");
   const cm = LAYER_META.CONDITIONS;
-  return `# MFE Module Context Pack — Điều-kiện chạy được (L0/L4/L5)
+  return `# QUANTSMART Module Context Pack — engine-evaluated L0/L4/L5 conditions
 
-Bạn (AI) giúp trader biến ý tưởng thành **module điều-kiện** hệ chạy được. KHÔNG code tự do — điền spec đọc từ
-danh mục metric CỐ ĐỊNH. Trả **đúng một JSON** theo schema cuối.
+Translate the stated hypothesis into a condition module using the declared metric catalog, rather than unrestricted code. Return one JSON object in the schema below.
 
-## ① Authority
+## Authority
 ${cm.authority}
 ## ② Output type
 ${cm.output}
-## ⑤ Vị trí & dây chuyền
+## Position and dependencies
 ${cm.place}
 ${CHAIN}
 
 ${RULES}
 
-## Metric catalog (${METRICS.length} metric — chỉ dùng các key này)
+## Metric catalog (${METRICS.length} metrics; use only these keys)
 ${metricList()}
 
 ## Level & Role
@@ -344,14 +406,13 @@ ${metricList()}
 |---|---|---|---|
 ${levelRows}
 
-## Ví dụ (few-shot)
+## Examples
 ${shots}
 
 ${CONDITION_SCHEMA}
 
-## GHI NHỚ CUỐI
-**Module hợp-lệ ≠ có edge.** Hệ chỉ kiểm module đúng khuôn + bắn đúng ý trên nến thật (Intent Sandbox). Muốn biết
-có LỜI không, trader phải tự chạy backtest full-decade trong **Microscope** — không AI nào hứa thay được.`;
+## Final research limit
+A valid module is not evidence of an edge. Intent Sandbox checks per-bar behavior; measured backtests in Microscope evaluate the declared historical experiment. No generated explanation can establish future profitability.`;
 }
 
 const ALLOWED_TOP = new Set(["level", "role", "name", "explain", "why", "conditions", "logic", "direction", "weight", "reliability", "exitAction", "lockR", "zoneRole", "zoneOffsetAtr"]);
@@ -362,8 +423,8 @@ export interface ParseResult { ok: boolean; module?: CustomModule; errors: strin
 /** Parse JSON AI trả về → module đã validate. CHỈ nhận field trong schema (order/lot/risk bị BỎ, không leak). */
 export function parseAiModule(json: string): ParseResult {
   let raw: unknown;
-  try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["JSON sai cú pháp: " + (e as Error).message], strippedFields: [] }; }
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false, errors: ["Phải là một object JSON."], strippedFields: [] };
+  try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], strippedFields: [] }; }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false, errors: ["Expected one JSON object."], strippedFields: [] };
   const src = raw as Record<string, unknown>;
   // trích lời GIẢI THÍCH của AI (đời thường) — hiển thị cho user hiểu ngay module làm gì; không phải field module
   const aiExplanation = typeof src.explanation === "string" ? src.explanation.trim() : typeof src.ai_explanation === "string" ? (src.ai_explanation as string).trim() : undefined;
@@ -391,15 +452,15 @@ export function parseAiModule(json: string): ParseResult {
 export interface FormulaParseResult { ok: boolean; ast?: QuantFormulaAst; outputType?: string; errors: string[]; aiExplanation?: string; opsUsed?: string[] }
 export function parseAiFormula(json: string, extraInputs: string[] = []): FormulaParseResult {
   let raw: unknown;
-  try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["JSON sai cú pháp: " + (e as Error).message] }; }
-  if (!raw || typeof raw !== "object") return { ok: false, errors: ["Phải là object JSON."] };
+  try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message] }; }
+  if (!raw || typeof raw !== "object") return { ok: false, errors: ["Expected a JSON object."] };
   const src = raw as Record<string, unknown>;
   const aiExplanation = typeof src.explanation === "string" ? src.explanation.trim() : undefined;
   const ast = src.ast as QuantFormulaAst | undefined;
-  if (!ast || typeof ast !== "object") return { ok: false, errors: ["Thiếu 'ast' (cần cây { op, args } hoặc { rootNodeId, nodes })."], aiExplanation };
+  if (!ast || typeof ast !== "object") return { ok: false, errors: ["Missing 'ast'; supply nested {op,args} or flat {rootNodeId,nodes}."], aiExplanation };
   // AI thường trả cây LỒNG NHAU { op, args } — hệ cần dạng PHẲNG { rootNodeId, nodes }. Tự chuyển nếu là nested.
   const flat = (ast as { nodes?: unknown }).nodes ? (ast as QuantFormulaAst) : nestedAstToFlat(ast as unknown as NestedAstNode, typeof src.name === "string" ? src.name : "AI L3");
-  if (!flat || !flat.nodes || !flat.rootNodeId) return { ok: false, errors: ["Thiếu 'ast' (cần cây { op, args } hoặc { rootNodeId, nodes })."], aiExplanation };
+  if (!flat || !flat.nodes || !flat.rootNodeId) return { ok: false, errors: ["Missing 'ast'; supply nested {op,args} or flat {rootNodeId,nodes}."], aiExplanation };
   const macroIds = Object.keys(SEED_MACROS);
   const val = validateAst(flat, [...KNOWN_L3_INPUTS, ...extraInputs], macroIds);   // ← cửa chặn RIÊNG của L3 (+ feature L1/L2 đã build)
   if (!val.ok) return { ok: false, ast: flat, errors: val.errors, aiExplanation, opsUsed: val.report.opsUsed };
@@ -477,12 +538,12 @@ function knownL3Inputs(): string[] {
 
 // L1 — FeatureGraph. AI trả { name, explain, why, graph:{ nodes:[{id,blockId,params?,inputs}], output }, explanation }.
 export function parseAiFeature(json: string): { ok: boolean; module?: CustomL1Module; errors: string[]; warnings: string[]; aiExplanation?: string } {
-  let raw: unknown; try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["JSON sai cú pháp: " + (e as Error).message], warnings: [] }; }
-  if (!raw || typeof raw !== "object") return { ok: false, errors: ["Phải là object JSON."], warnings: [] };
+  let raw: unknown; try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], warnings: [] }; }
+  if (!raw || typeof raw !== "object") return { ok: false, errors: ["Expected a JSON object."], warnings: [] };
   const s = raw as Record<string, unknown>;
   const aiExplanation = typeof s.explanation === "string" ? s.explanation.trim() : undefined;
   const g = s.graph as Partial<FeatureGraph> | undefined;
-  if (!g || !Array.isArray(g.nodes) || typeof g.output !== "string") return { ok: false, errors: ["Thiếu 'graph' (cần { nodes:[…], output })."], warnings: [], aiExplanation };
+  if (!g || !Array.isArray(g.nodes) || typeof g.output !== "string") return { ok: false, errors: ["Missing 'graph'; supply {nodes:[…],output}."], warnings: [], aiExplanation };
   const name = typeof s.name === "string" && s.name.trim() ? s.name.trim() : "AI L1 feature";
   const explain = typeof s.explain === "string" ? s.explain : "";
   const why = typeof s.why === "string" ? s.why : "";
@@ -495,22 +556,22 @@ export function parseAiFeature(json: string): { ok: boolean; module?: CustomL1Mo
 
 // L2 — weighted-sum indicator. AI trả { name, explain, kind, featureKeys:[…], weights:{key:w}, explanation }.
 export function parseAiIndicator(json: string): { ok: boolean; module?: CustomL2Module; errors: string[]; warnings: string[]; aiExplanation?: string } {
-  let raw: unknown; try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["JSON sai cú pháp: " + (e as Error).message], warnings: [] }; }
-  if (!raw || typeof raw !== "object") return { ok: false, errors: ["Phải là object JSON."], warnings: [] };
+  let raw: unknown; try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], warnings: [] }; }
+  if (!raw || typeof raw !== "object") return { ok: false, errors: ["Expected a JSON object."], warnings: [] };
   const s = raw as Record<string, unknown>;
   const aiExplanation = typeof s.explanation === "string" ? s.explanation.trim() : undefined;
   const errors: string[] = []; const warnings: string[] = [];
   const kind = (typeof s.kind === "string" ? s.kind : "indicator") as L2Kind;
-  if (!L2_KINDS.has(kind)) errors.push("kind lạ '" + kind + "' — chỉ: indicator/regime/bias/confidence/overlay");
+  if (!L2_KINDS.has(kind)) errors.push("Unknown kind '" + kind + "'; supported kinds: indicator/regime/bias/confidence/overlay");
   const featureKeys = Array.isArray(s.featureKeys) ? s.featureKeys.filter((k): k is string => typeof k === "string") : [];
-  if (featureKeys.length < 1) errors.push("featureKeys phải là mảng ≥1 key feature L1");
+  if (featureKeys.length < 1) errors.push("featureKeys must contain at least one L1 feature key");
   const weightsRaw = (s.weights && typeof s.weights === "object") ? s.weights as Record<string, unknown> : {};
   const weights: Record<string, number> = {};
-  for (const k of featureKeys) { const w = Number(weightsRaw[k]); if (!isFinite(w)) errors.push("thiếu weights['" + k + "'] (số)"); else weights[k] = w; }
+  for (const k of featureKeys) { const w = Number(weightsRaw[k]); if (!isFinite(w)) errors.push("Missing numeric weights['" + k + "']"); else weights[k] = w; }
   const pool = knownFeatureKeys();
-  for (const k of featureKeys) if (!pool.has(k)) warnings.push("feature '" + k + "' chưa có trong pool L1 (built-in / customL1 đã promote) — L2 sẽ đọc rỗng cho tới khi bạn build/promote nó");
+  for (const k of featureKeys) if (!pool.has(k)) warnings.push("feature '" + k + "' is not in the built-in/promoted custom L1 pool; its L2 input remains unavailable until it exists");
   const explain = typeof s.explain === "string" ? s.explain : "";
-  if (explain.trim().length < 8) errors.push("explain cần ≥8 ký tự (cổng kiểm soát)");
+  if (explain.trim().length < 8) errors.push("explain must contain at least 8 characters");
   if (errors.length) return { ok: false, errors, warnings, aiExplanation };
   const name = typeof s.name === "string" && s.name.trim() ? s.name.trim() : "AI L2 indicator";
   const module: CustomL2Module = { id: "l2_" + Date.now().toString(36), name, explain, kind, featureKeys, weights, status: "SHADOW", createdAt: new Date().toISOString() };
@@ -519,8 +580,8 @@ export function parseAiIndicator(json: string): { ok: boolean; module?: CustomL2
 
 // L6 — ZONE. AI trả { name, explain, anchor, anchorRef?, role, offsetAtr, widthAtr, explanation }.
 export function parseAiZone(json: string): { ok: boolean; zone?: CustomL6Zone; errors: string[]; warnings: string[]; aiExplanation?: string } {
-  let raw: unknown; try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["JSON sai cú pháp: " + (e as Error).message], warnings: [] }; }
-  if (!raw || typeof raw !== "object") return { ok: false, errors: ["Phải là object JSON."], warnings: [] };
+  let raw: unknown; try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], warnings: [] }; }
+  if (!raw || typeof raw !== "object") return { ok: false, errors: ["Expected a JSON object."], warnings: [] };
   const s = raw as Record<string, unknown>;
   const aiExplanation = typeof s.explanation === "string" ? s.explanation.trim() : undefined;
   const draft: Partial<CustomL6Zone> = {
@@ -556,8 +617,8 @@ function buildL3Module(ast: QuantFormulaAst, name: string, outputType: QuantOutp
 // ── DISPATCHER: tự nhận tầng theo HÌNH DẠNG JSON → parser đúng → nếu PASS thì LƯU vào store của tầng (SHADOW). ──
 // Ưu tiên nhận: ast→L3 · graph→L1 · featureKeys→L2 · còn lại (conditions/level/role)→L4·L5. Không đoán được → lỗi rõ.
 export function importAnyLayer(json: string): ImportResult {
-  let raw: unknown; try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["JSON sai cú pháp: " + (e as Error).message] }; }
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false, errors: ["Phải là một object JSON của MỘT module."] };
+  let raw: unknown; try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message] }; }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false, errors: ["Expected one module as a JSON object."] };
   const s = raw as Record<string, unknown>;
 
   if ("ast" in s) {   // L3 — công thức
@@ -592,5 +653,5 @@ export function importAnyLayer(json: string): ImportResult {
     saveCustomModules([r.module, ...loadCustomModules()]);
     return { ok: true, layer: r.module.level === 4 ? "L4" : "L5", id: r.module.id, name: r.module.name, errors: [], strippedFields: r.strippedFields, aiExplanation: r.aiExplanation };
   }
-  return { ok: false, errors: ["Không nhận ra tầng: JSON cần có 'ast' (L3) · 'graph' (L1) · 'featureKeys' (L2) · 'anchor' (L6) · hoặc 'conditions'+'level' (L4/L5)."] };
+  return { ok: false, errors: ["Cannot identify the layer. Supply ast (L3), graph (L1), featureKeys (L2), anchor (L6), or conditions with level (L4/L5)."] };
 }
