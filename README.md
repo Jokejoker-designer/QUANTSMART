@@ -1,52 +1,26 @@
 # QUANTSMART
 
-Build your own trading logic. Test it with evidence. Keep the process transparent.
+Local strategy design and validation workspace for quantitative research.
 
-QUANTSMART is a local quantitative research environment built for people who want to go beyond eyeballing charts and start designing real strategy logic with structure, repeatability, and accountability.
+QUANTSMART is a local-first research environment for turning trading ideas into explicit, testable strategies. It gives traders and researchers a structured workspace to build custom logic, combine reusable modules, replay historical market data, and evaluate whether an idea is worth pursuing under real validation conditions.
 
-This is not a signal service and it is not a black-box trading system. It is a workspace for building, testing, and refining trading ideas in a controlled local environment. You can create your own strategy components, assemble them into Strategy Cards, replay historical data, compare outcomes across different windows, and inspect whether a concept is genuinely worth pursuing before claiming it works.
+Instead of relying on intuition or isolated chart screenshots, users can assemble strategy components into Strategy Cards, compare outcomes across time windows, and inspect the evidence behind each decision. The workflow is built around clarity, repeatability, and research discipline.
 
-At its core, QUANTSMART is designed for one purpose: helping traders and researchers turn an idea into an explicit strategy that can be examined, validated, and improved.
+Users can:
+- build custom strategies from reusable building blocks
+- combine indicators, filters, triggers, and exits into strategy cards
+- replay historical market data and compare performance across periods
+- validate ideas with structured backtests and multi-window analysis
+- design role-based strategy ensembles instead of testing only a single idea
+- keep their research local and traceable on their own machine
 
-You are not limited to using predefined templates. The project is built to support:
-- custom strategy creation from reusable building blocks
-- strategy composition using logic modules, indicators, filters, and triggers
-- historical replay against real market data
-- validation across time splits and holdout windows
-- comparison of different strategy variants
-- design of strategy groups or ensembles, not just single-card experiments
-- local-first research so your data and workflow stay on your machine
+QUANTSMART is designed for people who want to move from idea to evidence:
+- define the logic
+- test it against historical data
+- review the results in context
+- refine the strategy with clear evidence
 
-Whether you are exploring a simple mean-reversion setup, building a multi-factor trend model, or designing a structured portfolio of strategies working together, QUANTSMART gives you the environment to do it in a way that is inspectable and systematic.
-
-The philosophy is straightforward: every idea should be testable, every decision should be traceable, and every result should be reviewed in context. A strategy is not “good” because it looks plausible on a chart. It is only useful when it can be explained, tested, and evaluated against historical evidence.
-
-Inside the workspace, you can:
-- assemble reusable modules and formula-based logic
-- define strategy cards with different roles and components
-- test a strategy across historical datasets
-- inspect outcome quality, window coverage, and validation conditions
-- compare multiple strategies or role-based designs side by side
-- design a local strategy system that fits your research workflow and risk preferences
-
-This is especially valuable for people who want a local sandbox to:
-- prototype trading ideas
-- build custom quantitative systems
-- validate logic without rushing into execution
-- compare strategy behavior under different market conditions
-- maintain a record of what was tested and why
-
-The project is built to feel like a research lab rather than a trading terminal. It keeps the workflow focused on investigation, experimentation, and evidence. Your strategy logic remains yours. Your market data stays local. Your research stays transparent.
-
-QUANTSMART brings together:
-- strategy authoring
-- historical replay
-- market inspection
-- logic validation
-- multi-card or ensemble design
-- local-first execution and review
-
-It is built for people who like to think in systems: define a rule, test it, review the evidence, refine it, and repeat with intention.
+It is focused on research quality, not hype. The platform helps users create, compare, and validate trading logic in a controlled environment, with optional MT5 connectivity for market inspection when needed.
 
 ![QUANTSMART Cockpit](docs/screenshots/home.jpg)
 
