@@ -1,51 +1,63 @@
 # QUANTSMART
 
-Local strategy design and validation workspace for quantitative research.
+**Build a strategy you can explain. Test it on data you can inspect.**
 
-QUANTSMART is a local-first research environment for turning trading ideas into explicit, testable strategies. It gives traders and researchers a structured workspace to build custom logic, combine reusable modules, replay historical market data, and evaluate whether an idea is worth pursuing under real validation conditions.
+A trading idea is easy to describe. Turning it into precise rules—and understanding
+what happened when those rules were tested—takes more work.
 
-Instead of relying on intuition or isolated chart screenshots, users can assemble strategy components into Strategy Cards, compare outcomes across time windows, and inspect the evidence behind each decision. The workflow is built around clarity, repeatability, and research discipline.
+QUANTSMART brings that process into one local-first research workspace. Start with a feature or
+formula, assemble it into a Strategy Card, then replay the price history and inspect
+the results. The visual editors expose the calculations; the research tools keep the
+dataset, costs and validation windows attached to the experiment.
 
-Users can:
-- build custom strategies from reusable building blocks
-- combine indicators, filters, triggers, and exits into strategy cards
-- replay historical market data and compare performance across periods
-- validate ideas with structured backtests and multi-window analysis
-- design role-based strategy ensembles instead of testing only a single idea
-- keep their research local and traceable on their own machine
+![QUANTSMART Cockpit with six telemetry gauges, live price chart, structural zones, timeframe observations and Strategy Card controls](docs/screenshots/cockpit-overview.png)
 
-QUANTSMART is designed for people who want to move from idea to evidence:
-- define the logic
-- test it against historical data
-- review the results in context
-- refine the strategy with clear evidence
+*Cockpit: the supplied full-screen capture shows actual MT5 prices, six telemetry
+gauges, timeframe observations and structural reference zones. Entry assessment and
+Card evidence remain unavailable until their respective sources exist. [Open the
+full-resolution image](docs/screenshots/cockpit-overview.png).*
 
-It is focused on research quality, not hype. The platform helps users create, compare, and validate trading logic in a controlled environment, with optional MT5 connectivity for market inspection when needed.
+[Get started](#quick-start) · [Explore the 17 workspaces](docs/PRODUCT_TOUR.md) ·
+[Build custom modules](docs/CUSTOM_MODULES.md) · [Connect MT5](#connect-xm--another-mt5-broker)
 
-![QUANTSMART Cockpit](docs/screenshots/home.jpg)
+## Make the rules your own
 
-[Explore all 17 workspaces](docs/PRODUCT_TOUR.md) · [Get started](#quick-start) · [Connect MT5](#connect-xm--another-mt5-broker) · [Security](SECURITY.md)
+Build a candle measurement from primitive blocks, combine indicators into a formula,
+or add context and strategy logic in Canvas. Inspect the connections and intermediate
+values before saving a component to your library. Templates give you somewhere to
+start; your definitions determine the experiment. You can also combine Cards into
+role-based ensembles and inspect how their members contribute.
 
-See the [Custom Module walkthrough](docs/CUSTOM_MODULES.md) for a visual guide to building and inspecting custom strategy components.
+![Strategy Canvas with module library, L0–L6 composition lanes and dependency checks](docs/screenshots/strategy-canvas.jpg)
 
-## What you can build
+[See the Custom Module walkthrough](docs/CUSTOM_MODULES.md) for a worked feature-graph
+example and formula inspection in Coordinate Lab.
 
-- **Strategy experiments:** assemble primitives, indicators, context filters, triggers
-  and simulated exits into a versioned Card.
-- **Custom quantitative algorithms:** define reusable modules and formula-driven
-  experiments, inspect their wiring, and combine Cards into role-based ensembles.
-- **Measured validation:** run backtests with stated costs, review OOS and holdout
-  coverage, inspect component ablations, and keep source-linked receipts.
-- **Market inspection:** explore historical OHLC, chart regions, multi-timeframe
-  structure, data-quality events and an optional MT5 tick stream.
+## Understand the result, trade by trade
 
-Start with a hypothesis, test it against a declared dataset, and review its limitations
-before changing the design. Built-in templates are editable starting points; they do
-not carry proven performance. Missing inputs remain unavailable.
+A backtest total is only the beginning. Microscope lets you inspect the price action
+around individual observations. Strategy Lab keeps the Card's composition and saved
+results together; Compatibility Map shows which historical, out-of-sample and holdout
+windows have actually been tested.
 
-**License:** Apache-2.0 for the distributed application source. See [LICENSE](LICENSE)
-and [NOTICE](NOTICE). Research runs never place trades. Optional manual execution
-is restricted to MT5 Demo accounts and requires a reviewed ticket.
+![Strategy Lab with saved Cards, measured backtest evidence and run controls](docs/screenshots/strategy-lab.jpg)
+
+Change a hypothesis, run it again, and compare the evidence. Review sample size,
+execution costs and fill assumptions alongside the result. A valid graph or a positive
+backtest does not establish future performance.
+
+## Use your own data
+
+Import authorized OHLC history for research, or connect an installed MT5 terminal on
+Windows to inspect broker prices and tick updates. Historical replay remains available
+without MT5. The source release includes no account credentials, private workspace or
+market-history files; your local installation supplies those inputs.
+
+QUANTSMART is open source under **Apache-2.0**. Research jobs never place broker
+orders. An optional, separately enabled manual ticket workflow supports MT5 **Demo**
+accounts with review and confirmation. Real accounts cannot use that execution path.
+See [verification and limits](docs/VERIFICATION.md), [LICENSE](LICENSE) and
+[SECURITY.md](SECURITY.md).
 
 ## Quick start
 
