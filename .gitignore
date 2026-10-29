@@ -11,8 +11,10 @@
 !/docs/
 !/docs/PRODUCT_TOUR.md
 !/docs/VERIFICATION.md
+!/docs/CUSTOM_MODULES.md
 !/docs/screenshots/
 !/docs/screenshots/*.jpg
+!/docs/screenshots/custom-l1-feature-graph.png
 !/start.bat
 !/requirements.txt
 !/requirements-mfe.txt

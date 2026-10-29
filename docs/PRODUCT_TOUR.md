@@ -175,6 +175,9 @@ tickets. Research jobs remain separate from manual execution.
 
 ## Suggested first experiment
 
+For a closer look at the authoring workflow, open the illustrated
+[Custom Module walkthrough](CUSTOM_MODULES.md).
+
 1. Launch QUANTSMART and import a historical dataset you are authorized to use.
 2. Open Canvas, assemble a small Card and inspect its dependencies.
 3. Save and validate the Card, then run its backtest in Strategy Lab.

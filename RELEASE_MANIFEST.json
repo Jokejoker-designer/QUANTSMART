@@ -14,28 +14,8 @@
     },
     {
       "path": ".gitignore",
-      "sha256": "b421cad0286831e023464f33075f97f9b6e32f850d5bc8dbf69e4fa37f95bf5b",
-      "bytes": 1144
-    },
-    {
-      "path": "LICENSE",
-      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-      "bytes": 11358
-    },
-    {
-      "path": "NOTICE",
-      "sha256": "7f15bb63df9ace66be6d54b37bc497eab341678e137dc5a826cf3e02a42acbab",
-      "bytes": 895
-    },
-    {
-      "path": "README.md",
-      "sha256": "7d1993e7690fbd8d5cf5fa969f6e93df838bdf0fdd93d6394fff13f01bb72efb",
-      "bytes": 10761
-    },
-    {
-      "path": "SECURITY.md",
-      "sha256": "aa62158bfe9ebb38b0e53e03b0d2dad8f3991e88a59beed82d0254cc5e00575c",
-      "bytes": 2364
+      "sha256": "0699c27694ddc3fa2dbc0f80d0dc06c8856547c09f720444f6ac6aa2c7bd3298",
+      "bytes": 1218
     },
     {
       "path": "bridge/demo_execution.py",
@@ -58,14 +38,14 @@
       "bytes": 12659
     },
     {
-      "path": "docs/PRODUCT_TOUR.md",
-      "sha256": "dbca505acd51a4acd8c443bdd090b96aff8e9b95e0085d6ca5470050af87e738",
-      "bytes": 7773
+      "path": "docs/CUSTOM_MODULES.md",
+      "sha256": "d6ad1e9687ed0eb62bd772bf1d09f5fa822f38faeea9d74b8a1a5e9fa7955eb5",
+      "bytes": 2784
     },
     {
-      "path": "docs/VERIFICATION.md",
-      "sha256": "066629b0cb4ec948f7e0fc5b05d1cf1afd12f3ddde08a984962e26642199f279",
-      "bytes": 2843
+      "path": "docs/PRODUCT_TOUR.md",
+      "sha256": "f54c4c4a83f995afb7545fdaebfc77444d1dfa0c1331c2755d899d32acff2130",
+      "bytes": 7888
     },
     {
       "path": "docs/screenshots/analysis.jpg",
@@ -86,6 +66,11 @@
       "path": "docs/screenshots/blocks-modules.jpg",
       "sha256": "a73069f298b1893554cdc3fe8e50c5edda3cb5f3a25df112433829a64048bc16",
       "bytes": 247890
+    },
+    {
+      "path": "docs/screenshots/custom-l1-feature-graph.png",
+      "sha256": "16cc7be6814e33b1de7cf680afcc67401347372794973f97294980aa2cd42fda",
+      "bytes": 253041
     },
     {
       "path": "docs/screenshots/debugger.jpg",
@@ -153,6 +138,16 @@
       "bytes": 81775
     },
     {
+      "path": "docs/VERIFICATION.md",
+      "sha256": "066629b0cb4ec948f7e0fc5b05d1cf1afd12f3ddde08a984962e26642199f279",
+      "bytes": 2843
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "bytes": 11358
+    },
+    {
       "path": "mfe_ux_lab/cockpit/index.html",
       "sha256": "38e98fd519c4608a0e2094e2d417b5cfacf27f779a42acf705bd83504d3ce337",
       "bytes": 691
@@ -168,11 +163,6 @@
       "bytes": 1048
     },
     {
-      "path": "mfe_ux_lab/cockpit/src/App.tsx",
-      "sha256": "496e9e469314301daad99ea6fff9486a27de15a19ef536aaf9983be126478610",
-      "bytes": 5346
-    },
-    {
       "path": "mfe_ux_lab/cockpit/src/adapters/loadCotrade.ts",
       "sha256": "69864340cc2b0b514fc63230acfc16e2f1ece0352f5430cf9ae66b5096244835",
       "bytes": 6697
@@ -186,6 +176,11 @@
       "path": "mfe_ux_lab/cockpit/src/adapters/loadSimOhlc.ts",
       "sha256": "fe8ac98a969b6a31fc48c9cca75a758c7ae50a15cd7b16f0d5a0ebee625f648d",
       "bytes": 6938
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/App.tsx",
+      "sha256": "496e9e469314301daad99ea6fff9486a27de15a19ef536aaf9983be126478610",
+      "bytes": 5346
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/AblationPanel.tsx",
@@ -453,6 +448,11 @@
       "bytes": 3847
     },
     {
+      "path": "mfe_ux_lab/cockpit/src/components/strategy-controls.css",
+      "sha256": "e7d09287a459153b73428e502fe6b506f4af342aa7ea8e9bfd41bae0b82c295a",
+      "bytes": 5484
+    },
+    {
       "path": "mfe_ux_lab/cockpit/src/components/StrategyAlbumPanel.tsx",
       "sha256": "504f3fabb8190c33c3d7a61044a431035fc48e4af67421a66aa699d562ebb76a",
       "bytes": 17111
@@ -503,11 +503,6 @@
       "bytes": 8569
     },
     {
-      "path": "mfe_ux_lab/cockpit/src/components/strategy-controls.css",
-      "sha256": "e7d09287a459153b73428e502fe6b506f4af342aa7ea8e9bfd41bae0b82c295a",
-      "bytes": 5484
-    },
-    {
       "path": "mfe_ux_lab/cockpit/src/components/ui/Glyph.tsx",
       "sha256": "67a85b77c027f2587f11cfaf02676eee438fec9290012b4f85544cc636284f57",
       "bytes": 15369
@@ -518,14 +513,14 @@
       "bytes": 2546
     },
     {
-      "path": "mfe_ux_lab/cockpit/src/components/ui/Ui.tsx",
-      "sha256": "5917c0f18cd9fee89d72a27f8d2584b9267d561aee1d0c4bff37d941fc14e0e6",
-      "bytes": 8164
-    },
-    {
       "path": "mfe_ux_lab/cockpit/src/components/ui/numericInput.ts",
       "sha256": "0382915f121d19a5457f5077d8e9b465b38edf4283ca79a9d0739d278cd92b03",
       "bytes": 833
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/components/ui/Ui.tsx",
+      "sha256": "5917c0f18cd9fee89d72a27f8d2584b9267d561aee1d0c4bff37d941fc14e0e6",
+      "bytes": 8164
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/vizkit/ChartPane.tsx",
@@ -546,51 +541,6 @@
       "path": "mfe_ux_lab/cockpit/src/core/useElementSize.ts",
       "sha256": "6e042ab549cbfad246070ddd588153c5fb5aafd3e8ddca16decdc865d509ecf9",
       "bytes": 964
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/FormulaCoordinateLab.tsx",
-      "sha256": "acdd4dc491997e2b69e17f7fd787c06305d8b6a2580046acfe3a3cc2747bbd81",
-      "bytes": 12045
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/FormulaGeometryInspector.tsx",
-      "sha256": "520a7487a898237a40c6d6ba7d9aba7489da2fc8ca2a272867451e1f3dece451",
-      "bytes": 4198
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/FormulaLabPage.tsx",
-      "sha256": "50bdd6433c8fc19e672b1aa44b4558507e86c11c6425c4f02ca1ffe7a15be2fc",
-      "bytes": 2059
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/HeatmapContourView.tsx",
-      "sha256": "b3bd9a82d006bc17465c202a63ce4a19202d7e858fb060df68b8cdde9467a49f",
-      "bytes": 3968
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/LayerTogglePanel.tsx",
-      "sha256": "34098af081df512776fd68183a4604d78720707ea58138cf7e81ceb959076757",
-      "bytes": 562
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/SlicePreview.tsx",
-      "sha256": "6513d153a253f357f735da734a0b9e844284fc663af114327e30e1ab544e09df",
-      "bytes": 4389
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/SurfaceMap3D.tsx",
-      "sha256": "1402762122acb6647a35bbe355bc237807d9e0009c7230879991e0d6ead6549f",
-      "bytes": 15577
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/VariableAxisPanel.tsx",
-      "sha256": "bfd41a6baaecc1d5b74792154c4ceba4e7cc4f571d120314ee2620f318ee9f90",
-      "bytes": 3142
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/WeightSweepPanel.tsx",
-      "sha256": "635d6515011c00ca13d7f95837021204ad461044e0ed62252c0cc1555f1faac1",
-      "bytes": 1427
     },
     {
       "path": "mfe_ux_lab/cockpit/src/formulaLab/adapters/quantToFormulaLab.ts",
@@ -683,36 +633,6 @@
       "bytes": 1809
     },
     {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/curve2d/Curve2DMode.tsx",
-      "sha256": "d3fb5fb552835f3a4182cdfaa718f61c74f261b7d64da060d19728794e26a83c",
-      "bytes": 16124
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/curve2d/CurveAxisMappingPanel.tsx",
-      "sha256": "14edf1d0e487444330014e76f67b3af1eebebb8d9e77d8b89b2e4f5a91682953",
-      "bytes": 3500
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/curve2d/CurveCanvas2D.tsx",
-      "sha256": "917241f0acbae885a2df9c8202bfcfec08660be95cb496bcb4520ebd66f8bace",
-      "bytes": 13950
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/curve2d/CurveInspector.tsx",
-      "sha256": "4a08c0fc5b38947ba529525c3bbb882d428df28e63795d3554c9d49cfa89c4ab",
-      "bytes": 4822
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/curve2d/CurveLegend.tsx",
-      "sha256": "2b7918aff1e70372755693777e27125bcee65948030ea352b17df3801ec03827",
-      "bytes": 1734
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/formulaLab/curve2d/CurveReplayScrub.tsx",
-      "sha256": "bef06f82b0e7b74c56fb8cd6b2a192163e2f0981c29cab9ddb8cb2f4f425d690",
-      "bytes": 4710
-    },
-    {
       "path": "mfe_ux_lab/cockpit/src/formulaLab/curve2d/core/curveBuild.ts",
       "sha256": "e2df236e882b2ec7b67cd0277571bbd8f1a2f0caf26e0240f6cc141ba5d8fc54",
       "bytes": 4922
@@ -748,14 +668,89 @@
       "bytes": 1804
     },
     {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/curve2d/Curve2DMode.tsx",
+      "sha256": "d3fb5fb552835f3a4182cdfaa718f61c74f261b7d64da060d19728794e26a83c",
+      "bytes": 16124
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/curve2d/CurveAxisMappingPanel.tsx",
+      "sha256": "14edf1d0e487444330014e76f67b3af1eebebb8d9e77d8b89b2e4f5a91682953",
+      "bytes": 3500
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/curve2d/CurveCanvas2D.tsx",
+      "sha256": "917241f0acbae885a2df9c8202bfcfec08660be95cb496bcb4520ebd66f8bace",
+      "bytes": 13950
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/curve2d/CurveInspector.tsx",
+      "sha256": "4a08c0fc5b38947ba529525c3bbb882d428df28e63795d3554c9d49cfa89c4ab",
+      "bytes": 4822
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/curve2d/CurveLegend.tsx",
+      "sha256": "2b7918aff1e70372755693777e27125bcee65948030ea352b17df3801ec03827",
+      "bytes": 1734
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/curve2d/CurveReplayScrub.tsx",
+      "sha256": "bef06f82b0e7b74c56fb8cd6b2a192163e2f0981c29cab9ddb8cb2f4f425d690",
+      "bytes": 4710
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/FormulaCoordinateLab.tsx",
+      "sha256": "acdd4dc491997e2b69e17f7fd787c06305d8b6a2580046acfe3a3cc2747bbd81",
+      "bytes": 12045
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/FormulaGeometryInspector.tsx",
+      "sha256": "520a7487a898237a40c6d6ba7d9aba7489da2fc8ca2a272867451e1f3dece451",
+      "bytes": 4198
+    },
+    {
       "path": "mfe_ux_lab/cockpit/src/formulaLab/formulaLab.css",
       "sha256": "c7743b0145a086830b9f3c6ecdda8d49c32d2c0456bbb268bfce140bfbc0ec81",
       "bytes": 5806
     },
     {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/FormulaLabPage.tsx",
+      "sha256": "50bdd6433c8fc19e672b1aa44b4558507e86c11c6425c4f02ca1ffe7a15be2fc",
+      "bytes": 2059
+    },
+    {
       "path": "mfe_ux_lab/cockpit/src/formulaLab/formulaLabStore.ts",
       "sha256": "df9d9399f39d2d2c4aed73b0e4939422afdd3f43f4a3e2bfd86daefde9960602",
       "bytes": 1358
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/HeatmapContourView.tsx",
+      "sha256": "b3bd9a82d006bc17465c202a63ce4a19202d7e858fb060df68b8cdde9467a49f",
+      "bytes": 3968
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/LayerTogglePanel.tsx",
+      "sha256": "34098af081df512776fd68183a4604d78720707ea58138cf7e81ceb959076757",
+      "bytes": 562
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/SlicePreview.tsx",
+      "sha256": "6513d153a253f357f735da734a0b9e844284fc663af114327e30e1ab544e09df",
+      "bytes": 4389
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/SurfaceMap3D.tsx",
+      "sha256": "1402762122acb6647a35bbe355bc237807d9e0009c7230879991e0d6ead6549f",
+      "bytes": 15577
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/VariableAxisPanel.tsx",
+      "sha256": "bfd41a6baaecc1d5b74792154c4ceba4e7cc4f571d120314ee2620f318ee9f90",
+      "bytes": 3142
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/formulaLab/WeightSweepPanel.tsx",
+      "sha256": "635d6515011c00ca13d7f95837021204ad461044e0ed62252c0cc1555f1faac1",
+      "bytes": 1427
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/activeSymbolStore.ts",
@@ -1203,14 +1198,14 @@
       "bytes": 2941
     },
     {
-      "path": "mfe_ux_lab/cockpit/src/lib/coefProfileStore.ts",
-      "sha256": "95c4643507b71ec5d2f39e7ec2fcd7234443b9fda10a198e4f11cdf68f259e38",
-      "bytes": 1446
-    },
-    {
       "path": "mfe_ux_lab/cockpit/src/lib/coefficientCalibration.ts",
       "sha256": "20940e2a309b141efe3bc6b11cfc69c4874dba7599c0f435c221cea4f3bbec92",
       "bytes": 7677
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/lib/coefProfileStore.ts",
+      "sha256": "95c4643507b71ec5d2f39e7ec2fcd7234443b9fda10a198e4f11cdf68f259e38",
+      "bytes": 1446
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/coord/camera.ts",
@@ -1553,6 +1548,16 @@
       "bytes": 24376
     },
     {
+      "path": "mfe_ux_lab/cockpit/src/pages/coefficients.css",
+      "sha256": "a287275d7ae618616413219718e36f4a546a1ef9779f9eb3147d265cb2119f4b",
+      "bytes": 9506
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/pages/cotrade.css",
+      "sha256": "d639821e15a187265bb5110f0c69fe165225e1cf9e241c8e9871632e3fe73572",
+      "bytes": 12832
+    },
+    {
       "path": "mfe_ux_lab/cockpit/src/pages/Debugger.tsx",
       "sha256": "5ecfa2866b454bfc0409cd583a68109e85198b1004e1b7ca6cdcc61cc16e722c",
       "bytes": 1768
@@ -1588,6 +1593,16 @@
       "bytes": 25116
     },
     {
+      "path": "mfe_ux_lab/cockpit/src/pages/product.css",
+      "sha256": "def0f5621abe1846d3cd92ca20d1ab923710fb49e444dab61305aa4fb79790d8",
+      "bytes": 10683
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/pages/quant-cockpit.css",
+      "sha256": "8f475c557e1d178c7d6277f07335b6931222d40c11825e893c309a2852472630",
+      "bytes": 12174
+    },
+    {
       "path": "mfe_ux_lab/cockpit/src/pages/ResearchCockpit.tsx",
       "sha256": "0956183f2cdad0ab6345bbaea4a43ae5ec899672cc2475b3c383c6db822dd65b",
       "bytes": 27387
@@ -1613,26 +1628,6 @@
       "bytes": 2884
     },
     {
-      "path": "mfe_ux_lab/cockpit/src/pages/coefficients.css",
-      "sha256": "a287275d7ae618616413219718e36f4a546a1ef9779f9eb3147d265cb2119f4b",
-      "bytes": 9506
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/pages/cotrade.css",
-      "sha256": "d639821e15a187265bb5110f0c69fe165225e1cf9e241c8e9871632e3fe73572",
-      "bytes": 12832
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/pages/product.css",
-      "sha256": "def0f5621abe1846d3cd92ca20d1ab923710fb49e444dab61305aa4fb79790d8",
-      "bytes": 10683
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/pages/quant-cockpit.css",
-      "sha256": "8f475c557e1d178c7d6277f07335b6931222d40c11825e893c309a2852472630",
-      "bytes": 12174
-    },
-    {
       "path": "mfe_ux_lab/cockpit/src/responsive.css",
       "sha256": "75fcd71cd4b43bac37f16007e296612344bfab6ed8eceb4ef19d80bd8cfc3e7e",
       "bytes": 8439
@@ -1643,24 +1638,14 @@
       "bytes": 12320
     },
     {
-      "path": "mfe_ux_lab/cockpit/src/shell/Layout.tsx",
-      "sha256": "62b76d40ffd16b29690faac5a0336d8ea2d8b680b0934a2c648b1ad08564117e",
-      "bytes": 9775
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/shell/WorkspaceErrorBoundary.tsx",
-      "sha256": "272b274e4eec3a8578d41d73b37e7db67f4d4f7aeafca5a95c6944617953e4b2",
-      "bytes": 616
-    },
-    {
-      "path": "mfe_ux_lab/cockpit/src/shell/WorkspaceGate.tsx",
-      "sha256": "9d21bfc3577a91084007be54e9752f0869e64b87f9d30db8ce17e7fda99e8368",
-      "bytes": 1280
-    },
-    {
       "path": "mfe_ux_lab/cockpit/src/shell/guide.css",
       "sha256": "e8c6277df64c705f0d2a8acb754e1be0bf52c6f7609759d50d0418692634bf7f",
       "bytes": 3970
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/shell/Layout.tsx",
+      "sha256": "62b76d40ffd16b29690faac5a0336d8ea2d8b680b0934a2c648b1ad08564117e",
+      "bytes": 9775
     },
     {
       "path": "mfe_ux_lab/cockpit/src/shell/mt5-connection.css",
@@ -1676,6 +1661,16 @@
       "path": "mfe_ux_lab/cockpit/src/shell/workspace.css",
       "sha256": "5c3f962399330f7133d3181a2f738ef7f725a640c41a44729f30ceef5ce3096c",
       "bytes": 9023
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/shell/WorkspaceErrorBoundary.tsx",
+      "sha256": "272b274e4eec3a8578d41d73b37e7db67f4d4f7aeafca5a95c6944617953e4b2",
+      "bytes": 616
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/shell/WorkspaceGate.tsx",
+      "sha256": "9d21bfc3577a91084007be54e9752f0869e64b87f9d30db8ce17e7fda99e8368",
+      "bytes": 1280
     },
     {
       "path": "mfe_ux_lab/cockpit/src/styles.css",
@@ -1763,9 +1758,19 @@
       "bytes": 831
     },
     {
+      "path": "NOTICE",
+      "sha256": "7f15bb63df9ace66be6d54b37bc497eab341678e137dc5a826cf3e02a42acbab",
+      "bytes": 895
+    },
+    {
       "path": "package.json",
       "sha256": "2422e090f442bea89a6e85c9073738417b30cb4d0c57b517009ddc67f12fc221",
       "bytes": 474
+    },
+    {
+      "path": "README.md",
+      "sha256": "f96f5125dd8492cfa5735cb43526f4a909299ed145c335f04a91d83aa22a1b4f",
+      "bytes": 10901
     },
     {
       "path": "requirements-dev.txt",
@@ -1789,13 +1794,18 @@
     },
     {
       "path": "scripts/package-release.mjs",
-      "sha256": "137e9863398338724e1cd7f2cf502a1d15a6ff84334f9524ab5198a6ad68765d",
-      "bytes": 7333
+      "sha256": "479ab632d0b0a67973f45473da4e087a6c8cadad3fae51c925c8d743962bbd43",
+      "bytes": 7405
     },
     {
       "path": "scripts/test.mjs",
       "sha256": "187937a9b490fde45ccc0c1a673ce62f3e3fc02358e6a1ca33905b99b24be0a7",
       "bytes": 1719
+    },
+    {
+      "path": "SECURITY.md",
+      "sha256": "aa62158bfe9ebb38b0e53e03b0d2dad8f3991e88a59beed82d0254cc5e00575c",
+      "bytes": 2364
     },
     {
       "path": "start.bat",

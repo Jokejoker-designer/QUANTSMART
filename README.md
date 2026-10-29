@@ -16,6 +16,9 @@ experiments stay on your machine.
 [Explore all 17 workspaces](docs/PRODUCT_TOUR.md) · [Get started](#quick-start) ·
 [Connect MT5](#connect-xm--another-mt5-broker) · [Security](SECURITY.md)
 
+See the [Custom Module walkthrough](docs/CUSTOM_MODULES.md) for the visual feature
+graph, authoring lanes and formula inspection workflow.
+
 ## What you can build
 
 - **Strategy experiments:** assemble primitives, indicators, context filters, triggers
