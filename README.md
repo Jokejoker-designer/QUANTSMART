@@ -267,3 +267,7 @@ your public repository from it. The command does not upload or publish anything.
 ## Quantitative methodology audit
 
 The [methodology audit](docs/QUANT_METHODOLOGY_AUDIT.md) documents reproduced gap-fill and custom-ablation defects, their regression tests, causal measurement checks, and the observed search-triage workflow used to validate the system.
+
+### Entry chronology corrections in 1.1.2
+
+The [follow-up audit](docs/QUANT_CHRONOLOGY_AUDIT.md) reproduces and fixes next-open ATR/Auto R:R look-ahead, missed exits in the intrabar entry candle, and tick-exact labels inferred from metadata. Versions 1.1.0 and 1.1.1 contain these defects. Rerun earlier experiments with the corrected engine. OHLC and M1 results remain approximate; no profitable edge or tick-exact execution is certified.

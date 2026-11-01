@@ -19,8 +19,8 @@
     },
     {
       "path": ".gitignore",
-      "sha256": "7b4a16714f40ba2bcb8a83aa4a7367f1351965b97dbf15a3e9f7e649876e9796",
-      "bytes": 1425
+      "sha256": "f700996dbff8e3254c54ce10cc7262f651766f5f191aa33c370233da1c5fe637",
+      "bytes": 1495
     },
     {
       "path": "LICENSE",
@@ -34,8 +34,8 @@
     },
     {
       "path": "README.md",
-      "sha256": "7943f9c5c2cd5c6975667e6831973fe849addf339644039c831a33794f2c0cae",
-      "bytes": 13159
+      "sha256": "218733898cc358813c64ec7f2952c83b09f199ed46d54e54a5ddfed0b0e7f5ec",
+      "bytes": 13047
     },
     {
       "path": "SECURITY.md",
@@ -88,9 +88,19 @@
       "bytes": 7436
     },
     {
+      "path": "docs/QUANT_CHRONOLOGY_AUDIT.md",
+      "sha256": "2776ebdad60e50a8eff576f2c26eb6a9f05e36abbf60a745d0ae4992821c0885",
+      "bytes": 9748
+    },
+    {
+      "path": "docs/QUANT_CHRONOLOGY_RESULTS.json",
+      "sha256": "4048b7474417c9902303dbdd515f1143786a74b4692a1374803f9e04b1de1c1e",
+      "bytes": 14194
+    },
+    {
       "path": "docs/QUANT_METHODOLOGY_AUDIT.md",
-      "sha256": "fd824ca8e1c90e530229b0e53b658113652a0d71657e755164db8da22b73c57d",
-      "bytes": 13036
+      "sha256": "91a09c86e26eb4d3defd906e07af288127ed0fb5c236c40c62349847263a12cc",
+      "bytes": 13227
     },
     {
       "path": "docs/VERIFICATION.md",
@@ -1404,13 +1414,13 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/realisticSimRun.ts",
-      "sha256": "04d8e7ecd7529b250e6f1e874b92e6873258d02a6588e38ce37abe49df14013b",
-      "bytes": 11922
+      "sha256": "96962e19459fffe041534ccdcd5aed8f337d6f3159fff5cdcf989fdfdc85f196",
+      "bytes": 11829
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/realisticStrategySim.ts",
-      "sha256": "c5975388989ea6e2d579e8f167bb6f1e30b02d6327b500b54b2fdda94d424265",
-      "bytes": 59655
+      "sha256": "423d339349598934feb26c820027bfa1fa463aa056c447191a6ef7746a761a4b",
+      "bytes": 62068
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/resampleM1.ts",
@@ -1444,8 +1454,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/simCalibration.ts",
-      "sha256": "e352c5a4f143b2e02406da0c83e861ada475c7afff1ff01ab32423c8672e174b",
-      "bytes": 5384
+      "sha256": "211e15926e28c57782896ff4bf8b890fad06a036f582f43330633972a9c3823b",
+      "bytes": 5302
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/simCalibrationHarness.ts",
@@ -1454,8 +1464,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/simConfig.ts",
-      "sha256": "6339ca70c87cad0f994e1a2aacb93dfefc0dd543cb93abe3a9e3b261bfedd4c4",
-      "bytes": 5028
+      "sha256": "915f2b9dae3b61f703f7c3651f8489d5bfa0d69b8c538d7407e29a3d3b3b76f6",
+      "bytes": 5031
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/simCostModel.ts",
@@ -1474,7 +1484,7 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/simManifest.ts",
-      "sha256": "82458b9cbd123db3f3b17d6fc0acafce81999bc7f3c17fb0c3773477e2bea720",
+      "sha256": "2c5d007f987a051b722d3d18fad7236bcac99768c980fecb609286bc480ee721",
       "bytes": 2339
     },
     {
@@ -1504,8 +1514,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/simTruthContract.ts",
-      "sha256": "e540ca95805fa957b115cb076beccc9afaf1b0692e3e7b48573a85cbdc960710",
-      "bytes": 3217
+      "sha256": "87114fe1eb2e23b13ddd7ce93b806314bf3c7a248ee553db6bf1d75e28c28e0e",
+      "bytes": 3182
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/simWalkForward.ts",
@@ -1834,8 +1844,8 @@
     },
     {
       "path": "package.json",
-      "sha256": "99ba2f3d809ac56afa803e510e455f5f69c6983243ac916080090e2c1da4069d",
-      "bytes": 1143
+      "sha256": "d4d411b8575f384c8d671e927a5cafb51c9512ede2cc9807dd141a9848584cdb",
+      "bytes": 1183
     },
     {
       "path": "requirements-dev.txt",
@@ -1879,13 +1889,13 @@
     },
     {
       "path": "scripts/package-release.mjs",
-      "sha256": "bbe6d643100b764c20f45933fed74432d1da75af2c24bd5f99c32640e89c6c52",
-      "bytes": 8178
+      "sha256": "0ffc1b4e69a3565b495637ceb7589c3e80a1ca658ef0e07180af9efdc86ee999",
+      "bytes": 8293
     },
     {
       "path": "scripts/test.mjs",
-      "sha256": "eae5a5e21387cef7a60a31f942aa5ee1453a2f0a3f2931d1ff4b5bd86d5ecd9a",
-      "bytes": 2536
+      "sha256": "f772b63ead46ffe73bbb2a4fae62038f25e8dc9b4a575bc0bed342557f30b383",
+      "bytes": 2555
     },
     {
       "path": "start.bat",
@@ -1939,13 +1949,18 @@
     },
     {
       "path": "tests/public-runtime.test.mjs",
-      "sha256": "09b9225ba8aa56361cbad56f906a551a91725b7059fd5ea1d448fc072b6b680f",
-      "bytes": 5735
+      "sha256": "5edc44d6a12906d1176122b3d8774f97bc3a80a5e8c791a340364d7ea61cfd1c",
+      "bytes": 6790
+    },
+    {
+      "path": "tests/quant-chronology.test.mjs",
+      "sha256": "ba37823846df4c2e25285d93322ae8907b721745fdde30b2e83304fbfcd96e06",
+      "bytes": 11617
     },
     {
       "path": "tests/quant-history-impact.mjs",
-      "sha256": "0f0f62c51e240f21c071031569c25fde667d47adec81d39d9e38bdd2a462c895",
-      "bytes": 3029
+      "sha256": "f773a4f2bb3b96866ce25820de547e5db5589504b0bbbd9531583a721e1ec3eb",
+      "bytes": 3205
     },
     {
       "path": "tests/quant-methodology.test.mjs",

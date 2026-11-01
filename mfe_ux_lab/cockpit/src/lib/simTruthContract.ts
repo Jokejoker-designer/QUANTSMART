@@ -1,6 +1,5 @@
-// simTruthContract — declares HOW TRUE each simulation result is (P-1 Truth Foundation).
-// M1 OHLC is the best long-history master clock, NOT absolute execution truth.
-// Tick bid/ask is the only absolute execution truth. Every run must declare its truth level.
+// Declare the path actually executed. OHLC/M1 paths remain approximate.
+// Tick availability metadata is not evidence of consumed bid/ask tick replay.
 
 export type DataTruthLevel =
   | "TICK_BID_ASK"
@@ -51,6 +50,7 @@ export interface TruthContractInput {
 }
 
 export function buildTruthContract(inp: TruthContractInput): SimulatorTruthContract {
+  if (inp.pathTruth === "TICK_PATH_EXACT") throw new Error("TICK_REPLAY_NOT_IMPLEMENTED: no executed bid/ask tick provenance is available");
   const warnings: string[] = [];
   const costTruth: CostTruthLevel =
     inp.costStatus === "CALIBRATED" ? "BROKER_SPEC_CALIBRATED"
@@ -61,7 +61,7 @@ export function buildTruthContract(inp: TruthContractInput): SimulatorTruthContr
 
   if (inp.priceBasis === "UNKNOWN") warnings.push("Price basis is unknown. Execution/cost modeling is provisional.");
   if (costTruth === "PROVISIONAL") warnings.push("Cost model is PROVISIONAL — requires broker tick/spec calibration.");
-  if (pathTruth === "HTF_HEURISTIC") warnings.push("Exit path resolved on design-TF OHLC (heuristic). Tick required for exact fill. M1 intrabar path deferred to P1.");
+  if (pathTruth === "HTF_HEURISTIC") warnings.push("Exit path uses design-bar OHLC. Intrabar order is unknown; tick replay is not implemented.");
   if (inp.timezoneStatus !== "VERIFIED") warnings.push("Timezone/session boundary is " + inp.timezoneStatus + ".");
 
   return {
@@ -78,7 +78,7 @@ export function buildTruthContract(inp: TruthContractInput): SimulatorTruthContr
 
 // plain-language one-liners for the UI truth surface
 export const TRUTH_LABEL: Record<string, string> = {
-  HTF_HEURISTIC: "M1 APPROX PATH — exit on HTF OHLC, tick required for exact fill",
+  HTF_HEURISTIC: "DESIGN-BAR OHLC HEURISTIC",
   M1_PATH_APPROX: "M1 APPROX PATH",
   TICK_PATH_EXACT: "TICK EXACT PATH",
   PROVISIONAL: "PROVISIONAL COST",

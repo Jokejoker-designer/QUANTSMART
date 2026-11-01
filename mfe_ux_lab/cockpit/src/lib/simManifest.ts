@@ -38,11 +38,11 @@ export interface BuildManifestInput {
 export function buildRunManifest(inp: BuildManifestInput): SimRunManifest {
   const { cfg, dataReality, truth, spec } = inp;
   const warnings = Array.from(new Set([...(dataReality.warnings || []), ...(truth.warnings || [])]));
-  const hashSource = { cost: cfg.cost, risk: cfg.risk, discipline: cfg.discipline, seed: cfg.seed, designTf: inp.designTf, version: cfg.version };
+  const hashSource = { cost: cfg.cost, risk: cfg.risk, discipline: cfg.discipline, seed: cfg.seed, designTf: inp.designTf, version: SIM_VERSION };
   return {
     run_id: `run_${Date.now()}_${configHash(hashSource)}`,
     created_at: new Date().toISOString(),
-    simulator_version: cfg.version || SIM_VERSION,
+    simulator_version: SIM_VERSION || SIM_VERSION,
     simulator_mode: cfg.simulatorMode,
     symbol: inp.symbol,
     design_tf: inp.designTf,

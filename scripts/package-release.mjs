@@ -42,6 +42,7 @@ top.push('docs/PRODUCT_TOUR.md','docs/VERIFICATION.md','docs/CUSTOM_MODULES.md',
 top.push('tests/language-audit.test.mjs','docs/screenshots/cockpit-overview.png','docs/screenshots/chart-replay.png');
 top.push('docs/INSTALLATION.md','.github/workflows/public-install.yml','scripts/environment.mjs','scripts/install.mjs','scripts/doctor.mjs','scripts/package-portable.mjs','tests/installer.test.mjs','tests/public-runtime.test.mjs','tests/first-run.test.mjs');
 top.push('tests/portable-entry.test.mjs');
+top.push('docs/QUANT_CHRONOLOGY_AUDIT.md','docs/QUANT_CHRONOLOGY_RESULTS.json','tests/quant-chronology.test.mjs');
 top.push('docs/INSTALLER_VALIDATION.md','docs/QUANT_METHODOLOGY_AUDIT.md','docs/QUANT_AUDIT_RESULTS.json','tests/quant-methodology.test.mjs','tests/research-trials.test.mjs','tests/quant-history-impact.mjs');
 // Only reviewed public screenshots are eligible; never enumerate the private artifact tree.
 for(const page of ['home','entry-danger','microscope','kidi-events','playbook','strategy-lab','strategy-canvas','blocks-modules','beast-lab','formula-lab','weekly-audit','strategy-ranking','assets','hidden-coefficients','analysis','debugger','help'])top.push(`docs/screenshots/${page}.jpg`);

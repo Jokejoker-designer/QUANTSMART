@@ -8,7 +8,7 @@
 import type { OhlcBar } from "../adapters/loadOhlcReplayChart.ts";
 import type { SimulatorRealismConfig, Timeframe, SizingMode } from "./simConfig.ts";
 import type { SymbolSpec } from "./symbolSpec.ts";
-import { getNextOpenFill, parseBarTime, newsWindow, classifySession, TF_MINUTES, type ParsedBarTime } from "./simTimeframe.ts";
+import { getNextOpenFill, parseBarTime, newsWindow, classifySession, TF_MINUTES } from "./simTimeframe.ts";
 import { makeRng, computeTradeCost, sessionSpread, type TradeCostBreakdown } from "./simCostModel.ts";
 import { resolveIntrabarM1, type AmbiguityPolicy } from "./intrabarM1Resolver.ts";
 import { evalEntryCustom, evalExitCustom, METRICS, type CustomModule, type Ctx } from "./customModule.ts";
@@ -30,6 +30,7 @@ export interface RealisticTradeResult {
   dir: "BUY" | "SELL";
   entry_mid: number;
   entry_effective: number;
+  exit_time?: string;          // observed child-bar interval for path exits; not a tick timestamp
   exit_mid?: number;
   exit_effective?: number;
   grossR: number;
@@ -280,16 +281,16 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
     const rng = b.h - b.l; const body = Math.abs(b.c - b.o);   // F3 blocks: wick/body ratios of the entry bar (additive keys)
     return { price: b.c, rsi: rsi[i], regime, hour, overlap: sess === "overlap" ? 1 : 0, spread: sessionSpread(sess, newsWindow(b.t), cfg.cost), atrPct: a / b.c * 100, atrRatio: a / (atrSlow[i] || a), emaGapAtr: (e10[i] - e34[i]) / a, priceEmaAtr: (b.c - e10[i]) / a, brokeHigh20: b.c > hi20(i) ? 1 : 0, brokeLow20: b.c < lo20(i) ? 1 : 0, wickRatio: rng > 0 ? +((rng - body) / rng).toFixed(3) : 0, bodyRatio: rng > 0 ? +(body / rng).toFixed(3) : 0, voteCount: votesLen, voteDir: votesDir, ddPct: peakEquity > 0 ? (equity - peakEquity) / peakEquity * 100 : 0, dayLosses: dayLossCount, dayPnlR: +dayPnlR.toFixed(2), barsSinceTrade: i - lastExitI, flowConsistency: +flowConsistencyAt(i).toFixed(3), htfAlign: htfCustom ? htfCustom.d1[i] + htfCustom.d4[i] : 0, pocDistAtr: +pocDistAtrAt(i, a).toFixed(3), extAtr: +(b.c > hi20(i) ? (b.c - hi20(i)) / a : b.c < lo20(i) ? (lo20(i) - b.c) / a : 0).toFixed(3), candleDir: candleDirAt(i, a), candleAlign: candleDirAt(i, a) * Math.sign(votesDir), ...cmAt(i) };   // ...cmAt = metric block-native (rỗng nếu card không trỏ evidence → byte-identical)
   };
-  const ev = (bar_index: number, event_type: SimEventType, reason: string) => res.events.push({ timestamp: bars[Math.min(bar_index, bars.length - 1)]?.t || "", bar_index, design_tf: designTf, symbol, card_id: cardId, event_type, reason });
+  const ev = (bar_index: number, event_type: SimEventType, reason: string, timestamp?: string) => res.events.push({ timestamp: timestamp ?? bars[Math.min(bar_index, bars.length - 1)]?.t ?? "", bar_index, design_tf: designTf, symbol, card_id: cardId, event_type, reason });
 
   // ── P1 INTRABAR ENTRY (execution_tf) ── try to open a position on a CLOSED exec bar INSIDE design bar i, using
   // context asOf the last CLOSED design bar (i-1) → enter EARLY without waiting for the design bar to close. Causal
   // (only closed exec bars + design levels ≤ i-1; never reads bar i's close). v1 covers the RECLAIM triggers
-  // (trend pullback + sweep); classic/rsi/range keep design-close. Exits stay design-tf/M1 (entry is the v1 feature).
-  // ONLY runs when execByDesign is provided + exec<design → existing cards are byte-identical (regression-safe).
-  function tryIntrabarEntry(i: number, regP: number, pt: ParsedBarTime): void {
-    const lvl = i - 1; if (lvl < 40) return;
-    const exb = execByDesign![i]; if (!exb || !exb.length) return;
+  // (trend pullback + sweep); classic/rsi/range keep design-close. Post-entry child bars resolve same-design-bar exits.
+  // Runs only with execution children finer than the design timeframe.
+  function tryIntrabarEntry(i: number, regP: number): OhlcBar[] | null {
+    const lvl = i - 1; if (lvl < 40) return null;
+    const exb = execByDesign![i]; if (!exb || !exb.length) return null;
     const e10L = e10[lvl], e34L = e34[lvl], atrL = atr[lvl] || 1, atrSlowL = atrSlow[lvl] || atrL;
     const up = regP > 0, dn = regP < 0;
     const w20 = bars.slice(Math.max(0, i - 20), i); const lo20v = Math.min(...w20.map((x) => x.l)), hi20v = Math.max(...w20.map((x) => x.h));
@@ -309,23 +310,35 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
       const dir: "BUY" | "SELL" | null = useFusion ? (Math.abs(score) >= TC.fusionThreshold ? (score > 0 ? "BUY" : "SELL") : null) : sum > 0 ? "BUY" : sum < 0 ? "SELL" : null;
       if (!dir) continue;
       const ds = dir === "BUY" ? 1 : -1;
-      const ph = +(eb.t.slice(11, 13)) || pt.h;
+      const fillMs = _ms(eb.t) + TF_MINUTES[cfg.executionTf] * 60000;
+      const designEnd = _ms(bars[i].t) + TF_MINUTES[designTf] * 60000;
+      if (fillMs >= designEnd) continue; // boundary signals use the design-close/next-open path
+      const fillTime = new Date(fillMs).toISOString();
+      const ph = parseBarTime(fillTime).h;
       if (has("regime_ctx") && regP !== ds) continue;
       if (has("session_ctx") && (ph < 7 || ph >= 21)) continue;
       if (has("dead_hour") && (ph >= 22 || ph < 2)) continue;
-      if (has("news_ctx") && newsWindow(eb.t)) continue;
+      if (has("news_ctx") && newsWindow(fillTime)) continue;
       if (has("no_trade_chop") && Math.abs(e10L - e34L) < 0.15 * atrL) continue;
       if ((has("atr_vol") || has("atr_pct")) && atrL < 0.65 * atrSlowL) continue;
       if (i <= cooldownUntil) { res.signals_blocked_by_cooldown++; continue; }
       if (tradesToday >= dayCap) { res.signals_blocked_by_daily_cap++; res.max_trades_per_day_breaches++; continue; }
-      const entry = eb.c, a = atrL;
+      const source = m1ByDesign ? m1ByDesign[i] : exb;
+      const step = (m1ByDesign ? 1 : TF_MINUTES[cfg.executionTf]) * 60000;
+      const postEntry = (source || []).filter(child => _ms(child.t) >= fillMs && _ms(child.t) < designEnd);
+      if (!postEntry.length || postEntry.length !== (designEnd - fillMs) / step || postEntry.some((child, index) => _ms(child.t) !== fillMs + index * step)) {
+        throw new Error("INTRABAR_POST_ENTRY_PATH_INCOMPLETE");
+      }
+      // The completed exec candle creates the signal. Its next observed child
+      // open supplies the fill, including any gap at that boundary.
+      const entry = postEntry[0].o, a = atrL;
       let sl: number, tp: number | null, risk: number;
       if (useStruct) {
         const w5 = bars.slice(Math.max(0, i - 5), i), ww20 = bars.slice(Math.max(0, i - 20), i);
         sl = dir === "BUY" ? Math.min(...w5.map((x) => x.l), entry) - 0.1 * a : Math.max(...w5.map((x) => x.h), entry) + 0.1 * a;
         tp = dir === "BUY" ? Math.max(...ww20.map((x) => x.h)) : Math.min(...ww20.map((x) => x.l));
-        risk = Math.abs(entry - sl); const rew = Math.abs(tp - entry);
-        if (risk <= 0 || rew / risk < MINRR) continue;
+        risk = Math.abs(entry - sl); const rew = dir === "BUY" ? tp - entry : entry - tp;
+        if ((dir === "BUY" ? sl >= entry : sl <= entry) || risk <= 0 || rew / risk < MINRR) continue;
       } else { sl = dir === "BUY" ? entry - a : entry + a; tp = null; risk = a; }
       const floor = (cfg.minStopAtrK ?? 0) * a;
       if (floor > 0 && risk < floor) { risk = floor; sl = dir === "BUY" ? entry - floor : entry + floor; }
@@ -333,126 +346,150 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
       const why = [...votes.filter((v) => v.dir === ds).map((v) => "▸ " + v.why), `⚙ Intrabar entry (execution_tf ${cfg.executionTf} over ${designTf}) → ${dir}`,
         ...(has("regime_ctx") ? [`Regime matches ${dir}`] : []), ...(has("session_ctx") ? [`✓ Session ${ph}h (7–21 UTC)`] : []),
         useStruct ? `🎯 ${hasDistRR ? "Distribution" : "Auto"} R:R intrabar — SL=${sl.toFixed(2)}, TP=${tp != null ? tp.toFixed(2) : "—"}` : "🎯 Fixed risk — SL=1·ATR, TP-cap +4R"];
-      pos = { dir, entry, sl, risk, tp, entryI: i, signalI: i, signalTime: eb.t, fillTime: eb.t, maxR: 0, atrEntry: a, favExc: 0, advExc: 0, why };
+      pos = { dir, entry, sl, risk, tp, entryI: i, signalI: i, signalTime: fillTime, fillTime, maxR: 0, atrEntry: a, favExc: 0, advExc: 0, why };
       res.markers.push({ i, price: entry, kind: dir === "BUY" ? "buy" : "sell" });
       res.actual_trades_taken++; tradesToday++;
-      ev(i, "POSITION_OPENED_MODELED", `intrabar ${dir} @ ${entry} (execution_tf ${cfg.executionTf})`);
-      return;   // one position
+      ev(i, "SIGNAL_SEEN", `${dir} closed ${cfg.executionTf} candidate`, fillTime);
+      ev(i, "FILL_MODELED", `intrabar ${dir} @ ${entry} (next observed open)`, fillTime);
+      ev(i, "POSITION_OPENED_MODELED", `intrabar ${dir} @ ${entry} (execution_tf ${cfg.executionTf})`, fillTime);
+      return postEntry; // one position; the caller consumes this suffix immediately
+    }
+    return null;
+  }
+
+  function processExit(i: number, entryPath?: OhlcBar[]): void {
+    if (!pos) return;
+    const b = bars[i];
+    const held = i - pos.entryI; let exit: number | null = null, grossR = 0, isStop = false, ambiguous = false;
+    let gStop = 0, gTp = 0, m1Resolved = false, intrabarOutcome = "", exitTime = b.t;
+    const rOf = (px: number) => (pos!.dir === "BUY" ? px - pos!.entry : pos!.entry - px) / pos!.risk;
+    const effTp = pos.tp != null ? pos.tp : (pos.dir === "BUY" ? pos.entry + TPCAP * pos.risk : pos.entry - TPCAP * pos.risk);
+    const path = entryPath ?? (m1ByDesign ? (m1ByDesign[i] || null) : null);
+    let observedBars: OhlcBar[] = path ?? [b];
+    if (path && path.length) {
+      const rr = resolveIntrabarM1(pos.dir, pos.sl, effTp, path, ambiguityPolicy);
+      if (m1ByDesign) res.m1_bars_scanned += rr.m1BarsScanned;
+      observedBars = path.slice(0, rr.m1BarsScanned);
+      if (rr.outcome !== "NO_TOUCH") {
+        m1Resolved = !!m1ByDesign; intrabarOutcome = m1ByDesign ? rr.outcome : "EXECUTION_" + rr.outcome; exitTime = rr.exitTime ?? b.t; isStop = rr.outcome === "SL_FIRST" || rr.outcome === "GAP_THROUGH_SL" || (rr.ambiguous && ambiguityPolicy !== "OPTIMISTIC_TP_FIRST");
+        if (rr.ambiguous) {
+          ambiguous = true; res.ambiguous_intrabar_count++; ev(i, "AMBIGUOUS_INTRABAR", "Both levels in one child candle; policy " + ambiguityPolicy, exitTime);
+          gStop = rOf(pos.sl); gTp = rOf(effTp);   // rOf(sl): SL nguyên gốc = −1 y hệt; SL đã DỜI (BE/LOCK_SL) = giá trị thật (fix accounting bug 2026-07-02)
+          grossR = ambiguityPolicy === "OPTIMISTIC_TP_FIRST" ? gTp : gStop;
+          exit = ambiguityPolicy === "OPTIMISTIC_TP_FIRST" ? effTp : pos.sl;
+        } else { exit = rr.exitPrice!; grossR = rOf(exit); gStop = grossR; gTp = grossR; }
+      }
+    } else {
+      // The same open-before-extremes convention applies without M1 children.
+      // Gaps cannot fill at a stop/target price that was skipped by the market.
+      const rr = resolveIntrabarM1(pos.dir, pos.sl, effTp, [b], ambiguityPolicy);
+      if (rr.outcome !== "NO_TOUCH") {
+        intrabarOutcome = "DESIGN_" + rr.outcome;
+        isStop = rr.outcome === "SL_FIRST" || rr.outcome === "GAP_THROUGH_SL" || (rr.ambiguous && ambiguityPolicy !== "OPTIMISTIC_TP_FIRST");
+        if (rr.ambiguous) {
+          ambiguous = true; res.ambiguous_intrabar_count++;
+          ev(i, "AMBIGUOUS_INTRABAR", "Both levels touched in one design bar; policy " + ambiguityPolicy);
+          gStop = rOf(pos.sl); gTp = rOf(effTp);
+          exit = rr.exitPrice!; grossR = rOf(exit);
+        } else {
+          exit = rr.exitPrice!; grossR = rOf(exit); gStop = grossR; gTp = grossR;
+        }
+      }
+    }
+    // Excursions use only the consumed post-entry path, never the full design
+    // candle after a child-path exit or its pre-entry high/low.
+    for (const observed of observedBars) {
+      const fav = pos.dir === "BUY" ? observed.h - pos.entry : pos.entry - observed.l;
+      const adv = pos.dir === "BUY" ? pos.entry - observed.l : observed.h - pos.entry;
+      pos.maxR = Math.max(pos.maxR, fav / pos.risk);
+      if (hasDistRR) { pos.favExc = Math.max(pos.favExc, fav); pos.advExc = Math.max(pos.advExc, adv); }
+    }
+    if (exit == null) {
+      // Close-based rules become available at the design candle's close.
+      exitTime = new Date(_ms(b.t) + TF_MINUTES[designTf] * 60000).toISOString();
+      // mr_exit — exit kiểu MEAN-REVERSION (owner: "TP về mid thay vì RR kiểu trend"): vào ở mép bị quét,
+      // chốt khi giá HỒI VỀ TRUNG BÌNH (close chạm lại EMA10) và đang có lãi. Additive, opt-in.
+      if (has("mr_exit") && held >= 1) {
+        const backAtMean = pos.dir === "BUY" ? b.c >= e10[i] : b.c <= e10[i];
+        if (backAtMean && rOf(b.c) > 0) { exit = b.c; grossR = rOf(b.c); gStop = grossR; gTp = grossR; }
+      }
+      const weak = exit == null && has("exit_weak") && (pos.dir === "BUY" ? (e10[i] < e34[i] || rsi[i] < 42) : (e10[i] > e34[i] || rsi[i] > 58));
+      if (weak && held >= 2) { exit = b.c; grossR = rOf(b.c); gStop = grossR; gTp = grossR; }
+      else if (held >= MAXHOLD) { exit = b.c; grossR = rOf(b.c); gStop = grossR; gTp = grossR; }
+    }
+    if (exit == null && customMods.length) {   // custom user EXIT modules (close / break-even / LOCK_SL protective)
+      const a = atr[i] || 1; const curR = (pos.dir === "BUY" ? b.c - pos.entry : pos.entry - b.c) / pos.risk;
+      const rngX = b.h - b.l; const bodyX = Math.abs(b.c - b.o);
+      const ce = evalExitCustom({ heldBars: held, rMultiple: curR, maxR: pos.maxR, rsi: rsi[i], regime, priceEmaAtr: (b.c - e10[i]) / a, atrPct: a / b.c * 100, atrRatio: a / (atrSlow[i] || a), wickRatio: rngX > 0 ? (rngX - bodyX) / rngX : 0, bodyRatio: rngX > 0 ? bodyX / rngX : 0, price: b.c, ...cmAt(i) }, customMods);
+      if (ce.breakeven) pos.sl = pos.entry;
+      // LOCK_SL — PROTECTIVE-ONLY: SL chỉ được siết về phía lãi (BUY: nâng lên, SELL: hạ xuống), không bao giờ nới.
+      if (ce.lockR != null) {
+        const lockPx = pos.dir === "BUY" ? pos.entry + ce.lockR * pos.risk : pos.entry - ce.lockR * pos.risk;
+        pos.sl = pos.dir === "BUY" ? Math.max(pos.sl, lockPx) : Math.min(pos.sl, lockPx);
+      }
+      if (ce.close) { exit = b.c; grossR = rOf(b.c); gStop = grossR; gTp = grossR; intrabarOutcome = "CUSTOM_EXIT"; }
+    }
+    if (exit != null) {
+      grossR = +grossR.toFixed(4); gStop = +gStop.toFixed(4); gTp = +gTp.toFixed(4);
+      if (grossR >= 0) { evWins++; evSumWin += grossR; } else { evLoss++; evSumLoss += Math.abs(grossR); }
+      if (useEvRolling) { evRoll.push(grossR); if (evRoll.length > 20) evRoll.shift(); }
+      // Freeze the provisional ATR slippage scale at entry; future exit-bar
+      // extremes cannot retrospectively change modeled entry costs.
+      const cost = computeTradeCost({ entryTime: pos.fillTime, exitTime, atr: pos.atrEntry || 1, riskPrice: pos.risk, isStopExit: isStop, dir: pos.dir, cost: cfg.cost, spec, rng, scenarioMult });
+      const netR = +(grossR - cost.totalCostR).toFixed(4);
+      const equityBefore = equity;
+      const riskAmt = sizingMode === "PERCENT_EQUITY" ? equity * (cfg.risk.riskPctEquity / 100) : cfg.risk.fixedRValue;
+      equity = +(equity + netR * riskAmt).toFixed(2);
+      if (equity > peakEquity) peakEquity = equity;
+      dayPnlR += netR; if (netR < 0) dayLossCount++; lastExitI = i;
+      driftWin.push(netR); if (driftWin.length > DRIFT_K) driftWin.shift();
+      if (hasDistRR) { favHistATR.push(pos.favExc / (pos.atrEntry || 1)); advHistATR.push(pos.advExc / (pos.atrEntry || 1)); }
+      const pt = parseBarTime(pos.signalTime);
+      const half = cost.spreadCostPrice / 2;
+      ev(i, "EXIT_TRIGGERED", intrabarOutcome || (isStop ? "SL" : grossR >= 0 ? "TP/target" : "time/weak exit"), exitTime);
+      ev(i, "COST_APPLIED", `costR=${cost.totalCostR.toFixed(3)} (${cost.costStatus})`, exitTime);
+      res.trades.push({
+        trade_id: `${cardId}#${++tid}`, card_id: cardId, design_tf: designTf,
+        signal_time: pos.signalTime, fill_time: pos.fillTime, exit_time: exitTime,
+        direction: pos.dir === "BUY" ? "LONG_SCENARIO" : "SHORT_SCENARIO", dir: pos.dir,
+        entry_mid: pos.entry, entry_effective: +(pos.entry + (pos.dir === "BUY" ? half : -half)).toFixed(2),
+        exit_mid: exit, exit_effective: +(exit + (pos.dir === "BUY" ? -half : half)).toFixed(2),
+        grossR, netR, costR: +cost.totalCostR.toFixed(4), costBreakdown: cost, sizingMode,
+        equityBefore, equityAfter: equity, outcome: grossR >= 0 ? "TP" : "SL",
+        entryI: pos.entryI, exitI: i, hour: pt.h, month: pt.mo, year: pt.y, ambiguous,
+        grossR_stopFirst: gStop, grossR_tpFirst: gTp, m1Resolved, intrabarOutcome, why: pos.why,
+      });
+      res.markers.push({ i, price: exit, kind: grossR >= 0 ? "tp" : "sl" });
+      ev(i, "TRADE_CLOSED", `grossR=${grossR} netR=${netR}`, exitTime);
+      cooldownUntil = i + cooldown;
+      pos = null;
+      if (!res.ruined && equity <= equityFloor) { res.ruined = true; res.ruin_time = exitTime; res.ruin_trade_index = res.trades.length; res.equity_at_ruin = equity; ev(i, "RUN_COMPLETED", "ACCOUNT_BLOWN — equity " + equity + " ≤ floor; trading stopped", exitTime); }
     }
   }
 
   for (let i = 40; i < bars.length; i++) {
     if (res.ruined) break;                       // account blown → stop trading
     const b = bars[i], pb = bars[i - 1];
+    const pt = parseBarTime(b.t);
+    if (pt.dateKey !== curDay) { curDay = pt.dateKey; tradesToday = 0; dayLossCount = 0; dayPnlR = 0; }
     const regimePrev = regime;                   // regime asOf bar i-1 (BEFORE this bar's update) — for causal intrabar entry
     const r = e10[i] > e34[i] ? 1 : e10[i] < e34[i] ? -1 : 0;
     if (r === regime) persist++; else { regime = r; persist = 1; }
     if ((regime > 0 && b.c < e10[i]) || (regime < 0 && b.c > e10[i])) belowRun++; else belowRun = 0;
     if (belowRun >= 2) { armed = true; armedAge = 0; } else if (armed) { armedAge++; if (armedAge > 4) armed = false; }
 
-    // ── exit: M1 intrabar path if provided (P1), else design_tf OHLC heuristic (P0) ──
-    if (pos) {
-      const held = i - pos.entryI; let exit: number | null = null, grossR = 0, isStop = false, ambiguous = false;
-      let gStop = 0, gTp = 0, m1Resolved = false, intrabarOutcome = "";
-      { const favR = (pos.dir === "BUY" ? b.h - pos.entry : pos.entry - b.l) / pos.risk; if (favR > pos.maxR) pos.maxR = favR; }
-      if (hasDistRR) { const fav = pos.dir === "BUY" ? b.h - pos.entry : pos.entry - b.l; const adv = pos.dir === "BUY" ? pos.entry - b.l : b.h - pos.entry; if (fav > pos.favExc) pos.favExc = fav; if (adv > pos.advExc) pos.advExc = adv; }
-      const rOf = (px: number) => (pos!.dir === "BUY" ? px - pos!.entry : pos!.entry - px) / pos!.risk;
-      const effTp = pos.tp != null ? pos.tp : (pos.dir === "BUY" ? pos.entry + TPCAP * pos.risk : pos.entry - TPCAP * pos.risk);
-      const m1kids = m1ByDesign ? (m1ByDesign[i] || null) : null;
-      if (m1kids && m1kids.length) {
-        const rr = resolveIntrabarM1(pos.dir, pos.sl, effTp, m1kids, ambiguityPolicy);
-        res.m1_bars_scanned += rr.m1BarsScanned;
-        if (rr.outcome !== "NO_TOUCH") {
-          m1Resolved = true; intrabarOutcome = rr.outcome; isStop = rr.outcome === "SL_FIRST" || rr.outcome === "GAP_THROUGH_SL" || (rr.ambiguous && ambiguityPolicy !== "OPTIMISTIC_TP_FIRST");
-          if (rr.ambiguous) {
-            ambiguous = true; res.ambiguous_intrabar_count++; ev(i, "AMBIGUOUS_INTRABAR", "SL&TP in one M1 candle — policy " + ambiguityPolicy);
-            gStop = rOf(pos.sl); gTp = rOf(effTp);   // rOf(sl): SL nguyên gốc = −1 y hệt; SL đã DỜI (BE/LOCK_SL) = giá trị thật (fix accounting bug 2026-07-02)
-            grossR = ambiguityPolicy === "OPTIMISTIC_TP_FIRST" ? gTp : gStop;
-            exit = ambiguityPolicy === "OPTIMISTIC_TP_FIRST" ? effTp : pos.sl;
-          } else { exit = rr.exitPrice!; grossR = rOf(exit); gStop = grossR; gTp = grossR; }
-        }
-      } else {
-        // The same open-before-extremes convention applies without M1 children.
-        // Gaps cannot fill at a stop/target price that was skipped by the market.
-        const rr = resolveIntrabarM1(pos.dir, pos.sl, effTp, [b], ambiguityPolicy);
-        if (rr.outcome !== "NO_TOUCH") {
-          intrabarOutcome = "DESIGN_" + rr.outcome;
-          isStop = rr.outcome === "SL_FIRST" || rr.outcome === "GAP_THROUGH_SL" || (rr.ambiguous && ambiguityPolicy !== "OPTIMISTIC_TP_FIRST");
-          if (rr.ambiguous) {
-            ambiguous = true; res.ambiguous_intrabar_count++;
-            ev(i, "AMBIGUOUS_INTRABAR", "Both levels touched in one design bar; policy " + ambiguityPolicy);
-            gStop = rOf(pos.sl); gTp = rOf(effTp);
-            exit = rr.exitPrice!; grossR = rOf(exit);
-          } else {
-            exit = rr.exitPrice!; grossR = rOf(exit); gStop = grossR; gTp = grossR;
-          }
-        }
-      }
-      if (exit == null) {
-        // mr_exit — exit kiểu MEAN-REVERSION (owner: "TP về mid thay vì RR kiểu trend"): vào ở mép bị quét,
-        // chốt khi giá HỒI VỀ TRUNG BÌNH (close chạm lại EMA10) và đang có lãi. Additive, opt-in.
-        if (has("mr_exit") && held >= 1) {
-          const backAtMean = pos.dir === "BUY" ? b.c >= e10[i] : b.c <= e10[i];
-          if (backAtMean && rOf(b.c) > 0) { exit = b.c; grossR = rOf(b.c); gStop = grossR; gTp = grossR; }
-        }
-        const weak = exit == null && has("exit_weak") && (pos.dir === "BUY" ? (e10[i] < e34[i] || rsi[i] < 42) : (e10[i] > e34[i] || rsi[i] > 58));
-        if (weak && held >= 2) { exit = b.c; grossR = rOf(b.c); gStop = grossR; gTp = grossR; }
-        else if (held >= MAXHOLD) { exit = b.c; grossR = rOf(b.c); gStop = grossR; gTp = grossR; }
-      }
-      if (exit == null && customMods.length) {   // custom user EXIT modules (close / break-even / LOCK_SL protective)
-        const a = atr[i] || 1; const curR = (pos.dir === "BUY" ? b.c - pos.entry : pos.entry - b.c) / pos.risk;
-        const rngX = b.h - b.l; const bodyX = Math.abs(b.c - b.o);
-        const ce = evalExitCustom({ heldBars: held, rMultiple: curR, maxR: pos.maxR, rsi: rsi[i], regime, priceEmaAtr: (b.c - e10[i]) / a, atrPct: a / b.c * 100, atrRatio: a / (atrSlow[i] || a), wickRatio: rngX > 0 ? (rngX - bodyX) / rngX : 0, bodyRatio: rngX > 0 ? bodyX / rngX : 0, price: b.c, ...cmAt(i) }, customMods);
-        if (ce.breakeven) pos.sl = pos.entry;
-        // LOCK_SL — PROTECTIVE-ONLY: SL chỉ được siết về phía lãi (BUY: nâng lên, SELL: hạ xuống), không bao giờ nới.
-        if (ce.lockR != null) {
-          const lockPx = pos.dir === "BUY" ? pos.entry + ce.lockR * pos.risk : pos.entry - ce.lockR * pos.risk;
-          pos.sl = pos.dir === "BUY" ? Math.max(pos.sl, lockPx) : Math.min(pos.sl, lockPx);
-        }
-        if (ce.close) { exit = b.c; grossR = rOf(b.c); gStop = grossR; gTp = grossR; intrabarOutcome = "CUSTOM_EXIT"; }
-      }
-      if (exit != null) {
-        grossR = +grossR.toFixed(4); gStop = +gStop.toFixed(4); gTp = +gTp.toFixed(4);
-        if (grossR >= 0) { evWins++; evSumWin += grossR; } else { evLoss++; evSumLoss += Math.abs(grossR); }
-        if (useEvRolling) { evRoll.push(grossR); if (evRoll.length > 20) evRoll.shift(); }
-        const cost = computeTradeCost({ entryTime: pos.fillTime, exitTime: b.t, atr: atr[i] || atr[pos.entryI] || 1, riskPrice: pos.risk, isStopExit: isStop, dir: pos.dir, cost: cfg.cost, spec, rng, scenarioMult });
-        const netR = +(grossR - cost.totalCostR).toFixed(4);
-        const equityBefore = equity;
-        const riskAmt = sizingMode === "PERCENT_EQUITY" ? equity * (cfg.risk.riskPctEquity / 100) : cfg.risk.fixedRValue;
-        equity = +(equity + netR * riskAmt).toFixed(2);
-        if (equity > peakEquity) peakEquity = equity;
-        dayPnlR += netR; if (netR < 0) dayLossCount++; lastExitI = i;
-        driftWin.push(netR); if (driftWin.length > DRIFT_K) driftWin.shift();
-        if (hasDistRR) { favHistATR.push(pos.favExc / (pos.atrEntry || 1)); advHistATR.push(pos.advExc / (pos.atrEntry || 1)); }
-        const pt = parseBarTime(pos.signalTime);
-        const half = cost.spreadCostPrice / 2;
-        ev(i, "EXIT_TRIGGERED", m1Resolved ? "M1:" + intrabarOutcome : isStop ? "SL" : grossR >= 0 ? "TP/target" : "time/weak exit");
-        ev(i, "COST_APPLIED", `costR=${cost.totalCostR.toFixed(3)} (${cost.costStatus})`);
-        res.trades.push({
-          trade_id: `${cardId}#${++tid}`, card_id: cardId, design_tf: designTf,
-          signal_time: pos.signalTime, fill_time: pos.fillTime,
-          direction: pos.dir === "BUY" ? "LONG_SCENARIO" : "SHORT_SCENARIO", dir: pos.dir,
-          entry_mid: pos.entry, entry_effective: +(pos.entry + (pos.dir === "BUY" ? half : -half)).toFixed(2),
-          exit_mid: exit, exit_effective: +(exit + (pos.dir === "BUY" ? -half : half)).toFixed(2),
-          grossR, netR, costR: +cost.totalCostR.toFixed(4), costBreakdown: cost, sizingMode,
-          equityBefore, equityAfter: equity, outcome: grossR >= 0 ? "TP" : "SL",
-          entryI: pos.entryI, exitI: i, hour: pt.h, month: pt.mo, year: pt.y, ambiguous,
-          grossR_stopFirst: gStop, grossR_tpFirst: gTp, m1Resolved, intrabarOutcome, why: pos.why,
-        });
-        res.markers.push({ i, price: exit, kind: grossR >= 0 ? "tp" : "sl" });
-        ev(i, "TRADE_CLOSED", `grossR=${grossR} netR=${netR}`);
-        cooldownUntil = i + cooldown;
-        pos = null;
-        if (!res.ruined && equity <= equityFloor) { res.ruined = true; res.ruin_time = b.t; res.ruin_trade_index = res.trades.length; res.equity_at_ruin = equity; ev(i, "RUN_COMPLETED", "ACCOUNT_BLOWN — equity " + equity + " ≤ floor; trading stopped"); }
-      }
-    }
+    const decisionTime = new Date(_ms(b.t) + TF_MINUTES[designTf] * 60000).toISOString();
+    const decisionEvent = (type: SimEventType, reason: string) => ev(i, type, reason, decisionTime);
+    const occupiedAtOpen = !!pos;
+    processExit(i);
 
     // ── entry: decide at close i, fill at open i+1 ──
     if (!pos) {
       if (res.ruined) continue;                  // no capital left → no new trades
-      const pt = parseBarTime(b.t);
-      if (pt.dateKey !== curDay) { curDay = pt.dateKey; tradesToday = 0; dayLossCount = 0; dayPnlR = 0; }
-      if (intrabarEntry) { tryIntrabarEntry(i, regimePrev, pt); if (pos) continue; }   // P1: try EARLY entry on an exec bar inside this design bar; else fall through to design-close
+      if (intrabarEntry && !occupiedAtOpen) {
+        const entryPath = tryIntrabarEntry(i, regimePrev);
+        if (entryPath) { processExit(i, entryPath); continue; }
+      }   // P1: try EARLY entry on an exec bar inside this design bar; else fall through to design-close
       const up = regime > 0, dn = regime < 0;
       // each vote carries WHY (which trigger fired) — so the entry rationale is the REAL vote source, not a guessed label.
       const votes: { dir: number; w: number; rel: number; why: string }[] = [];
@@ -604,14 +641,14 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
 
       // a real signal exists → now apply DISCIPLINE before allowing an entry
       res.signals_seen++;
-      ev(i, "SIGNAL_SEEN", `${dir} candidate`);
-      if (cfg.discipline.onePositionAtATime && pos) { res.signals_blocked_by_existing_position++; ev(i, "SIGNAL_BLOCKED_POSITION_OPEN", "position already open"); continue; }
-      if (i <= cooldownUntil) { res.signals_blocked_by_cooldown++; ev(i, "SIGNAL_BLOCKED_COOLDOWN", `cooldown until bar ${cooldownUntil}`); continue; }
-      if (tradesToday >= dayCap) { res.signals_blocked_by_daily_cap++; res.max_trades_per_day_breaches++; ev(i, "SIGNAL_BLOCKED_DAILY_CAP", `daily cap ${dayCap} reached`); continue; }
+      decisionEvent("SIGNAL_SEEN", `${dir} candidate`);
+      if (cfg.discipline.onePositionAtATime && pos) { res.signals_blocked_by_existing_position++; decisionEvent("SIGNAL_BLOCKED_POSITION_OPEN", "position already open"); continue; }
+      if (i <= cooldownUntil) { res.signals_blocked_by_cooldown++; decisionEvent("SIGNAL_BLOCKED_COOLDOWN", `cooldown until bar ${cooldownUntil}`); continue; }
+      if (tradesToday >= dayCap) { res.signals_blocked_by_daily_cap++; res.max_trades_per_day_breaches++; decisionEvent("SIGNAL_BLOCKED_DAILY_CAP", `daily cap ${dayCap} reached`); continue; }
 
       const fill = getNextOpenFill(i, bars);
-      if (!fill) { ev(i, "DATA_WARNING", "no next bar for next-open fill — entry skipped"); continue; }
-      const a = atr[fill.fillIndex] || atr[i] || 1; const entry = fill.fillOpen;
+      if (!fill) { decisionEvent("DATA_WARNING", "no next bar for next-open fill — entry skipped"); continue; }
+      const a = atr[i] || 1; const entry = fill.fillOpen; // signal-time ATR; fill H/L/C is not yet known
       let sl: number, tp: number | null, risk: number;
       if (hasDistRR && favHistATR.length >= 20) {   // SL≈p90 of own past MAE, TP≈p75 of own past MFE (ATR units, causal)
         const slATR = Math.max(0.5, percentile(advHistATR, 0.9)), tpATR = Math.max(slATR * MINRR, percentile(favHistATR, 0.75));
@@ -619,11 +656,11 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
         tp = dir === "BUY" ? entry + tpATR * a : entry - tpATR * a;
         risk = Math.abs(entry - sl); if (risk <= 0) continue;
       } else if (useAutoRR) {
-        const w5 = bars.slice(Math.max(0, fill.fillIndex - 5), fill.fillIndex + 1), w20 = bars.slice(Math.max(0, fill.fillIndex - 20), fill.fillIndex + 1);
+        const w5 = bars.slice(Math.max(0, i - 4), i + 1), w20 = bars.slice(Math.max(0, i - 19), i + 1);
         sl = dir === "BUY" ? Math.min(...w5.map((x) => x.l)) - 0.1 * a : Math.max(...w5.map((x) => x.h)) + 0.1 * a;
         tp = dir === "BUY" ? Math.max(...w20.map((x) => x.h)) : Math.min(...w20.map((x) => x.l));
-        risk = Math.abs(entry - sl); const reward = Math.abs(tp - entry);
-        if (risk <= 0 || reward / risk < MINRR) continue;
+        risk = Math.abs(entry - sl); const reward = dir === "BUY" ? tp - entry : entry - tp;
+        if ((dir === "BUY" ? sl >= entry : sl <= entry) || risk <= 0 || reward / risk < MINRR) continue;
       } else {
         sl = dir === "BUY" ? entry - a : entry + a; tp = null; risk = a;
       }
@@ -631,9 +668,9 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
       // a REALISTIC stop → kills the "$1 structure-stop → +37R" artifact (affects GROSS R, not just cost/NET).
       const stopFloor = (cfg.minStopAtrK ?? 0) * a;
       if (stopFloor > 0 && risk < stopFloor) { risk = stopFloor; sl = dir === "BUY" ? entry - stopFloor : entry + stopFloor; }
-      ev(i, "ORDER_INTENT_MODELED", `${dir} @ next-open ${entry}`);
-      ev(fill.fillIndex, "FILL_MODELED", `${dir} filled ${entry} (open of bar i+1)`);
-      ev(fill.fillIndex, "POSITION_OPENED_MODELED", `risk=${risk.toFixed(2)} sl=${sl.toFixed(2)} tp=${tp == null ? "cap" : tp.toFixed(2)}`);
+      decisionEvent("ORDER_INTENT_MODELED", `${dir} @ next-open ${entry}`);
+      ev(fill.fillIndex, "FILL_MODELED", `${dir} filled ${entry} (open of bar i+1)`, fill.fillTime);
+      ev(fill.fillIndex, "POSITION_OPENED_MODELED", `risk=${risk.toFixed(2)} sl=${sl.toFixed(2)} tp=${tp == null ? "cap" : tp.toFixed(2)}`, fill.fillTime);
       // ── REAL entry rationale: the votes that AGREED with the chosen direction (the triggers that actually fired) +
       // how they combined + every active gate that PASSED + the RR design. Derived from the engine, accurate, not a label.
       const sumV = votes.reduce((s2, v) => s2 + v.dir, 0), scoreV = votes.reduce((s2, v) => s2 + v.dir * v.w, 0);
@@ -660,12 +697,12 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
         : useAutoRR ? `🎯 Auto R:R — SL=swing 5n (${sl.toFixed(2)}), target at the opposing 20-bar level (${tp != null ? tp.toFixed(2) : "—"})`
         : "Fixed research risk: 1 ATR stop, +4R target cap, 28-bar timeout";
       const whyArr = [...triggers, "⚙ " + combineStr + " → " + dir, ...gp, rrStr];
-      pos = { dir, entry, sl, risk, tp, entryI: fill.fillIndex, signalI: i, signalTime: b.t, fillTime: fill.fillTime, maxR: 0, atrEntry: a, favExc: 0, advExc: 0, why: whyArr };
+      pos = { dir, entry, sl, risk, tp, entryI: fill.fillIndex, signalI: i, signalTime: decisionTime, fillTime: fill.fillTime, maxR: 0, atrEntry: a, favExc: 0, advExc: 0, why: whyArr };
       res.markers.push({ i: fill.fillIndex, price: entry, kind: dir === "BUY" ? "buy" : "sell" });
       res.actual_trades_taken++; tradesToday++;
     }
   }
   res.final_equity = equity;
-  ev(bars.length - 1, "RUN_COMPLETED", `${res.actual_trades_taken} trades · ${res.signals_seen} signals seen`);
+  ev(bars.length - 1, "RUN_COMPLETED", `${res.actual_trades_taken} trades · ${res.signals_seen} signals seen`, bars.length ? new Date(_ms(bars[bars.length - 1].t) + TF_MINUTES[designTf] * 60000).toISOString() : "");
   return res;
 }

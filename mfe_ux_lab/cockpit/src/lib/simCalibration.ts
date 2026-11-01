@@ -1,6 +1,5 @@
-// simCalibration — P4. Lift cost/path TRUTH from PROVISIONAL/APPROX toward CALIBRATED/EXACT when real
-// broker spec / tick data is supplied. With NO broker feed everything stays PROVISIONAL (honest).
-// The infrastructure is always present; the lift only happens with real numbers — never faked.
+// Broker cost/spec calibration is independent of execution-path precision.
+// The OHLC/M1 engine does not execute bid/ask ticks, regardless of availability metadata.
 import { cloneSimConfig, type SimulatorRealismConfig } from "./simConfig.ts";
 import type { SymbolSpec } from "./symbolSpec.ts";
 
@@ -12,7 +11,7 @@ export interface BrokerCalibrationInput {
   commissionRTPerLotUsd?: number;
   swapLongUsdPerLotNight?: number; swapShortUsdPerLotNight?: number;
   spread?: { overlap?: number; single?: number; asia?: number; rollover?: number };
-  hasTickBidAsk?: boolean;          // real tick bid/ask → exact intrabar fill order
+  hasTickBidAsk?: boolean;          // availability metadata only; never proof of executed tick replay
   brokerTimeOffsetHours?: number;   // verified GMT offset
 }
 
@@ -64,14 +63,15 @@ export function applyBrokerCalibration(cfg: SimulatorRealismConfig, spec: Symbol
   }
   if (specCalibrated) c.cost.slippage.status = "CALIBRATED";
 
-  const pathExact = !!input.hasTickBidAsk;
-  if (pathExact) notes.push("Tick bid/ask available → intrabar fill order is EXACT (no ambiguity).");
-  else notes.push("No tick bid/ask → M1 path stays APPROX; sub-M1 order remains ambiguous.");
+  // This bundle calibrates broker inputs. Neither OHLC facade consumes a tick
+  // bid/ask path, so availability metadata cannot certify execution precision.
+  const pathExact = false;
+  if (input.hasTickBidAsk) notes.push("Tick availability was reported, but this simulator did not execute a bid/ask tick path. Path remains approximate.");
+  else notes.push("No executed bid/ask tick path. OHLC/M1 ordering remains approximate.");
   const timezoneVerified = input.brokerTimeOffsetHours != null;
 
-  const allCost = spreadCalibrated && commissionCalibrated && swapCalibrated && specCalibrated;
   const anyCost = spreadCalibrated || commissionCalibrated || swapCalibrated || specCalibrated;
-  const level: CalibrationLevel = allCost && pathExact ? "FULLY_CALIBRATED" : anyCost || pathExact ? "PARTIALLY_CALIBRATED" : "FULLY_PROVISIONAL";
+  const level: CalibrationLevel = anyCost ? "PARTIALLY_CALIBRATED" : "FULLY_PROVISIONAL";
 
   return { cfg: c, spec: s, pathExact, state: { level, specCalibrated, spreadCalibrated, commissionCalibrated, swapCalibrated, pathExact, timezoneVerified, source: input.source, notes } };
 }

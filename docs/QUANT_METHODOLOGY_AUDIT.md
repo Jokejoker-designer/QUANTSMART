@@ -1,5 +1,7 @@
 # Quantitative methodology audit
 
+Follow-up: the [1.1.2 chronology audit](QUANT_CHRONOLOGY_AUDIT.md) identifies additional engine defects not covered by the measurement checks below. Versions 1.1.0 and 1.1.1 require reruns.
+
 Audit date: 1 November 2026. Baseline: `e17448af4e1f4f93414b8ee512600b9e1bc2e634`.
 Scope: the public QUANTSMART research engine, measurement implementations,
 leave-one-out ablation and backend search provenance. No broker orders were sent.

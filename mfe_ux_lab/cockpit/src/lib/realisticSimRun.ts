@@ -26,7 +26,7 @@ export interface RealisticBacktestOptions {
   timezoneStatus?: "VERIFIED" | "PROVISIONAL" | "UNKNOWN";
   withWalkForward?: boolean;        // P2: re-run K OOS folds (off by default — heavy)
   walkForwardFolds?: number;
-  calibration?: BrokerCalibrationInput;   // P4: lift cost/path truth toward CALIBRATED/EXACT
+  calibration?: BrokerCalibrationInput;   // broker cost/spec metadata; does not certify executed tick replay
   capital?: number;                 // Funding mode: user-chosen starting capital ($) → %-equity sizing
   riskPct?: number;                 // risk per trade as % of equity (funding mode)
   customModules?: CustomModule[];   // user-authored modules (full library; filtered to the card's refs)
@@ -63,8 +63,8 @@ export function runRealisticBacktest(designBars: OhlcBar[], card: any, opts: Rea
   if (opts.capital != null && opts.capital > 0) { cfgBase.risk.initialEquity = opts.capital; cfgBase.risk.sizingMode = "PERCENT_EQUITY"; }
   if (opts.riskPct != null && opts.riskPct > 0) cfgBase.risk.riskPctEquity = opts.riskPct;
 
-  let spec = getSymbolSpec(symbol); let pathExact = false; let calState: CalibrationState;
-  if (opts.calibration) { const b = applyBrokerCalibration(cfgBase, spec, opts.calibration); cfgBase.cost = b.cfg.cost; spec = b.spec; calState = b.state; pathExact = b.pathExact; }
+  let spec = getSymbolSpec(symbol); const pathExact = false; let calState: CalibrationState;
+  if (opts.calibration) { const b = applyBrokerCalibration(cfgBase, spec, opts.calibration); cfgBase.cost = b.cfg.cost; spec = b.spec; calState = b.state; }
   else calState = readCalibrationState(cfgBase, spec);
   const dataReality = analyzeDataReality(designBars, {
     symbol, timeframe: designTf,
@@ -77,7 +77,7 @@ export function runRealisticBacktest(designBars: OhlcBar[], card: any, opts: Rea
     priceBasis: dataReality.priceBasis,
     timezoneStatus: dataReality.timezoneStatus,
     costStatus: cfgBase.cost.spread.status,
-    pathTruth: pathExact ? "TICK_PATH_EXACT" : "HTF_HEURISTIC",   // P0 resolves on design-TF OHLC unless tick-calibrated
+    pathTruth: "HTF_HEURISTIC", // this facade executes design-bar OHLC, never tick replay
     executionTruth: "MODELED_NEXT_OPEN",
     brokerTimeOffset: "+03:00 (broker GMT+3 rollover)",
   });
@@ -137,13 +137,13 @@ export function runRealisticBacktestM1(m1Bars: OhlcBar[], card: any, opts: Reali
     if (execBars) { execByDesign = groupExecByDesign(designBars, execBars, designTf); cfgBase.executionTf = execTf; }   // executionTf label flips ONLY when intrabar is actually wired (no lying)
   }
 
-  let spec = getSymbolSpec(symbol); let pathExact = false; let calState: CalibrationState;
-  if (opts.calibration) { const b = applyBrokerCalibration(cfgBase, spec, opts.calibration); cfgBase.cost = b.cfg.cost; spec = b.spec; calState = b.state; pathExact = b.pathExact; }
+  let spec = getSymbolSpec(symbol); const pathExact = false; let calState: CalibrationState;
+  if (opts.calibration) { const b = applyBrokerCalibration(cfgBase, spec, opts.calibration); cfgBase.cost = b.cfg.cost; spec = b.spec; calState = b.state; }
   else calState = readCalibrationState(cfgBase, spec);
   const dataReality = analyzeDataReality(designBars, { symbol, timeframe: designTf, priceBasis: opts.priceBasis ?? "UNKNOWN", timezoneStatus: opts.timezoneStatus ?? "PROVISIONAL", spreadAvailable: false, volumeKind: "MISSING" });
   const truth = buildTruthContract({
     dataTruth: "M1_UNKNOWN_PRICE_BASIS", priceBasis: dataReality.priceBasis, timezoneStatus: dataReality.timezoneStatus,
-    costStatus: cfgBase.cost.spread.status, pathTruth: pathExact ? "TICK_PATH_EXACT" : "M1_PATH_APPROX", executionTruth: "MODELED_NEXT_OPEN", brokerTimeOffset: "+03:00 (broker GMT+3 rollover)",
+    costStatus: cfgBase.cost.spread.status, pathTruth: "M1_PATH_APPROX", executionTruth: "MODELED_NEXT_OPEN", brokerTimeOffset: "+03:00 (broker GMT+3 rollover)",
   });
 
   const autoRR = !!(card && Array.isArray(card.modules) && card.modules.includes("auto_rr"));
