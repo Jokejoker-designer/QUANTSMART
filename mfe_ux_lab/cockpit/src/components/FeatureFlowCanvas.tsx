@@ -134,7 +134,7 @@ export function FeatureFlowCanvas({ graph, sel, onSel, latest, onMove, onConnect
               {ports.map((port, k) => { const yy = portY(n, k, K), wired = !!n.inputs[k]; return (
                 <circle key={"i" + k} cx={p.x} cy={yy} r={5} fill={wired ? col : "#0b0f15"} stroke={!wired && port.required ? TK.orange : col} strokeWidth={1.5}
                   onPointerUp={(e) => { e.stopPropagation(); tryConnect(n.id, k); }}
-                  onPointerDown={(e) => { e.stopPropagation(); if (!wire && wired) onConnect(n.id, k, ""); }} style={{ cursor: "pointer" }}><title>{port.name} ({port.type}){wired ? "Click to disconnect" : ""}</title></circle>
+                  onPointerDown={(e) => { e.stopPropagation(); if (!wire && wired) onConnect(n.id, k, ""); }} style={{ cursor: "pointer" }}><title>{`${port.name} (${port.type})${wired?" · Click to disconnect":""}`}</title></circle>
               ); })}
               {/* output port (right) */}
               {b.outputs[0].type !== "FEATURE_OUTPUT" && <circle cx={p.x + NODEW} cy={cy} r={5} fill="#0b0f15" stroke={col} strokeWidth={1.6}

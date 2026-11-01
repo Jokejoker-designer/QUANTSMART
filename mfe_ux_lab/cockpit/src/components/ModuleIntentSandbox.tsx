@@ -13,11 +13,14 @@ import type { CustomModule } from "../lib/customModule.ts";
 const MONO = "var(--mfe-mono, monospace)";
 const WINDOW = 400;   // số nến hiển thị (gần nhất) — đủ thấy pattern, nhẹ
 
-export function ModuleIntentSandbox({ draft, valid }: { draft: CustomModule; valid: boolean }) {
-  const [bars, setBars] = useState<OhlcBar[] | null>(null);
-  const [tf] = useState("M15");
+export function ModuleIntentSandbox({ draft, valid, bars: suppliedBars, timeframe = "M15", sourceLabel }: { draft: CustomModule; valid: boolean; bars?: OhlcBar[]; timeframe?: string; sourceLabel?: string }) {
+  const [fallbackBars, setBars] = useState<OhlcBar[] | null>(null);
+  const [error, setError] = useState("");
+  const bars = suppliedBars ?? fallbackBars;
+  const tf = timeframe;
   const [sel, setSel] = useState<FirePoint | null>(null);
-  useEffect(() => { loadSimOhlc(tf).then((d) => setBars((d?.bars || null))); }, [tf]);
+  useEffect(() => { if (suppliedBars !== undefined) return; let alive=true; setBars(null); setError(""); loadSimOhlc(tf).then(d=>{if(alive){setBars(d?.bars || []);if(!d?.bars?.length)setError("No historical observations are available. Import a CSV in the parent sandbox.");}}).catch(e=>{if(alive){setBars([]);setError(e.message);}}); return()=>{alive=false;}; }, [tf, suppliedBars]);
+  useEffect(()=>setSel(null),[bars,draft.id,draft.conditions]);
 
   const full = useMemo(() => (bars || []).slice(-8000), [bars]);   // cap preview ~8000 nến gần nhất (snappy; hiển thị chỉ 400) — số thật full-decade ở Microscope
   const view = useMemo(() => full.slice(-WINDOW), [full]);
@@ -26,6 +29,7 @@ export function ModuleIntentSandbox({ draft, valid }: { draft: CustomModule; val
   const res = useMemo(() => (valid && full.length > 60 ? previewModule(full, draft) : null), [full, draft, valid]);
   const viewFires = useMemo(() => (res ? res.fires.filter((f) => f.i >= offset) : []), [res, offset]);
 
+  if (error || bars?.length === 0) return <p role="status">{error || "No selected observations. Choose a CSV above."}</p>;
   if (!bars) return <div className="pmut psm" style={{ padding: 8 }}>Loading bars {tf}…</div>;
   if (!valid) return <div className="pmut psm" style={{ padding: 8, color: TK.orange }}>Fix the module conditions before opening its preview.</div>;
   if (res && !res.previewable) return (
@@ -45,8 +49,9 @@ export function ModuleIntentSandbox({ draft, valid }: { draft: CustomModule; val
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        {sourceLabel && <span>{sourceLabel}</span>}
         <b style={{ fontSize: 11.5, color: TK.cyan }}><Glyph name="target" size={11} /> Intent Sandbox</b>
-        <span className="pmut" style={{ fontSize: 10 }}>eligible on <b style={{ color: TK.green }}>{viewFires.length}</b> observations within {view.length} recent bars; full tape {res?.fires.length ?? 0}). Select a marker for its explanation.</span>
+        <span className="pmut" style={{ fontSize: 10 }}>eligible on <b style={{ color: TK.green }}>{viewFires.length}</b> observations within {view.length} recent bars; full tape {res?.fires.length ?? 0}. Select a marker for its explanation.</span>
       </div>
       <div style={{ border: "1px solid #1b2a39", borderRadius: 8, background: "#070D14", overflow: "hidden" }}>
         <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>

@@ -30,7 +30,7 @@ export function loadCustomL2(): CustomL2Module[] {
   try { const raw = localStorage.getItem(KEY); _mem = raw ? (JSON.parse(raw) as CustomL2Module[]) : []; } catch { _mem = []; }
   return _mem!;
 }
-export function saveCustomL2(list: CustomL2Module[]): void { _mem = list; try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* mem-only */ } }
+export function saveCustomL2(list: CustomL2Module[]): void { if(typeof localStorage!=="undefined")localStorage.setItem(KEY,JSON.stringify(list)); _mem=list; }
 export function setL2ModuleStatus(id: string, status: L2Status): CustomL2Module[] { const list = loadCustomL2().map((m) => (m.id === id ? { ...m, status } : m)); saveCustomL2(list); return list; }
 export function deleteCustomL2(id: string): CustomL2Module[] { const list = loadCustomL2().filter((m) => m.id !== id); saveCustomL2(list); return list; }
 

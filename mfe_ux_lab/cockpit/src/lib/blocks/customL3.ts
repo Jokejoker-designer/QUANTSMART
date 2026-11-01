@@ -53,7 +53,7 @@ export function loadCustomL3(): CustomL3Module[] {
   try { const raw = localStorage.getItem(KEY); _mem = raw ? (JSON.parse(raw) as CustomL3Module[]) : []; } catch { _mem = []; }
   return _mem!;
 }
-function persist(list: CustomL3Module[]) { _mem = list; try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* mem-only */ } }
+function persist(list: CustomL3Module[]) { if(typeof localStorage!=="undefined")localStorage.setItem(KEY,JSON.stringify(list)); _mem=list; }
 
 // create a new module or update an existing one (by id). On update, version bumps ONLY if the astHash changed.
 export function upsertCustomL3(m: CustomL3Module): CustomL3Module[] {

@@ -1,10 +1,15 @@
+import {commitDefinitionChange} from "../lib/definitionPersistence.ts";
+import {resolveBeastContext} from "../lib/cardBeastV2/beastContext.ts";
+import {useSandboxDataset} from "../lib/sandboxDataset.ts";
+import {SandboxDatasetControls} from "./SandboxDatasetControls.tsx";
+import {runResearchJob,researchStorage} from "../lib/researchJobs.ts";
 // BeastBuilderPanel (P4b) — Tactical 6-Slot TCG Deck Builder.
 // Composes Strategy Cards from your Library into explicit Role Slots (ATTACKER, GUARD, CONFIRMATION, SCOUT,
 // EXIT_SENTINEL, FALLBACK + locked L0 SAFETY). composeBeast strictly filters modules by Role authority and
 // rolePowerReport measures leave-one-role-out impact on the canonical engine.
 import { flushWorkspace } from "../lib/workspaceClient.ts";
 import { runResearchAnalysis } from "../lib/researchJobs.ts";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TK } from "./ui/Ui.tsx";
 import { Glyph } from "./ui/Glyph.tsx";
 import { loadSimOhlc } from "../adapters/loadSimOhlc.ts";
@@ -118,6 +123,7 @@ export function BeastBuilderPanel({ onBeastSaved }: { onBeastSaved?: (beast: Sav
     };
   });
   const [name, setName] = useState("Apex Tactical Beast");
+  const dataset=useSandboxDataset();
   const [busy, setBusy] = useState(false);
   interface PowerRow {
     role: string;
@@ -208,7 +214,12 @@ export function BeastBuilderPanel({ onBeastSaved }: { onBeastSaved?: (beast: Sav
     return out;
   }, [picked, lib, customStore]); // eslint-disable-line
 
-  const comp = useMemo(() => composeBeast(members), [members]);
+  const operating=useMemo(()=>{try {const ids=Object.values(picked).flat().filter(id=>id.startsWith("lib:")).map(id=>id.slice(4));const cards=lib.filter(card=>ids.includes(card.id));return {context:resolveBeastContext(cards,{symbol:dataset.selected?.symbol||"XAUUSD",design_tf:dataset.tf,execution_tf:dataset.tf}),error:""};}catch(error){return {context:null,error:error instanceof Error?error.message:String(error)};}},[picked,lib,dataset.selected?.symbol,dataset.tf]);
+  const rawComposition=useMemo(()=>composeBeast(members),[members]);
+  const comp={...rawComposition,ok:rawComposition.ok&&!operating.error,errors:[...rawComposition.errors,...(operating.error?[operating.error]:[])]};
+  const powerKey=JSON.stringify({members,context:operating.context,importId:dataset.id,tf:dataset.tf});
+  const powerSnapshot=useRef(powerKey);powerSnapshot.current=powerKey;
+  useEffect(()=>setPower(null),[powerKey]);
   const lineageReady = members.every(
     (m) => m.source_kind !== "STRATEGY_CARD" || (!!m.source_artifact_id && !!m.source_content_hash)
   );
@@ -229,9 +240,13 @@ export function BeastBuilderPanel({ onBeastSaved }: { onBeastSaved?: (beast: Sav
     setBusy(true);
     setPower(null);
     try {
-      const d = await loadSimOhlc("M15", false);
-      const bars = ((d?.bars || []) as OhlcBar[]).slice(-24000);
-      const rp = await runResearchAnalysis<ReturnType<typeof rolePowerReport>>("beast_roles", bars, null, { members });
+      const context=operating.context;if(!context)throw new Error(operating.error);
+      if(!dataset.id||dataset.bars.length<200)throw new Error("Select at least 200 CSV observations for role analysis.");
+      if(dataset.tf!==context.design_tf||dataset.selected?.symbol!==context.symbol)throw new Error("The CSV symbol and evaluation timeframe must match the Beast operating context.");
+      if(context.execution_tf!==context.design_tf)throw new Error("Role analysis requires equal design and execution timeframes. No finer execution data is inferred.");
+      const bars=dataset.bars;const expected=powerSnapshot.current;
+      const rp=await runResearchJob<ReturnType<typeof rolePowerReport>>({kind:"diagnostic",analysis:"beast_roles",importId:dataset.id,from:bars[0].t,to:bars[bars.length-1].t,windowTf:dataset.tf,timeframe:dataset.tf,options:{symbol:context.symbol},parameters:{members,context},storage:researchStorage()});
+      if(expected!==powerSnapshot.current)throw new Error("The definition or dataset changed. Run role analysis again.");
       setPower({
         full: { n: rp.full.n, exp: rp.full.exp, dd: rp.full.dd },
         rows: rp.rows.map((r) => ({
@@ -261,6 +276,7 @@ export function BeastBuilderPanel({ onBeastSaved }: { onBeastSaved?: (beast: Sav
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ fontSize: 10.5, color: "#94A3B8", textTransform: "none", fontWeight: 600 }}>Deck Name:</span>
           <input
+            aria-label="Beast deck name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             style={{
@@ -286,6 +302,8 @@ export function BeastBuilderPanel({ onBeastSaved }: { onBeastSaved?: (beast: Sav
         .bb-opt:hover{border-color:var(--border-active);color:#F8FAFC}
       `}</style>
 
+      <SandboxDatasetControls data={dataset}/>
+      <p>Operating context: {operating.context ? `${operating.context.symbol} · design ${operating.context.design_tf} · execution ${operating.context.execution_tf}` : operating.error}. Member context is preserved in exported Cards.</p>
       {/* Active Formation Bar */}
       <div
         style={{
@@ -407,6 +425,11 @@ export function BeastBuilderPanel({ onBeastSaved }: { onBeastSaved?: (beast: Sav
                     <div
                       key={o.key}
                       className="bb-opt"
+                      role="checkbox"
+                      aria-checked={on}
+                      aria-label={`${role}: ${o.label}`}
+                      tabIndex={0}
+                      onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();toggle(role,o.key);}}}
                       onClick={() => toggle(role, o.key)}
                       title={o.modules.join(" · ")}
                       style={
@@ -500,7 +523,7 @@ export function BeastBuilderPanel({ onBeastSaved }: { onBeastSaved?: (beast: Sav
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
         <button
           onClick={measurePower}
-          disabled={busy || !comp.ok}
+          disabled={busy || !comp.ok || !dataset.bars.length}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -525,7 +548,7 @@ export function BeastBuilderPanel({ onBeastSaved }: { onBeastSaved?: (beast: Sav
               const evidence: SavedRoleEvidence | undefined = power
                 ? {
                     measured_at: new Date().toISOString(),
-                    timeframe: "M15",
+                    timeframe: operating.context?.design_tf || dataset.tf,
                     bars: power.bars,
                     cost_mode: "NORMAL",
                     full: power.full,
@@ -533,8 +556,9 @@ export function BeastBuilderPanel({ onBeastSaved }: { onBeastSaved?: (beast: Sav
                     identity: power.identity,
                   }
                 : undefined;
-              const saved = saveBeast(name, members, comp, evidence);
-              await flushWorkspace();
+              let saved:SavedBeast|undefined;
+              await commitDefinitionChange(()=>{saved=saveBeast(name,members,comp,evidence,operating.context || undefined);},["mfe_beasts"]);
+              if(!saved)throw new Error("Beast definition did not persist.");
               onBeastSaved?.(saved);
               setMsg("Saved Beast “" + name + "” with frozen Card lineage" + (evidence ? " + role evidence." : "."));
             } catch (error) {
@@ -566,9 +590,8 @@ export function BeastBuilderPanel({ onBeastSaved }: { onBeastSaved?: (beast: Sav
             if (!comp.ok || busy) return;
             setBusy(true);
             try {
-              const r = exportBeastAsCard(name, comp);
-              if (!r.ok) throw new Error(r.note);
-              await flushWorkspace();
+              const context=operating.context;if(!context)throw new Error(operating.error);
+              await commitDefinitionChange(()=>{const r=exportBeastAsCard(name,comp,context.design_tf,context.symbol,context.execution_tf);if(!r.ok)throw new Error(r.note);},["mfe_strategy_cards","mfe_custom_modules"]);
               setMsg("Exported Beast as a Strategy Card in the Library. Ready for Arena Duel or Microscope validation.");
             } catch (error) {
               setMsg(`Card export failed: ${(error as Error).message}`);

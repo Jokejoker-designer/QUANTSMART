@@ -1,3 +1,7 @@
+import {writePromptText} from "../lib/promptClipboard.ts";
+import{useDefinitionPersistence}from"../lib/definitionPersistence.ts";
+import{useSandboxDataset}from"../lib/sandboxDataset.ts";
+import{SandboxDatasetControls}from"./SandboxDatasetControls.tsx";
 // L6ZoneBuilder — L6 Visualization Hub: build zone (anchor + role + offset/width) + hiển-thị MỌI lớp L1→L6 trên MỘT
 // ChartPane qua strategyRenderFeed (pure). Layout flagship 3 cột (parity L2): form+controls · Hub chart · Inspector.
 // L6 = zone-only · advisory · KHÔNG order (vắng field = enforcement). Live param + custom màu.
@@ -63,7 +67,9 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
   const [role, setRole] = useState<ZoneRole>("DEMAND");
   const [offsetAtr, setOffsetAtr] = useState(0);
   const [widthAtr, setWidthAtr] = useState(0.5);
-  const [bars, setBars] = useState<OhlcBar[] | null>(null);
+  const persistence=useDefinitionPersistence();
+  const dataset=useSandboxDataset();
+  const bars=dataset.bars;
   const [activeRecipeId, setActiveRecipeId] = useState<string>("l6z_demand");
   const [showOverlayDrawer, setShowOverlayDrawer] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -74,9 +80,7 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
   const [showSafetySeal, setShowSafetySeal] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
 
-  useEffect(() => {
-    loadSimOhlc("M15").then((d) => setBars(d?.bars || null));
-  }, []);
+
 
   const draft: Partial<CustomL6Zone> = {
     name,
@@ -88,6 +92,9 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
     widthAtr,
   };
   const valid = validateL6Zone(draft);
+  if(anchor==="l5_state")valid.errors.push("L5 state runtime is not implemented. Choose a supported anchor.");
+  if(anchor==="evidence"&&!evMetrics.some(metric=>metric.key===anchorRef))valid.errors.push("Select an existing L1/L2/L3 evidence input.");
+  valid.ok=valid.errors.length===0;
   const band = useMemo(() => {
     if (!bars || bars.length < 30) return null;
     const i = bars.length - 1;
@@ -114,7 +121,7 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
 
   const hubFeed = useMemo(() => {
     if (!bars || bars.length < 30) return null;
-    const pv = bars.slice(-1500);
+    const pv = bars;
     const zones: CustomL6Zone[] = [];
     if (valid.ok) {
       zones.push({
@@ -130,15 +137,18 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
         createdAt: "",
       });
     }
-    for (const z of savedZones) zones.push(z);
+    for (const z of savedZones) {
+      const sameDraft = valid.ok && z.name === name && z.anchor === anchor && (z.anchorRef || "") === (draft.anchorRef || "") && z.role === role && z.offsetAtr === offsetAtr && z.widthAtr === widthAtr;
+      if (!sameDraft) zones.push(z);
+    }
     const decisionModule = hubModuleId ? savedModules.find((m) => m.id === hubModuleId) ?? null : null;
     return { bars: pv, feed: strategyRenderFeed({ bars: pv, indicators: hubInds, zones, decisionModule }) };
   }, [bars, valid.ok, name, explain, anchor, anchorRef, role, offsetAtr, widthAtr, savedZones, hubInds, hubModuleId, savedModules]);
 
-  function save(attachAndClose = false) {
+  async function save(attachAndClose = false) {
     if (!valid.ok) return;
     const z: CustomL6Zone = {
-      id: "l6_" + Date.now().toString(36),
+      id: "l6_" + crypto.randomUUID(),
       name: name.trim(),
       explain: explain.trim(),
       anchor,
@@ -149,31 +159,25 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
       status: "SHADOW",
       createdAt: new Date().toISOString(),
     };
-    saveCustomL6([z, ...loadCustomL6()]);
+    if(!await persistence.commit(()=>saveCustomL6([z,...loadCustomL6()]),["mfe_custom_l6"]))return;
     setSaved(true);
-    onSaved?.(z.id);
+    if (attachAndClose) onSaved?.(z.id);
     if (attachAndClose) onClose();
   }
 
-  function copyPrompt() {
-    try {
-      navigator.clipboard?.writeText(buildLayerPack("L6"));
-    } catch {
-      /* */
-    }
-    setAiCopied(true);
-    setTimeout(() => setAiCopied(false), 1600);
+  async function copyPrompt() {
+    setAiCopied(false);
+    try {await writePromptText(buildLayerPack("L6"));setAiCopied(true);setTimeout(()=>setAiCopied(false),1600);}
+    catch(error){setAiMsg({ok:false,text:error instanceof Error?error.message:String(error)});}
   }
-
   function importAi() {
     const r = parseAiZone(aiJson);
     if (!r.ok || !r.zone) {
       setAiMsg({ ok: false, text: "✗ " + (r.errors[0] || "Invalid JSON") });
       return;
     }
-    saveCustomL6([r.zone, ...loadCustomL6()]);
-    setAiMsg({ ok: true, text: `Loaded zone «${r.zone.name}»` });
-    onSaved?.(r.zone.id);
+    const z=r.zone;setName(z.name);setExplain(z.explain);setAnchor(z.anchor);setAnchorRef(z.anchorRef||'');setRole(z.role);setOffsetAtr(z.offsetAtr);setWidthAtr(z.widthAtr);setSaved(false);
+    setAiMsg({ok:true,text:'Zone definition loaded. Inspect it on the selected CSV, then save as Shadow.'});
   }
 
   const applyRecipe = (blockId: string) => {
@@ -195,7 +199,8 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
   const roleColor = ROLE_COLOR[role];
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "var(--bg-app, #070B14)", zIndex: 130, display: "flex", flexDirection: "column", padding: 12, boxSizing: "border-box", overflow: "hidden" }}>
+    <div className="sandbox-workspace" role="dialog" aria-modal="true" aria-label="L6 zone sandbox" style={{ position: "fixed", inset: 0, background: "var(--bg-app, #070B14)", zIndex: 130, display: "flex", flexDirection: "column", padding: 12, boxSizing: "border-box", overflow: "hidden" }}>
+      <SandboxDatasetControls data={dataset}/>{persistence.error&&<p role="alert" style={{color:"#fca5a5"}}>{persistence.error}</p>}
       {/* ── Top Header Bar ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", borderBottom: "1px solid var(--border-panel, rgba(56,189,248,0.22))", paddingBottom: 10, marginBottom: 10 }}>
         <span style={{ fontSize: 10.5, fontWeight: 900, color: "#070B14", background: "#34d399", borderRadius: 4, padding: "3px 8px", letterSpacing: ".06em" }}>
@@ -209,7 +214,7 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
         </div>
         <div style={{ display: "flex", gap: 6, marginLeft: "auto", alignItems: "center" }}>
           <span style={{ fontSize: 10, color: "#34d399", background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.35)", borderRadius: 4, padding: "2px 8px", fontWeight: 800 }}>
-            🎯 TACTICAL ZONE · DEF 88
+            L6 · REFERENCE ZONE
           </span>
           <span style={{ fontSize: 10, color: "#38bdf8", background: "rgba(56,189,248,0.12)", border: "1px solid rgba(56,189,248,0.35)", borderRadius: 4, padding: "2px 8px", fontWeight: 700 }}>
             ZONE-ONLY · NO ORDER
@@ -224,7 +229,7 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
             onClick={() => {
               if (!bars || !valid.ok) return;
               const z: CustomL6Zone = {
-                id: "l6_" + Date.now().toString(36),
+                id: "l6_" + crypto.randomUUID(),
                 name: name.trim(),
                 explain: explain.trim(),
                 anchor,
@@ -251,7 +256,7 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
       </div>
 
       {/* ── Main 3-Column Studio Grid ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "335px 1fr 320px", gap: 12, flex: 1, minHeight: 0 }}>
+      <div className="sandbox-main-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)", gap: 12, flex: 1, minHeight: 0 }}>
         {/* ── LEFT COLUMN: 3 Clear Steps + Collapsible Optional Drawers ── */}
         <div style={{ overflowY: "auto", paddingRight: 4, display: "flex", flexDirection: "column", gap: 10 }}>
           {/* STEP 1: 1-Click Zone Templates */}
@@ -328,7 +333,7 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
               Structural Anchor Reference:
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
-              {L6_ANCHOR_BLOCKS.map((ab) => {
+              {L6_ANCHOR_BLOCKS.filter(block=>block.anchor!=="l5_state").map((ab) => {
                 const on = anchor === ab.anchor;
                 return (
                   <button
@@ -686,7 +691,7 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
           <div style={{ background: "var(--bg-panel, #0F172A)", border: "1px solid var(--border-panel)", borderRadius: 8, padding: 10, flex: 1, display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, flexWrap: "wrap" }}>
               <div style={{ fontSize: 11.5, color: "#e2e8f0", fontWeight: 700 }}>
-                <Glyph name="monitor" size={11} /> Live L6 Tactical Zone Preview (M15 Replay)
+                <Glyph name="monitor" size={11} /> L6 reference zone preview ({dataset.tf} replay)
               </div>
               <span style={{ fontSize: 9.5, color: "#94a3b8" }}>
                 Shaded band renders your active L6 Zone · Causal bar-by-bar geometry
@@ -727,7 +732,7 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
               </>
             ) : (
               <div className="pmut psm" style={{ padding: 12 }}>
-                Loading M15 bars…
+                Select or load a CSV dataset above.
               </div>
             )}
           </div>
@@ -742,7 +747,7 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
                 TACTICAL ZONE · L6
               </span>
               <span style={{ fontSize: 10, fontWeight: 800, color: "#34d399", fontFamily: "var(--mfe-mono)" }}>
-                ATK 42 · DEF 88
+                L6 · REFERENCE ZONE
               </span>
             </div>
             <div style={{ fontSize: 14, fontWeight: 900, color: "#f8fafc", marginBottom: 3 }}>{name || "UNNAMED_ZONE"}</div>
@@ -807,7 +812,7 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
               ZONE READINESS CHECKS
             </div>
             <InspPass k="Zone geometry valid" ok={valid.ok} />
-            <InspPass k="Live band computed on M15" ok={!!band} />
+            <InspPass k={`Band computed on ${dataset.tf}`} ok={!!band} />
             <InspPass k="Required L6 output ready for Card" ok={valid.ok} />
 
             <button
@@ -828,18 +833,18 @@ export function L6ZoneBuilder({ onClose, onSaved }: { onClose: () => void; onSav
                 alignItems: "center",
               }}
             >
-              <span>🛡 Safety & Contract Seal (5/5 PASS)</span>
+              <span>Preview scope & limitations</span>
               <span>{showSafetySeal ? "▾" : "▸"}</span>
             </button>
             {showSafetySeal && (
               <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(148,163,184,0.14)" }}>
                 <InspRow k="Authority" v="Display zones only" c={TK.orange} />
                 <InspRow k="Not intended for" v="Order / entry / SL-TP" c="#f87171" />
-                <InspPass k="KIDI Safe" />
-                <InspPass k="NaN / Inf Guard" />
-                <InspPass k="No-Lookahead Seal" />
-                <InspPass k="Closed-Bar Only" />
-                <InspPass k="Zone-only · No Order" />
+                <p>Dataset quality requires a separate audit. No independent validation is implied.</p>
+
+                <p>Only completed observations are supplied. Leakage audit: NOT RUN.</p>
+
+                <p>Reference zones only. Order authority: NONE.</p>
               </div>
             )}
           </div>

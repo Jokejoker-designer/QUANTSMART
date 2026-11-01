@@ -1,3 +1,7 @@
+import {writePromptText} from "../lib/promptClipboard.ts";
+import{importModuleDefinition}from"../lib/moduleImport.ts";
+import{commitDefinitionChange,refreshDefinitionCaches}from"../lib/definitionPersistence.ts";
+import{DEFINITION_KEYS}from"../lib/portableDefinitions.ts";
 // Strategy Canvas — Tinkercad-style block builder, but LANE-BASED + typed + governed (Node-RED/Figma org).
 // Drag a module from the Library -> it SNAPS into its own level lane (L0..L6). L0 Safety is locked. Inspector
 // explains each card. Zone-only output · advisory · no order. Real validation/backtest runs the Python engine.
@@ -277,14 +281,16 @@ export function StrategyCanvas() {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiLayer, setAiLayer] = useState<PackLayer>("L5");
   const [aiCopied, setAiCopied] = useState<"" | "orch" | "layer">("");
-  const aiCopy = (t: string, w: "orch" | "layer") => { try { navigator.clipboard?.writeText(t); } catch { /* clipboard blocked */ } setAiCopied(w); setTimeout(() => setAiCopied(""), 1600); };
+  const aiCopy = async (t:string,w:"orch"|"layer")=>{setAiCopied("");try{await writePromptText(t);setAiCopied(w);setTimeout(()=>setAiCopied(""),1600);}catch(error){setAiImportRes({ok:false,errors:[error instanceof Error?error.message:String(error)]});}};
   // ④ IMPORT-NGƯỢC ĐA-TẦNG: dán JSON của BẤT KỲ tầng → importAnyLayer tự nhận tầng → validate → LƯU về đúng kho.
   const [aiImportJson, setAiImportJson] = useState("");
   const [aiImportRes, setAiImportRes] = useState<ImportResult | null>(null);
-  const doImportAnyLayer = () => {
-    const r = importAnyLayer(aiImportJson); setAiImportRes(r);
-    if (r.ok) { setCustomMods(loadCustomModules()); setCustomL1Mods(loadCustomL1()); setCustomL2Mods(loadCustomL2()); setCustomL3Mods(loadCustomL3()); }   // module hiện ngay trên lane đúng tầng
+  const[importBusy,setImportBusy]=useState(false);
+  const doImportAnyLayer = async () => {
+    if(importBusy)return;setImportBusy(true);let result:ImportResult={ok:false,errors:['Import did not complete.']};
+    try{result=await importModuleDefinition(aiImportJson);if(!result.ok)throw new Error(result.errors.join('; '));refreshDefinitionCaches();setAiImportRes(result);setCustomMods(loadCustomModules());setCustomL1Mods(loadCustomL1());setCustomL2Mods(loadCustomL2());setCustomL3Mods(loadCustomL3());setCustomL6Zones(loadCustomL6());}catch(error){setAiImportRes({ok:false,errors:[error instanceof Error?error.message:String(error)]});}finally{setImportBusy(false);}
   };
+
   const [sandboxOpen, setSandboxOpen] = useState(false);
   const [cardSlotsOpen, setCardSlotsOpen] = useState(false);
   const [l2Open, setL2Open] = useState(false);
@@ -317,7 +323,7 @@ export function StrategyCanvas() {
     return validateStrategyWiring({ modules: chain });
   }, [customL1Mods, customL2Mods, customL3Mods, customMods, customL6Zones]);
   const [wiringOpen, setWiringOpen] = useState(false);
-  const byId = (id: string) => allMods.find((m) => m.id === id) || { id, name: id, group: "Custom", level: 5, color: TK.purple, auth: "Custom", explain: "—", inputs: "—", outputs: "—", limits: "—" } as Mod;
+  const byId = (id: string) => allMods.find((m) => m.id === id.replace(/^myL6_/, "")) || { id, name: id, group: "Custom", level: 5, color: TK.purple, auth: "Custom", explain: "—", inputs: "—", outputs: "—", limits: "—" } as Mod;
 
   async function commitPackage(nameInput: string) {
     if (!result || packageBusy) return;
@@ -353,7 +359,10 @@ export function StrategyCanvas() {
   }
   async function importCards(file: File) {
     try {
-      const result=await importStrategyBundle(JSON.parse(await file.text()));
+      if(file.size>4*1024*1024)throw new Error("Strategy JSON must be at most 4 MB.");
+      const text=(await file.text()).replace(/^\uFEFF/,"");const parsed=JSON.parse(text);
+      if(!Array.isArray(parsed)&&parsed&&typeof parsed==='object'&&!parsed.cards&&!parsed.modules&&!parsed.card){const result=await importModuleDefinition(text);if(!result.ok)throw new Error(result.errors.join('; '));setCustomMods(loadCustomModules());setCustomL1Mods(reloadCustomL1());setCustomL2Mods(reloadCustomL2());setCustomL3Mods(reloadCustomL3());setCustomL6Zones(reloadCustomL6());setPackageStatus({ok:true,text:`Imported ${result.layer} ${result.name} as Shadow. Inspect the selected CSV before research use.`});return;}
+      const result=await importStrategyBundle(parsed);
       // Rebuild the layer caches from the imported definitions, without changing compiler semantics.
       setCustomMods(loadCustomModules());
       setCustomL1Mods(reloadCustomL1());
@@ -367,7 +376,7 @@ export function StrategyCanvas() {
   }
   function loadCard(c: SavedCard) {
     const byLevel: Record<number, string[]> = { 0: MODULES.filter((m) => m.level === 0).map((m) => m.id) };
-    c.modules.forEach((id) => { const m = allMods.find((x) => x.id === id); const level = m?.level ?? (id.startsWith("myL1_") ? 1 : id.startsWith("myL2_") ? 2 : id.startsWith("myL3_") ? 3 : customL6Zones.some((z) => z.id === id) ? 6 : 5); if (level > 0) byLevel[level] = [...(byLevel[level] || []), id]; });
+    c.modules.forEach((id) => { const m = allMods.find((x) => x.id === id.replace(/^myL6_/, "")); const level = m?.level ?? (id.startsWith("myL1_") ? 1 : id.startsWith("myL2_") ? 2 : id.startsWith("myL3_") ? 3 : customL6Zones.some((z) => z.id === id) ? 6 : 5); if (level > 0) byLevel[level] = [...(byLevel[level] || []), id]; });
     const dtf = (c.design_tf && (ALL_TFS as string[]).includes(c.design_tf)) ? c.design_tf : inferDesignTf(c);
     setDesignTf(dtf); setExecTfRaw(resolveExecutionTf(c, dtf));   // restore the saved Operating Profile (clamped ≤ design)
     setPlaced(byLevel); setResult(null); setSel(null); setEditingId(c.id); setLatestSaved(c);
@@ -504,7 +513,7 @@ export function StrategyCanvas() {
             <div className="co-mut small" style={{ marginBottom: 3 }}><b style={{ color: "#5aa9ff" }}>Import the returned JSON</b> The importer detects the layer, applies its validation rules, and saves a Shadow definition:</div>
             <textarea value={aiImportJson} onChange={(e) => { setAiImportJson(e.target.value); setAiImportRes(null); }} placeholder={"Paste a module definition: an AST for L3, a graph for L1, featureKeys for L2, or conditions and a level for L4/L5."} style={{ width: "100%", minHeight: 60, background: "var(--mfe-s3)", border: "1px solid var(--mfe-border)", color: "var(--mfe-text)", borderRadius: 7, padding: "7px 9px", fontSize: 11.5, fontFamily: "ui-monospace,Menlo,monospace", resize: "vertical", boxSizing: "border-box", marginBottom: 6 }} />
             <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
-              <button onClick={doImportAnyLayer} disabled={!aiImportJson.trim()} style={{ background: aiImportJson.trim() ? "#238636" : "#20262d", color: aiImportJson.trim() ? "#fff" : "#5a636d", border: "none", borderRadius: 7, padding: "7px 15px", fontSize: 12.5, fontWeight: 800, cursor: aiImportJson.trim() ? "pointer" : "default" }}><Glyph name="import" size={12} /> Import &amp; build module</button>
+              <button onClick={doImportAnyLayer} disabled={importBusy||!aiImportJson.trim()} style={{ background: aiImportJson.trim() ? "#238636" : "#20262d", color: aiImportJson.trim() ? "#fff" : "#5a636d", border: "none", borderRadius: 7, padding: "7px 15px", fontSize: 12.5, fontWeight: 800, cursor: aiImportJson.trim() ? "pointer" : "default" }}><Glyph name="import" size={12} /> Import &amp; build module</button>
               {aiImportRes?.ok && <span style={{ color: "#3fb950", fontSize: 12, fontWeight: 700 }}><Glyph name="check" size={11} /> Built <b>{aiImportRes.layer}</b> «{aiImportRes.name}» — saved as Shadow in the library {aiImportRes.layer}. It is now available in layer {aiImportRes.layer} below.</span>}
             </div>
             {aiImportRes && !aiImportRes.ok && (

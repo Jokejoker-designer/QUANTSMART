@@ -11,8 +11,34 @@ export interface FeatureGraph { id: string; name: string; description?: string; 
 
 export interface GraphValidation { ok: boolean; errors: string[]; warnings: string[] }
 
+const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
+const safeNodeId = (value: unknown): value is string => typeof value === "string" && /^[A-Za-z0-9_.:-]{1,128}$/.test(value) && !["__proto__", "prototype", "constructor"].includes(value);
+function graphShapeErrors(value: unknown): string[] {
+  if (!object(value) || !Array.isArray(value.nodes) || !safeNodeId(value.output)) return ["Expected a graph with a node array and a valid output ID."];
+  if (!value.nodes.length || value.nodes.length > 256) return ["An L1 graph must contain 1 to 256 nodes."];
+  const errors: string[] = [], ids = new Set<string>();
+  for (const node of value.nodes) {
+    if (!object(node) || !safeNodeId(node.id) || typeof node.blockId !== "string" || !Array.isArray(node.inputs) || node.inputs.some(input => input !== null && !safeNodeId(input))) { errors.push("Each node requires an ID, blockId and an array of input IDs or null."); continue; }
+    if (ids.has(node.id)) errors.push(`Duplicate node ID: ${node.id}`);
+    ids.add(node.id);
+    if (!Object.prototype.hasOwnProperty.call(BLOCKS_BY_ID, node.blockId)) { errors.push(`Unknown block: ${node.blockId}`); continue; }
+    const block = BLOCKS_BY_ID[node.blockId];
+    if (node.params !== undefined) {
+      if (!object(node.params)) errors.push(`Node ${node.id}: params must be a numeric object.`);
+      else for (const [key, number] of Object.entries(node.params)) {
+        const parameter = block.parameters.find(p => p.name === key);
+        if (!parameter || typeof number !== "number" || !Number.isFinite(number) || parameter.min != null && number < parameter.min || parameter.max != null && number > parameter.max) errors.push(`Node ${node.id}: invalid parameter ${key}.`);
+      }
+    }
+    for (const coordinate of ["x", "y"]) if (node[coordinate] !== undefined && (typeof node[coordinate] !== "number" || !Number.isFinite(node[coordinate]) || Number(node[coordinate]) < 0 || Number(node[coordinate]) > 100000)) errors.push(`Node ${node.id}: invalid layout coordinate ${coordinate}.`);
+  }
+  return errors;
+}
+
 // type-check + authority-check the wiring before any compute runs.
 export function validateGraph(g: FeatureGraph): GraphValidation {
+  const shapeErrors = graphShapeErrors(g);
+  if (shapeErrors.length) return { ok: false, errors: shapeErrors, warnings: [] };
   const errors: string[] = [], warnings: string[] = [];
   const byId = new Map(g.nodes.map((n) => [n.id, n]));
   if (!byId.has(g.output)) errors.push(`output node "${g.output}" does not exist`);

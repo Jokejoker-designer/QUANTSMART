@@ -1,3 +1,8 @@
+import {writePromptText} from "../lib/promptClipboard.ts";
+import {countPreviewStates} from "../lib/moduleIntentPreview.ts";
+import{useDefinitionPersistence}from"../lib/definitionPersistence.ts";
+import{useSandboxDataset}from"../lib/sandboxDataset.ts";
+import{SandboxDatasetControls}from"./SandboxDatasetControls.tsx";
 // L5Sandbox — Streamlined, step-by-step L5 Strategy Logic Studio.
 // Preserves 100% of L5 capabilities (TRIGGER / VETO / EXIT roles, LONG / SHORT / REGIME directions,
 // setup + confirmation condition chains, smart block-to-metric auto-defaults, compileL5 graph + CustomModule,
@@ -185,14 +190,14 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
   const [aiCopied, setAiCopied] = useState(false);
   const [saved, setSaved] = useState(false);
   const [intentOn, setIntentOn] = useState(false);
-  const [bars, setBars] = useState<OhlcBar[] | null>(null);
+  const persistence=useDefinitionPersistence();
+  const dataset=useSandboxDataset();
+  const bars=dataset.bars;
   const [recipes, setRecipes] = useState<CustomL5Recipe[]>(() => loadCustomL5());
 
-  useEffect(() => {
-    loadSimOhlc("M15").then((d) => setBars(d?.bars || null));
-  }, []);
 
-  function saveRecipe() {
+
+  async function saveRecipe() {
     const r: CustomL5Recipe = {
       id: "l5r_" + Date.now().toString(36),
       name: name.trim() || "L5",
@@ -205,7 +210,7 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
       status: "SHADOW",
       createdAt: new Date().toISOString(),
     };
-    saveCustomL5([r, ...loadCustomL5()]);
+    if(!await persistence.commit(()=>saveCustomL5([r,...loadCustomL5()]),["mfe_custom_l5_recipe"]))return;
     setRecipes(loadCustomL5());
   }
   function loadRecipe(id: string) {
@@ -275,8 +280,9 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
     const trans: number[] = [];
     for (let i = 1; i < states.length; i++) if (states[i] === "READY" && states[i - 1] !== "READY") trans.push(i);
     const dist: Record<DState, number> = { WATCH: 0, SETUP: 0, READY: 0, VETO: 0, EXIT: 0 };
-    for (const s of states) dist[s]++;
-    return { previewable: true as const, series: marginRes.series, sig, states, trans, dist, prevBars: pv, evalN: pv.length - 40 };
+    const distribution=countPreviewStates(states,per.map(c=>c.series),40);
+    Object.assign(dist,distribution.counts);
+    return { previewable: true as const, series: marginRes.series, sig, states, trans, dist, prevBars: pv, evalN: distribution.observations };
   }, [bars, valid.ok, compiled, terminal, setup.length]);
 
   const renderRuleCard = (list: L5Cond[], set: (l: L5Cond[]) => void, blocks: typeof SETUP_BLOCKS, i: number, accentColor: string) => {
@@ -352,21 +358,17 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
     );
   };
 
-  function save(attachAndClose = false) {
+  async function save(attachAndClose = false) {
     if (!valid.ok) return;
-    saveCustomModules([compiled.module, ...loadCustomModules()]);
+    if(!await persistence.commit(()=>saveCustomModules([compiled.module,...loadCustomModules()]),["mfe_custom_modules"]))return;
     setSaved(true);
-    onSaved?.(compiled.module.id);
+    if (attachAndClose) onSaved?.(compiled.module.id);
     if (attachAndClose) onClose();
   }
-  function copyPrompt() {
-    try {
-      navigator.clipboard?.writeText(buildLayerPack("L5"));
-    } catch {
-      /* ignore */
-    }
-    setAiCopied(true);
-    setTimeout(() => setAiCopied(false), 1600);
+  async function copyPrompt() {
+    setAiCopied(false);
+    try {await writePromptText(buildLayerPack("L5"));setAiCopied(true);setTimeout(()=>setAiCopied(false),1600);}
+    catch(error){setAiMsg({ok:false,text:error instanceof Error?error.message:String(error)});}
   }
   function importAi() {
     const r = parseAiModule(aiJson);
@@ -375,6 +377,7 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
       return;
     }
     const m = r.module;
+    if(m.level!==5||!["TRIGGER","VETO","EXIT"].includes(m.role)){setAiMsg({ok:false,text:"This recipe editor supports L5 TRIGGER, VETO or EXIT. Use the generic module importer for other roles."});return;}
     const term = m.role === "VETO" ? "VETO" : m.role === "EXIT" ? "EXIT" : "TRIGGER";
     const blocks = term === "VETO" ? VETO_BLOCKS : term === "EXIT" ? EXIT_BLOCKS : SETUP_BLOCKS;
     const mapped: L5Cond[] = (m.conditions || []).map((c) => ({
@@ -403,11 +406,12 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
 
   const readyPct = l5Env?.previewable ? l5Env.sig.gauge.onPct : 0;
   const bindTop = l5Env?.previewable ? l5Env.sig.contributions[0] : null;
-  const tcgRoleBadge = terminal === "TRIGGER" ? "ATTACKER STRIKE · ATK 88" : terminal === "VETO" ? "GUARD SHIELD · DEF 90" : "EXIT SENTINEL · DEF 88";
+  const tcgRoleBadge = terminal === "TRIGGER" ? "L5 · TRIGGER" : terminal === "VETO" ? "L5 · VETO" : "L5 · EXIT";
   const primaryBlocks = terminal === "VETO" ? VETO_BLOCKS : terminal === "EXIT" ? EXIT_BLOCKS : SETUP_BLOCKS;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "var(--bg-app, #070B14)", zIndex: 130, display: "flex", flexDirection: "column", padding: 14, boxSizing: "border-box", overflow: "hidden" }}>
+    <div className="sandbox-workspace" role="dialog" aria-modal="true" aria-label="L5 rule sandbox" style={{ position: "fixed", inset: 0, background: "var(--bg-app, #070B14)", zIndex: 130, display: "flex", flexDirection: "column", padding: 14, boxSizing: "border-box", overflow: "hidden" }}>
+      <SandboxDatasetControls data={dataset}/>{persistence.error&&<p role="alert" style={{color:"#fca5a5"}}>{persistence.error}</p>}
       {/* ── TOP HEADER BAR ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", borderBottom: "1px solid var(--border-panel, rgba(56,189,248,0.22))", paddingBottom: 10, marginBottom: 12 }}>
         <span style={{ fontSize: 10.5, fontWeight: 900, color: "#070B14", background: "#f472b6", borderRadius: 5, padding: "3px 8px", letterSpacing: ".06em" }}>L5 STUDIO</span>
@@ -418,7 +422,7 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
         <div style={{ display: "flex", gap: 6, marginLeft: 8 }}>
           {([
             [tcgRoleBadge, "#f472b6"],
-            ["ZONE-ONLY · NO ORDER", "#38bdf8"],
+            ["RULE INTENT · NO ORDER", "#38bdf8"],
             ["NO-LOOKAHEAD", "#34d399"],
           ] as const).map(([t, c]) => (
             <span key={t} style={{ fontSize: 10, color: c, border: `1px solid ${c}55`, background: `${c}14`, borderRadius: 4, padding: "2px 7px", fontWeight: 800 }}>
@@ -450,7 +454,7 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
       </div>
 
       {/* ── 3-COLUMN WORKBENCH ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "335px 1fr 330px", gap: 14, flex: 1, minHeight: 0 }}>
+      <div className="sandbox-main-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)", gap: 14, flex: 1, minHeight: 0 }}>
         {/* ══ LEFT COLUMN: 3-STEP BUILDER ══ */}
         <div style={{ overflowY: "auto", paddingRight: 4 }}>
           {/* STEP 1: COMBAT ROLE & 1-CLICK TACTICAL PRESETS */}
@@ -800,7 +804,7 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
 
               {intentOn && (
                 <div style={{ marginTop: 10 }}>
-                  <ModuleIntentSandbox draft={compiled.module} valid={valid.ok} />
+                  <ModuleIntentSandbox draft={compiled.module} valid={valid.ok} bars={bars} timeframe={dataset.tf} sourceLabel={dataset.label} />
                 </div>
               )}
             </>
@@ -888,16 +892,16 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
               onClick={() => setSpecOpen((o) => !o)}
               style={{ ...inp, width: "100%", marginTop: 8, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", color: "#94a3b8", fontSize: 10.5 }}
             >
-              <span>🛡 Safety &amp; Contract Seal (5/5 PASS)</span>
+              <span>Preview scope & limitations</span>
               <span>{specOpen ? "▾" : "▸"}</span>
             </button>
             {specOpen && (
               <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--border-panel)" }}>
-                <InspPass k="KIDI Safe" />
-                <InspPass k="NaN / Inf Guard" />
-                <InspPass k="No-Lookahead Seal" />
-                <InspPass k="Closed-Bar Only" />
-                <InspPass k="Zone-Only · No Order Send" />
+                <p>Dataset quality requires a separate audit. No independent validation is implied.</p>
+
+                <p>Only completed observations are supplied. Leakage audit: NOT RUN.</p>
+
+                <p>Rule intent only. Order authority: NONE.</p>
               </div>
             )}
           </div>

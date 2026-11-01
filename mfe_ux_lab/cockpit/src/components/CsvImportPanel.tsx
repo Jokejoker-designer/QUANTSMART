@@ -10,9 +10,9 @@ import {
 } from "../lib/csvImports.ts";
 import "./csv-import.css";
 export function CsvImportPanel({
-  onOpen,
+  onOpen, openLabel="Open in Microscope",
 }: {
-  onOpen: (data: CsvImportMetadata) => void;
+  onOpen: (data: CsvImportMetadata) => void; openLabel?:string;
 }) {
   const id = useId();
   const [list, setList] = useState<CsvImportMetadata[]>([]),
@@ -234,7 +234,7 @@ export function CsvImportPanel({
               </table>
             </div>
             <button type="button" onClick={() => open(saved)}>
-              Open in Microscope
+              {openLabel}
             </button>
           </section>
         )}

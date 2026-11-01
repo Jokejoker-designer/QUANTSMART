@@ -1,3 +1,4 @@
+import type {BeastOperatingContext} from "./beastContext.ts";
 // cardBeastV2/beastStore (P4) — save composed Beasts + EXPORT a Beast as a Strategy Card so the owner can
 // full-decade backtest it themselves in Microscope (Y10→M6→M1 + HARD). Export writes: (1) the Beast's custom
 // modules into mfe_custom_modules (Microscope loads them), (2) a SavedCard-shaped entry into mfe_strategy_cards
@@ -19,6 +20,7 @@ export interface SavedRoleEvidence {
 }
 
 export interface SavedBeast {
+  context?:BeastOperatingContext;
   id: string; name: string; ts: string;
   members: { card_id: string; role: string; modules: string[]; source_kind?: BeastMemberSourceKind; source_artifact_id?: string; source_content_hash?: string }[];
   modules: string[]; customIds: string[];
@@ -58,7 +60,7 @@ function normalizeBeast(b: SavedBeast): SavedBeast {
 export function loadBeasts(): SavedBeast[] { try { const a = JSON.parse(localStorage.getItem(LS_BEASTS) || "[]"); return Array.isArray(a) ? a.map(normalizeBeast) : []; } catch { return []; } }
 export function saveBeasts(list: SavedBeast[]) { localStorage.setItem(LS_BEASTS, JSON.stringify(list.map(normalizeBeast))); notifyArtifactChange("BEAST"); }
 
-export function saveBeast(name: string, members: BeastMember[], composed: ComposedBeast, evidence?: SavedRoleEvidence): SavedBeast {
+export function saveBeast(name: string, members: BeastMember[], composed: ComposedBeast, evidence?: SavedRoleEvidence, context?:BeastOperatingContext): SavedBeast {
   const id = "beast_" + Date.now();
   const parentIds = members
     .filter((m) => m.role !== "SAFETY" && m.source_kind !== "TEMPLATE")
@@ -68,7 +70,7 @@ export function saveBeast(name: string, members: BeastMember[], composed: Compos
     members: members.map((m) => ({ card_id: m.card_id, role: m.role, modules: m.modules, source_kind: m.source_kind, source_artifact_id: m.source_artifact_id, source_content_hash: m.source_content_hash })),
     modules: composed.modules, customIds: composed.customModules.map((c) => c.id), warnings: composed.warnings,
     artifact: makeArtifactIdentity({ artifactId: id, kind: "BEAST", modules: composed.modules, parentIds, extra: { members: members.map((m) => [m.card_id, m.role, m.source_kind || "LEGACY_CARD", m.source_content_hash || "UNFROZEN"]) } }),
-    evidence,
+    evidence, context,
   };
   saveBeasts([b, ...loadBeasts()]);
   return b;
@@ -109,7 +111,7 @@ export function assessBeastLineage(
 }
 
 /** Export the composed Beast into the Strategy Card library (+ persist its custom modules) for Microscope. */
-export function exportBeastAsCard(name: string, composed: ComposedBeast, designTf = "M15"): { ok: boolean; note: string } {
+export function exportBeastAsCard(name: string, composed: ComposedBeast, designTf = "M15", symbol="XAUUSD", executionTf=designTf): { ok: boolean; note: string } {
   try {
     // 1) persist custom modules (dedupe by id) so Microscope's loadCustomModules() finds them
     const existing = loadCustomModules();
@@ -125,7 +127,7 @@ export function exportBeastAsCard(name: string, composed: ComposedBeast, designT
       archetype: "Beast (role-composed)", algo: "fusion", verdict: "WATCH_ONLY", gate: "SHADOW",
       score: 0, layers: 6, guards: composed.contributions.filter((c) => c.role === "GUARD").length,
       n: 0, winRate: 0, netR: 0, costEv: 0, maxDD: 0,
-      modules: composed.modules, design_tf: designTf, bt_window: "NO_DATA",
+      modules: composed.modules, symbol, design_tf: designTf, execution_tf:executionTf, bt_window: "NO_DATA",
       artifact: makeArtifactIdentity({ artifactId: id, kind: "STRATEGY_CARD", modules: composed.modules, parentIds: sourceBeast?.artifact ? [sourceBeast.artifact.artifact_id] : [], extra: { source: "BEAST_EXPORT" } }),
     });
     writeStrategyCards(lib);

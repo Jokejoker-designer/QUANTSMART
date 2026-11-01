@@ -28,8 +28,8 @@ async function run() { try {
       if((request.kind==='backtest'||request.analysis==='attribution')&&aggregated.gapBuckets)throw new Error('CSV_INCOMPLETE_AGGREGATION: use a continuous interval');
     }else if(imported.metadata.tf!=='M1')throw new Error('CSV_M1_SOURCE_REQUIRED');
     if(request.kind!=='csv_view'&&(request.from||request.to)){const end=request.to?Date.parse(request.to+'Z')+(request.mode==='m1'?({M1:1,M5:5,M15:15,M30:30,H1:60,H4:240,D1:1440}[request.windowTf]||1)-1:0)*60000:Infinity;bars=bars.filter(b=>(!request.from||b.t>=request.from)&&Date.parse(b.t+'Z')<=end);}
-    if(request.kind==='csv_view'){if(!bars.length)throw new Error('CSV_NO_COMPLETE_BARS_IN_WINDOW');parentPort.postMessage({result:{metadata:imported.metadata,bars},provenance:{dataHash,bars:bars.length}});return;}
-    if(request.options?.symbol!==imported.metadata.symbol)throw new Error('CSV_ASSET_MISMATCH');
+    if(request.kind==='csv_view'){const availableBars=bars.length;if(request.count!=null){if(!Number.isInteger(request.count)||request.count<5||request.count>5000)throw new Error('CSV_INVALID_VIEW_COUNT');bars=bars.slice(-request.count);}if(!bars.length)throw new Error('CSV_NO_COMPLETE_BARS_IN_WINDOW');parentPort.postMessage({result:{metadata:imported.metadata,bars,availableBars},provenance:{dataHash,bars:bars.length}});return;}
+    if(['backtest','diagnostic'].includes(request.kind)&&request.options?.symbol!==imported.metadata.symbol)throw new Error('CSV_ASSET_MISMATCH');
     if(request.kind==='backtest'&&request.mode!=='m1'){const{getCardRuntimeConfig}=await import('../src/lib/simTimeframe.ts');const runtime=getCardRuntimeConfig(request.card);if(runtime.allowed_execution_tf!==runtime.design_tf)throw new Error('CSV_M1_SOURCE_REQUIRED_FOR_DECLARED_EXECUTION');}
 
     request.options={...request.options,priceBasis:imported.metadata.quality.priceBasis,timezoneStatus:'PROVISIONAL'};
@@ -48,6 +48,25 @@ async function run() { try {
     if (request.dataset.first && JSON.stringify(bars[0]) !== request.dataset.first) throw new Error('DATA_SOURCE_MISMATCH');
     if (request.dataset.last && JSON.stringify(bars[bars.length - 1]) !== request.dataset.last) throw new Error('DATA_SOURCE_MISMATCH');
   } else dataHash = createHash('sha256').update(JSON.stringify(bars)).digest('hex');
+  if(request.kind==='layer_preview'){
+    const{DEFINITION_KEYS,prepareDefinitionImport}=await import('../src/lib/portableDefinitions.ts');const id=String(request.moduleId||'').replace(/^myL[123456]_/,'');let store,row;
+    for(const key of DEFINITION_KEYS){const found=JSON.parse(storage[key]||'[]').find(module=>module.id===id);if(found){if(row)throw new Error('MODULE_ID_AMBIGUOUS');store=key;row=found;}}
+    if(!row)throw new Error('MODULE_NOT_FOUND');prepareDefinitionImport({[store]:[row]},storage);const availableBars=bars.length;bars=bars.slice(-2000);if(bars.length<5)throw new Error('MODULE_PREVIEW_REQUIRES_FIVE_BARS');
+    const{customMetricSeries}=await import('../src/lib/customMetricBridge.ts');let series=[],details={},status='MEASUREMENT_ONLY';
+    if(store==='mfe_custom_l1'||store==='mfe_custom_l2'&&row.kind!=='overlay'||store==='mfe_custom_l3')series=customMetricSeries(id,bars)||[];
+    else if(store==='mfe_custom_l2'){const{STD_BY_KEY}=await import('../src/lib/blocks/stdIndicators.ts');const{computeOverlay}=await import('../src/lib/blocks/overlayGraph.ts');details={overlay:row.overlayKey?STD_BY_KEY[row.overlayKey].compute(bars,row.overlayParams):computeOverlay(bars,row.overlayLines)};}
+    else if(store==='mfe_custom_modules'){const{previewMarginSeries}=await import('../src/lib/moduleIntentPreview.ts');const result=previewMarginSeries(bars,row,customMetricSeries);series=result.series;status=result.previewable?'INTENT_ONLY':'NO_DATA_REQUIRES_TRADE_STATE';details={previewable:result.previewable,unavailableMetrics:result.naMetrics,role:row.role};}
+    else if(store==='mfe_custom_l6'){const{zoneCenterSeries}=await import('../src/lib/blocks/l6Eval.ts');series=zoneCenterSeries(row,bars);details={role:row.role,anchor:row.anchor};}
+    else throw new Error('RECIPE_NOT_EXECUTABLE: select its compiled L4/L5 module');
+    parentPort.postMessage({result:{moduleId:id,store,status,series,details,source:{importId:imported.metadata.id,symbol:imported.metadata.symbol,tf:request.timeframe||imported.metadata.tf,sourceHash:dataHash,availableBars,evaluatedBars:bars.length,from:bars[0].t,to:bars[bars.length-1].t}},provenance:{dataHash,bars:bars.length}});return;
+  }
+  if(request.kind==='feature_preview'){
+    const{validateGraph,evalGraphAll}=await import('../src/lib/blocks/featureGraph.ts');const checked=validateGraph(request.graph);if(!checked.ok)throw new Error('L1_GRAPH_INVALID: '+checked.errors.join('; '));
+    const allCount=bars.length;bars=bars.slice(-2000);if(bars.length<5)throw new Error('L1_DATA_INSUFFICIENT: at least five observations are required');
+    let gates=[];if(request.roles){const{runRoleGate}=await import('../src/lib/blocks/roleGate.ts');const{USAGE_ROLES}=await import('../src/lib/blocks/featureRoles.ts');if(!Array.isArray(request.roles)||request.roles.some(role=>!USAGE_ROLES.includes(role)))throw new Error('L1_INVALID_ROLE');if(bars.length<200)throw new Error('L1_ROLE_SAMPLE_TOO_SMALL: at least 200 selected observations are required');gates=request.roles.map(role=>runRoleGate(request.graph,role,bars));}
+    const source={importId:imported.metadata.id,symbol:imported.metadata.symbol,tf:request.timeframe||imported.metadata.tf,sourceHash:dataHash,availableBars:allCount,evaluatedBars:bars.length,from:bars[0].t,to:bars[bars.length-1].t};
+    parentPort.postMessage({result:{bars,allSeries:evalGraphAll(request.graph,bars),source,gates,warnings:imported.metadata.warnings},provenance:{dataHash,bars:bars.length}});return;
+  }
   const totalBars=bars?.length;
   if(request.kind==='market')bars=bars.slice(-Math.min(5000,Math.max(61,request.count||600)));
   if (!Array.isArray(bars) || bars.length < 61 || bars.length > 750000) throw new Error('INSUFFICIENT_OR_EXCESSIVE_DATA');
@@ -63,7 +82,7 @@ async function run() { try {
     if(request.analysis==='attribution'){const{runStrategyAttribution}=await import('../src/lib/strategyAttribution.ts');result=runStrategyAttribution(bars,request.card,{...request.options,...request.parameters});}
     else if(request.analysis==='ablation'){const {runAblation}=await import('../src/lib/simAblation.ts');result=runAblation(bars,request.card,request.parameters);}
     else if(request.analysis==='funding'){const {multiYearFunding}=await import('../src/lib/simMultiYearFunding.ts');result=multiYearFunding(bars,request.card,request.parameters);}
-    else if(request.analysis==='beast_roles'){const {rolePowerReport}=await import('../src/lib/cardBeastV2/beastCompose.ts');result=rolePowerReport(bars,request.parameters.members);}
+    else if(request.analysis==='beast_roles'){const {rolePowerReport}=await import('../src/lib/cardBeastV2/beastCompose.ts');const context=request.parameters.context;if(imported&&(!context||context.symbol!==imported.metadata.symbol||context.design_tf!==(request.timeframe||imported.metadata.tf)))throw new Error('BEAST_CSV_CONTEXT_MISMATCH');result=rolePowerReport(bars,request.parameters.members,false,context);}
     else throw new Error('INVALID_ANALYSIS');
     parentPort.postMessage({result,provenance:{dataHash,bars:bars.length}});
   }else if (request.kind === 'calibration') {

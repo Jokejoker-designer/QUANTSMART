@@ -144,7 +144,7 @@ export function BeastLab() {
       setMsg("⛔ " + b.name + ": " + comp.errors.join("; "));
       return;
     }
-    const r = exportBeastAsCard(b.name, comp);
+    const r = exportBeastAsCard(b.name, comp, b.context?.design_tf || "M15", b.context?.symbol || "XAUUSD", b.context?.execution_tf || b.context?.design_tf || "M15");
     setMsg(
       (r.ok ? "" : "⛔ ") +
         r.note +

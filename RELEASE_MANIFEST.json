@@ -19,8 +19,8 @@
     },
     {
       "path": ".gitignore",
-      "sha256": "58c2329b4f79ffdf192ea90dc51c26123cc6e60147758277115573d6257f63b5",
-      "bytes": 1583
+      "sha256": "07150bedf9ee309bc630862554a1a36dd8555484a4ce49e9da6fa08be63074db",
+      "bytes": 1630
     },
     {
       "path": "LICENSE",
@@ -34,8 +34,8 @@
     },
     {
       "path": "README.md",
-      "sha256": "4c4afe19784d042457de7e419ece242114dc9da138a06cd1825120a2ab2a48d2",
-      "bytes": 14382
+      "sha256": "c8eb59d4d84a8fd5c22f496acdd1a3f750b0a18f03a490326a98a2d34479e51a",
+      "bytes": 14703
     },
     {
       "path": "SECURITY.md",
@@ -79,8 +79,8 @@
     },
     {
       "path": "docs/CUSTOM_MODULES.md",
-      "sha256": "047adad51925a61a7997a8954715c385267202e91dc6aaf0e3867000492e643f",
-      "bytes": 2843
+      "sha256": "515d6fb3f7215325f1843dfebace96f10964a06229dac5994035800672d76f47",
+      "bytes": 3908
     },
     {
       "path": "docs/INSTALLATION.md",
@@ -91,6 +91,11 @@
       "path": "docs/INSTALLER_VALIDATION.md",
       "sha256": "73ea016ef409b23d7e623391f5a117721e1be6a30221dc682169b9844d1665e8",
       "bytes": 3727
+    },
+    {
+      "path": "docs/LAYER_VALIDATION.md",
+      "sha256": "fe6614cc0469dd24b0e50a8a4b87b76e2e49f890e2b2d3ec1aa0eccfd262cf33",
+      "bytes": 6621
     },
     {
       "path": "docs/PRODUCT_TOUR.md",
@@ -116,6 +121,11 @@
       "path": "docs/QUANT_METHODOLOGY_AUDIT.md",
       "sha256": "91a09c86e26eb4d3defd906e07af288127ed0fb5c236c40c62349847263a12cc",
       "bytes": 13227
+    },
+    {
+      "path": "docs/TUTORIALS.md",
+      "sha256": "e4c29db83ab015c2f8f858d1e5321b63097fd094e8447df8dbdc22ca65e5831c",
+      "bytes": 3568
     },
     {
       "path": "docs/VERIFICATION.md",
@@ -274,8 +284,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/BeastBuilderPanel.tsx",
-      "sha256": "9022943224035422d65ba56722ecdb360d1c83f8ae72704fbc2569b35f5a4dcd",
-      "bytes": 29217
+      "sha256": "b77d8e31f284da5c594f885432c850af9b05a72f71febb71cbf3ea06870bb7f4",
+      "bytes": 32267
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/BeastDeckBoard.tsx",
@@ -369,8 +379,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/CsvImportPanel.tsx",
-      "sha256": "022aa3bdf5db1b8eabb799d7805dc1873fcbf7ba8c4b8eb48b4e22f0c029f841",
-      "bytes": 8176
+      "sha256": "d357e200b24df429a7f4dc3ec1955e4ce1663db09e8584c1c551d2ea234bc686",
+      "bytes": 8220
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/CustomModuleBuilder.tsx",
@@ -389,13 +399,13 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/FeatureFlowCanvas.tsx",
-      "sha256": "b14eab375d0befdcb06fa62b2b76c0e9eaf0fc1554d49502516242d94e344edf",
-      "bytes": 10529
+      "sha256": "9b644952ecdafa7ee95823151a73265e0a91f048fd85eaac460988fbd27f8807",
+      "bytes": 10536
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/FeatureTestChart.tsx",
-      "sha256": "03cdb9961fbe2726047bf31ebd4a26faf481ce0dfdf40f8c6c97ef8909a480c5",
-      "bytes": 9571
+      "sha256": "b6df39293f5d06e10ee07be07add4a1f74667757ede70087cd85e4f7d7a509fa",
+      "bytes": 10678
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/FootprintLensPanel.tsx",
@@ -414,28 +424,28 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/L1ModuleSandbox.tsx",
-      "sha256": "f3fa778be9c11e4f373e54e05317a542f7abb904862cf2864341621937a81129",
-      "bytes": 42493
+      "sha256": "39aa2ae6557718816bb3ce67468b1d326922e64ee4475b3ac69f92ed8f898273",
+      "bytes": 72940
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/L2Preview.tsx",
-      "sha256": "0454edda4ecacc3990249fd5f667cbe64847451e96f46a6ca8666dc8b798df0e",
-      "bytes": 48386
+      "sha256": "a047828b2d1b1ea2a74a791ba34ca1f97c699ad5146ae72205deb82c5f00fc7b",
+      "bytes": 49572
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/L4GateBuilder.tsx",
-      "sha256": "a104692c33f62ddf155592f9cc4989ba415c57665f74e1a213dd1fedb8c6587d",
-      "bytes": 40060
+      "sha256": "f82352fb69d6f156ff316497f4e798708ec76ce2aff4fb53010635f13973766c",
+      "bytes": 40844
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/L5Sandbox.tsx",
-      "sha256": "47559630b5b7aa60b075a6013cbac858d5afc97f914e8981435dee117d33a58a",
-      "bytes": 46831
+      "sha256": "bfa45f027b9aaa463943cebd46f0a69126563f4e88c8e171a9a447a9524db25c",
+      "bytes": 47927
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/L6ZoneBuilder.tsx",
-      "sha256": "a451f5396c0d624e978421d904f43d652d76774009f7854d083b77e8ef49d5a3",
-      "bytes": 40724
+      "sha256": "56a05451066a8f68bfe5b0e5da685ba28dd6a4d772a0d905174425680ed5f918",
+      "bytes": 42093
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/LayerInfoPopup.tsx",
@@ -454,8 +464,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/ModuleIntentSandbox.tsx",
-      "sha256": "14379d3ffc2e96d15f4420104444e67111e300113cdffbac9434324590a3edc0",
-      "bytes": 6104
+      "sha256": "631c497232806d5d6ec05a2fb03ebc45411c7679481770ee4e72250b204b6c07",
+      "bytes": 6838
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/Mt5ConnectPanel.tsx",
@@ -494,8 +504,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/QuantLab.tsx",
-      "sha256": "a277a949aae000e75d701d5e24cc96f7248cb7d03a214763e156cb827463c3fc",
-      "bytes": 139602
+      "sha256": "a0d3ef6b3cb4c9487e53e13bb0062ba27d4090ee1e4e814d15664fb18b622a93",
+      "bytes": 140707
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/RealismPanel.tsx",
@@ -511,6 +521,11 @@
       "path": "mfe_ux_lab/cockpit/src/components/ResearchJobStatus.tsx",
       "sha256": "b3c60a4f717eb5ead46d81edce2e60460a2b6746d7c781311182c0267a68fad9",
       "bytes": 698
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/components/SandboxDatasetControls.tsx",
+      "sha256": "0dd7ebe9be30b171db836b6c7d0515b79444bc7e3433df7b3a6917dfb4fb995f",
+      "bytes": 1614
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/SemanticXraySandbox.tsx",
@@ -586,6 +601,16 @@
       "path": "mfe_ux_lab/cockpit/src/components/csv-import.css",
       "sha256": "cac3f269c3c6bd3da55a896fdb1f525f7b801d4fc9e235b38a8903137b559458",
       "bytes": 1791
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/components/l1-sandbox.css",
+      "sha256": "2de1712d3684f88b5810e85d041a185bd3438c0c9e8d3d6319c1cc24c57c6443",
+      "bytes": 2841
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/components/sandbox-workspace.css",
+      "sha256": "210991c06e86264a0c175d2e78a2d0211a3b3064b6e6034233672f2dd163356b",
+      "bytes": 2635
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/strategy-controls.css",
@@ -849,8 +874,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/aiContextPack.ts",
-      "sha256": "7e5c1b7a0a8e66429ad6bfba6805515f91541678db4d88678a628380b0dbee3f",
-      "bytes": 51776
+      "sha256": "3691e15b7dabad51ed52244dff119a537dd549454e4ebe1a2fa239ad075a9fdc",
+      "bytes": 53862
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/albumView.ts",
@@ -899,33 +924,33 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/customL1.ts",
-      "sha256": "2193257669de95d724740841827b90e93c71a9e48b82a17fe846f25fb6595553",
-      "bytes": 3311
+      "sha256": "af36e57a64eff0d95330681d3f44d77d9f6c1e056de673f71d4ed7de992d93bb",
+      "bytes": 3404
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/customL2.ts",
-      "sha256": "075f939c9d6670c79b8749b889aaf8ad3e7545fd663dd06a3e92196fa74f7e76",
-      "bytes": 2499
+      "sha256": "3df11715a124ceb3965c55f1cad2485612846af60ac704560145d07829592da4",
+      "bytes": 2500
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/customL3.ts",
-      "sha256": "da0dccd206bf0edd366ed88fb874a54903dc55f029f6e7243c4e33a0dbcb4e93",
-      "bytes": 4748
+      "sha256": "c5537245959db8a6649fb842b8582b564744a6c56b1df7b71378ff4ee9439d71",
+      "bytes": 4749
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/customL4.ts",
-      "sha256": "2587e44b224369be8e052d52ed7c5468ab3f73bb9b26cfb174207f10e560cfc2",
-      "bytes": 1397
+      "sha256": "10d5884602f1b68a7e31e017ccfe503a61192269f30e28a682de34b68510666d",
+      "bytes": 1398
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/customL5.ts",
-      "sha256": "210c361b84caa8d9d30098bd4670c0600df6ab3752b83322f7f78a5207e20fee",
-      "bytes": 1340
+      "sha256": "db0dcc61928317958955baeea684bb9958f03c9e9483b792c1583829a28c8ec1",
+      "bytes": 1341
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/customL6.ts",
-      "sha256": "85c84f09287ae5229d8003890ad6710943f91bbf9b86d538a32603c2f9e03315",
-      "bytes": 3394
+      "sha256": "08ce599867b99789e5541c0485a4f84f2daa01860b9a23c92f44a6d7676b4925",
+      "bytes": 3438
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/featureExplain.ts",
@@ -934,8 +959,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/featureGraph.ts",
-      "sha256": "6ad66890eceb391d8c4c646ce78b5a029ded63fd63c7ef2a53a0b6040dae8145",
-      "bytes": 5888
+      "sha256": "bdebe24c4b465b90932b26894e2c51ef4c48d292c133c6f924988b8a71e835db",
+      "bytes": 8151
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/featureRoles.ts",
@@ -964,8 +989,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/l2Eval.ts",
-      "sha256": "dbe848cadb17121f14223664a64f21e3943cac6f515955d2b1e355f8aa7703bb",
-      "bytes": 14323
+      "sha256": "3cb92725205a9fbc80a99c37dfee801345ae7d81969dc580ba37fe87019ea683",
+      "bytes": 14353
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/l4BlockLibrary.ts",
@@ -1009,8 +1034,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/l6Eval.ts",
-      "sha256": "93aaffb98935d722b94fe38ed12614b3b81ac86ee8ce2884ccea64f5102cf120",
-      "bytes": 1784
+      "sha256": "a58110d286e615140c4fb5f90b837ccb55f8ce60508129dec11ed1722a5d2623",
+      "bytes": 2488
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/overlayGraph.ts",
@@ -1029,8 +1054,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/quantAstSafety.ts",
-      "sha256": "bc7f32cc0e8bb6a7dca8992896911768ab8a4f13a32cdae45d8eb33e7f6f4a88",
-      "bytes": 3393
+      "sha256": "306a9e81b9f09d1f86659b6af299133f9eab85ca90ea3b22bdb295eea213df50",
+      "bytes": 4920
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/quantAstTypes.ts",
@@ -1069,8 +1094,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/roleGate.ts",
-      "sha256": "a498291e8738e7f65b7f1143d610de8111b237c9a538e465893a445299249b76",
-      "bytes": 7768
+      "sha256": "e8a2d1ddfe335ff6157d70c3532f415a47e6b0630e93d44ae108b91513df4da7",
+      "bytes": 7884
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/sandboxSignature.ts",
@@ -1084,8 +1109,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/blocks/strategyRenderFeed.ts",
-      "sha256": "18b702f0d5720e4442eee972d527b0f47e27a3b31edb86e3e9b483becbd6f7b5",
-      "bytes": 6541
+      "sha256": "096246d429b0784c79ad7bf10ea908f5850dc2b5a7355fd5e099902df3172081",
+      "bytes": 6578
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/brokerCalibration.ts",
@@ -1099,13 +1124,18 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/cardBeastV2/beastCompose.ts",
-      "sha256": "73dd77ceca6574385fb8ef671dbcef7626cc87abecd4f56062035ff2b89ee8f6",
-      "bytes": 9286
+      "sha256": "5615b810e23508dda490e47047b2b3a81cab7e5ae3ca03c408cbe258b60c708e",
+      "bytes": 9712
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/lib/cardBeastV2/beastContext.ts",
+      "sha256": "2cdaccefd2716ab49ad3e33f96c55f68465ea0ca79d78b3b9cdb2a0ee15ff598",
+      "bytes": 1064
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/cardBeastV2/beastStore.ts",
-      "sha256": "91ecc28f968381509a4147f45c1615926d03495575ae28f87766c06275ca0986",
-      "bytes": 8753
+      "sha256": "051b9d260eb0cd86d38d463905bec71be0d0477ff55d19160b51b5a0ad86e098",
+      "bytes": 8963
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/cardBeastV2/breakoutLiquidityBeast.ts",
@@ -1199,8 +1229,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/cardZones.ts",
-      "sha256": "5f310bdcae69253cf7b0704e8e9ac7a1dd27d0969aafb2c5721dcc8b0fbe84fb",
-      "bytes": 4750
+      "sha256": "e6f7261758969214402d8a2f4daaddeff29b3203ef6abb4b68efa4f48ee64632",
+      "bytes": 5576
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/ch/asOfHarness.ts",
@@ -1319,13 +1349,18 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/customMetricBridge.ts",
-      "sha256": "a1ebc90ba8fb8abce77617b9386452a6560c14d0635b19f7a552a7ed7e9c55b4",
-      "bytes": 4151
+      "sha256": "eed17102dd5364d734a5ce75ff207959c4f5aab04b445cd1e3cee0079c6f6446",
+      "bytes": 4181
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/customModule.ts",
-      "sha256": "52108185d68e940fa78279e4f0068f07c35a187fb35a604e85bc2250427ede64",
-      "bytes": 24218
+      "sha256": "ac76b450aceea9722148e3f426cab3cf1e7462d209c88e9dec560e01b76841e1",
+      "bytes": 25692
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/lib/definitionPersistence.ts",
+      "sha256": "8bd889111a646fdaa728521ec312ea7960250a6d29ec3fbafb11260b1ef7dbc6",
+      "bytes": 2157
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/displayClock.ts",
@@ -1361,6 +1396,11 @@
       "path": "mfe_ux_lab/cockpit/src/lib/kidiEvents.ts",
       "sha256": "6555c25e0dc45fee017678ab06c40fcf8fc333398ad025dd54ac476301a08dc8",
       "bytes": 2862
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/lib/l1Preview.ts",
+      "sha256": "94032722ab60fe271123ee58474d9a31b890c0b59e715eeb36de2d582ce4cb0d",
+      "bytes": 2877
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/legacyDisplayCopy.ts",
@@ -1419,13 +1459,18 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/microscopeComputed.ts",
-      "sha256": "77c96dae389e786965c1da154e93da814543c7c3fb0c6e4e18b11eb812348e32",
-      "bytes": 1441
+      "sha256": "c55ee223cc54050202c17ebd2a4c4aea3c6dd307636ea9dd656ee3f66bdba9e2",
+      "bytes": 1562
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/lib/moduleImport.ts",
+      "sha256": "e680d5ea9ba996aa8cdd5d7bbb08119a415003b265b033e232749ecef900affe",
+      "bytes": 2110
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/moduleIntentPreview.ts",
-      "sha256": "655d474caa29a21a5404a5959ace0ad30beec6fbe9c1d6f621d3ce45c2ea450a",
-      "bytes": 12618
+      "sha256": "7bfa5111b9412b3a06613f8ca77185b4b3c7f18f48b5bd58c2208c8d6b3ce1da",
+      "bytes": 13108
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/moduleTfScope.ts",
@@ -1443,6 +1488,21 @@
       "bytes": 10778
     },
     {
+      "path": "mfe_ux_lab/cockpit/src/lib/overlayDefinition.ts",
+      "sha256": "b8b9e283e40a3f766911795829172964c0efef6776698a686a37c33751971cdc",
+      "bytes": 2363
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/lib/portableDefinitions.ts",
+      "sha256": "8c522cac30b7a6c477c5b583b946a7e6fb2bf7442753bb9defa31e47f5a1645d",
+      "bytes": 9611
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/lib/promptClipboard.ts",
+      "sha256": "816948691ba29eb840274241fd4429c7a56bed22de684c915e1569c5041634c3",
+      "bytes": 478
+    },
+    {
       "path": "mfe_ux_lab/cockpit/src/lib/realisticSimAnalytics.ts",
       "sha256": "85cdd9a031952797c39de89fc1a21fc801fd2b340239eba43a0abf6fc9bd998b",
       "bytes": 8647
@@ -1454,8 +1514,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/realisticStrategySim.ts",
-      "sha256": "d61afc80ef35b1da315cf00c683cd53250dbfc4244a2db17626d7b82d5ef9622",
-      "bytes": 63486
+      "sha256": "0294ad36d716d2434222ed08c380dc38825f092442aa002a20c36c4c15140af9",
+      "bytes": 63745
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/resampleM1.ts",
@@ -1469,8 +1529,13 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/researchJobs.ts",
-      "sha256": "7ee47f8c05a0692cba260d6f34405dd4cde1f9c5216c750ec1f760fdad681ea7",
-      "bytes": 8686
+      "sha256": "dcd84961b22fcbaa6eeb0ab24932467516952a6ff5e97f2eff3b4f47875f1ff7",
+      "bytes": 8775
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/lib/sandboxDataset.ts",
+      "sha256": "5014df5349de63b3ddd0b2cee999486c3dcc15c0e853ad3b6c26d9d93de1a4e1",
+      "bytes": 3012
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/semanticSandboxModel.ts",
@@ -1579,8 +1644,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/strategyBundle.ts",
-      "sha256": "291612480bdf4e86f8bd766688eebc7d42ea9b35bae7d43960644654d5a9cc9c",
-      "bytes": 3666
+      "sha256": "7e53e8fc8dd7e454cbf0ae5253ed9a843304f694a091b0a358c4ac42b6717aaf",
+      "bytes": 6331
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/strategyIdentity.ts",
@@ -1659,8 +1724,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/pages/BeastLab.tsx",
-      "sha256": "387c247be9d8ac8103197db290bbe29f47193592d97ad366a28bd965d9ecfb09",
-      "bytes": 24376
+      "sha256": "8af8c44c5edb6a700074fcf5d45c890308688184eb4a98545da6132abc2b79a2",
+      "bytes": 24496
     },
     {
       "path": "mfe_ux_lab/cockpit/src/pages/Debugger.tsx",
@@ -1689,8 +1754,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/pages/Microscope.tsx",
-      "sha256": "a0ea171a5e37f803ada1d82f508026d3a2946b37ad670ad5308f2c6aaf5b0c9d",
-      "bytes": 62503
+      "sha256": "cf17e05958d37cfe4eecc767c8f088a4edd2d71418a3f7394f4141e6e8006c7b",
+      "bytes": 62706
     },
     {
       "path": "mfe_ux_lab/cockpit/src/pages/Playbook.tsx",
@@ -1704,8 +1769,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/pages/StrategyCanvas.tsx",
-      "sha256": "c8bb2a587cd2367bd61c25ce601f842a2bbb38a303acb69ceb103b22c6e1c760",
-      "bytes": 116757
+      "sha256": "d87ba8f0749c552bcc9306c8db10af7d807fe1509a4e473f9c6c6f97de8fc032",
+      "bytes": 118202
     },
     {
       "path": "mfe_ux_lab/cockpit/src/pages/StrategyLab.tsx",
@@ -1839,8 +1904,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/researchBackend.mjs",
-      "sha256": "2143b365dbb48ae1245d07d84b86d587e41e96accfefca55dfa0a107bf7263fb",
-      "bytes": 13724
+      "sha256": "2e36991875ac626029586e59b6374e338de47cb1842e9e8a299f57eaee0d305a",
+      "bytes": 13802
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/researchTrials.mjs",
@@ -1849,8 +1914,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/researchWorker.mjs",
-      "sha256": "71c930722dd8a69286ec07e0275f554d504644d39c73aebebe973aa1d69cf302",
-      "bytes": 9567
+      "sha256": "059d221106f28eaa52b27384c66277794dd36913c8911efe40dfcab841763c6f",
+      "bytes": 13559
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/test-built-runtime.mjs",
@@ -1939,18 +2004,23 @@
     },
     {
       "path": "scripts/package-release.mjs",
-      "sha256": "05bd5941bb19128e5c229849ccc6480f2675010959569de8412eae8272f7a1f9",
-      "bytes": 8542
+      "sha256": "c9badf35f6f3ea4d2c94fd42611105dff917cc803043da1f024a3714673308d5",
+      "bytes": 8868
     },
     {
       "path": "scripts/test.mjs",
-      "sha256": "6063381b4d675207650e585b8bd57dea8dfa1e11bc03582064a7157b4fde6fce",
-      "bytes": 2663
+      "sha256": "9bfe07bd9b87796a0417c602234cd2dc6f8826681ff3f0a9076647c61f16fd84",
+      "bytes": 2815
     },
     {
       "path": "start.bat",
       "sha256": "5015d4cfc363a10a1fb096685ca9ffbe13acee5e15009c00f741b5fca13d7978",
       "bytes": 480
+    },
+    {
+      "path": "tests/beast-context.test.mjs",
+      "sha256": "4a10784ecf507018ec83ebef41f356a63324d0a54b43dce823c4d50277524264",
+      "bytes": 3521
     },
     {
       "path": "tests/bootstrap.test.mjs",
@@ -1969,8 +2039,8 @@
     },
     {
       "path": "tests/default-port.test.mjs",
-      "sha256": "7c88425fcfc8dceee38ccbe8ebf2a0c871e5642ef6d70e3e86db43f68a100d04",
-      "bytes": 1997
+      "sha256": "fca010a7c46a470e176064d70e10938a5c8f0e8abca40cb383ad71474369fcf4",
+      "bytes": 2079
     },
     {
       "path": "tests/display-clock.test.mjs",
@@ -1998,9 +2068,24 @@
       "bytes": 3386
     },
     {
+      "path": "tests/l1-import.test.mjs",
+      "sha256": "0c957b0863f38538af589cfb03c154998d2c46b823bf4a86038cf33f2b6e3472",
+      "bytes": 2093
+    },
+    {
       "path": "tests/language-audit.test.mjs",
       "sha256": "46f0a12f6ce30e4ac926b5444c2d173293255353195685b3074ef98c67070edc",
       "bytes": 1183
+    },
+    {
+      "path": "tests/layers-import.test.mjs",
+      "sha256": "633e177ccb1ce0d48d04d367608779f50ae9607debb71579e206456c8389b20c",
+      "bytes": 2698
+    },
+    {
+      "path": "tests/layers-runtime.test.mjs",
+      "sha256": "a82b0d9ec718694d9787b03ebc640a85cb5ad5a54142daf584b883fc52eed14b",
+      "bytes": 14080
     },
     {
       "path": "tests/live-ticks.test.mjs",
@@ -2008,9 +2093,24 @@
       "bytes": 1857
     },
     {
+      "path": "tests/module-chain-fixture.mjs",
+      "sha256": "8656748cd58dd0217c4861adf11f196ce0d24093fd636546f4a12088f9910ba2",
+      "bytes": 3894
+    },
+    {
+      "path": "tests/module-preview-consistency.test.mjs",
+      "sha256": "68b119b4457300d2066cad41cc2b2859c94720a16185d705c3fe452675e8a1f4",
+      "bytes": 3950
+    },
+    {
       "path": "tests/mt5-proxy.test.mjs",
       "sha256": "977499bc67092815db7f093ed8ef0bebbd977e15f4e65fcf197bc22d42b1ce71",
       "bytes": 3751
+    },
+    {
+      "path": "tests/portable-definitions.test.mjs",
+      "sha256": "602f4dcfb3b1d5c7efe3c92bb2479d9a26113d9c9f062f7bd07c58db6e7db41b",
+      "bytes": 3327
     },
     {
       "path": "tests/portable-entry.test.mjs",
@@ -2046,6 +2146,11 @@
       "path": "tests/research-trials.test.mjs",
       "sha256": "874e0509f64858c6dd3cf782ab07b2e4bd286c86589a46135ebef8ba309be6eb",
       "bytes": 2749
+    },
+    {
+      "path": "tests/sandbox-render.test.mjs",
+      "sha256": "77b4d62eb2c84acf545c5141aa49b84659619ba37e0178f1278ee16f4fa5f63f",
+      "bytes": 3395
     },
     {
       "path": "tests/strategy-attribution.test.mjs",

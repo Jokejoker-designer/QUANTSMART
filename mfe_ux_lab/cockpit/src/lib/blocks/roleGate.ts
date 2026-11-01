@@ -2,7 +2,7 @@
 // against FORWARD outcomes (next-K-bar return/MFE/MAE/vol, in ATR units), and only passes if it (a) BEATS a
 // permutation null (the relation isn't luck) AND (b) is ERA-STABLE (same sign across 3 segments). Honest by
 // construction: most features will NOT qualify (null edge is the norm). A role tag carries NO authority — this
-// only advances roleStatus DECLARED/AUTO_SUGGESTED/SHADOW_QUALIFIED → OOS_QUALIFIED (or REJECTED).
+// reports descriptive Shadow evidence or rejection; no independent OOS qualification is issued.
 import { evalGraph, type FeatureGraph } from "./featureGraph.ts";
 import type { FeatureUsageRole } from "./featureRoles.ts";
 import type { OhlcBar } from "../../adapters/loadOhlcReplayChart.ts";
@@ -49,7 +49,7 @@ export function runRoleGate(graph: FeatureGraph, role: FeatureUsageRole, bars: O
   }
   const fwd: Fwd = { ret, mfe, mae, fvol };
   const idx: number[] = []; for (let i = 0; i + K < n; i++) if (isFinite(f[i]) && isFinite(ret[i])) idx.push(i);
-  if (idx.length < 60) return { role, metricName: "—", observed: 0, nullBand: 0, beatsNull: false, eraSigns: [], eraStable: false, sampleSize: idx.length, verdict: "REJECTED", notes: [`Insufficient OOS sample (${idx.length}<60)`] };
+  if (idx.length < 60) return { role, metricName: "—", observed: 0, nullBand: 0, beatsNull: false, eraSigns: [], eraStable: false, sampleSize: idx.length, verdict: "REJECTED", notes: [`Insufficient selected sample (${idx.length}<60)`] };
 
   const obs = stat(role, f, fwd, idx);
   const rng = mulberry32(seed); const nulls: number[] = [];
@@ -64,13 +64,14 @@ export function runRoleGate(graph: FeatureGraph, role: FeatureUsageRole, bars: O
   const cov = (obs as { coverage?: number }).coverage;
   const dirGood = role === "BIAS_TREND" ? true : obs.value > 0;      // BIAS just needs a consistent direction; others need the "good" sign
   const covOk = cov === undefined || (cov >= 0.3 && cov <= 0.92);
-  const verdict = beatsNull && eraStable && dirGood && covOk ? "OOS_QUALIFIED" : beatsNull ? "SHADOW_QUALIFIED" : "REJECTED";
+  const passed=beatsNull && eraStable && dirGood && covOk;
+  const verdict = beatsNull ? "SHADOW_QUALIFIED" : "REJECTED";
 
   const notes = [
     `${obs.name} = ${obs.value.toFixed(4)} · null95 = ${nullBand.toFixed(4)} → ${beatsNull ? "Above null" : "Not above null"}`,
-    `era signs [${eraSigns.join(",")}] → ${eraStable ? "Stable" : "Unstable across eras"}`,
+    `era signs [${eraSigns.join(",")}] → ${eraStable ? "Majority sign agreement across thirds" : "Unstable across thirds"}`,
     cov !== undefined ? `Retained coverage ${(cov * 100).toFixed(0)}%` : "",
-    verdict === "OOS_QUALIFIED" ? "✓ qua gate role (OOS + null + era)" : verdict === "SHADOW_QUALIFIED" ? "Above null, but unstable or directionally inconsistent; remain Shadow" : "Indistinguishable from randomness; REJECTED",
+    passed ? "Descriptive checks met on the selected interval. Remain Shadow; independent OOS and multiple-testing correction are NOT RUN." : verdict === "SHADOW_QUALIFIED" ? "Above null, but stability, direction or coverage requirements are not met; remain Shadow." : "Indistinguishable from randomness; REJECTED",
   ].filter(Boolean);
   return { role, metricName: obs.name, observed: obs.value, nullBand, beatsNull, eraSigns, eraStable, coverage: cov, sampleSize: idx.length, verdict, notes };
 }

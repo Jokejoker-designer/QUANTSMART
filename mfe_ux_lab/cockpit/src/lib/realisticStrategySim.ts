@@ -104,6 +104,9 @@ function ema(vals: number[], p: number) { const k = 2 / (p + 1); const o: number
 function rsiArr(c: number[], p = 14): number[] { const out = new Array(c.length).fill(50); let g = 0, l = 0; for (let i = 1; i < c.length; i++) { const ch = c[i] - c[i - 1], gg = ch > 0 ? ch : 0, ll = ch < 0 ? -ch : 0; if (i <= p) { g += gg; l += ll; if (i === p) { g /= p; l /= p; out[i] = l === 0 ? 100 : 100 - 100 / (1 + g / l); } } else { g = (g * (p - 1) + gg) / p; l = (l * (p - 1) + ll) / p; out[i] = l === 0 ? 100 : 100 - 100 / (1 + g / l); } } return out; }
 function atrArr(b: OhlcBar[], p = 14): number[] { const out = new Array(b.length).fill(0); let a = 0; for (let i = 1; i < b.length; i++) { const tr = Math.max(b[i].h - b[i].l, Math.abs(b[i].h - b[i - 1].c), Math.abs(b[i].l - b[i - 1].c)); a = i <= p ? (a * (i - 1) + tr) / i : (a * (p - 1) + tr) / p; out[i] = a; } return out; }
 
+// Shared with condition previews: one causal definition for engine-facing metrics.
+export function entryIndicatorSeries(bars:OhlcBar[]){const closes=bars.map(b=>b.c),atr14=atrArr(bars);return{ema10:ema(closes,10),ema34:ema(closes,34),rsi14:rsiArr(closes),atr14,atr100:ema(atr14,100)};}
+
 // group execution_tf bars under each design bar (the bar whose [t, t+designMinutes) window contains them). Causal
 // (time-window only). execByDesign[i] = the closed exec bars inside design bar i → fed to INTRABAR ENTRY.
 const _ms = (t: string): number => Date.parse((t || "").replace(" ", "T") + (/(Z|[+-]\d\d:?\d\d)$/.test(t || "") ? "" : "Z"));
@@ -191,7 +194,7 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
   const fixedHold=opts.researchIntervention?.fixedHoldBars;
   const mods = modules || []; const has = (id: string) => mods.includes(id);
   const closes = bars.map((b) => b.c);
-  const e10 = ema(closes, 10), e34 = ema(closes, 34), rsi = rsiArr(closes), atr = atrArr(bars), atrSlow = ema(atr, 100);
+  const{ema10:e10,ema34:e34,rsi14:rsi,atr14:atr,atr100:atrSlow}=entryIndicatorSeries(bars);
   const cFlags = classicFlags(has);                                          // classic indicators (Ichimoku/MACD/Stoch/Bollinger/Fib/ADX)
   const cSeries: ClassicSeries | null = anyClassic(cFlags) ? computeClassic(bars, cFlags) : null;
   // advanced opt-in modules (all causal, only act when present)

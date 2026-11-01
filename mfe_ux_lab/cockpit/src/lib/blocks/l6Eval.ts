@@ -15,10 +15,20 @@ export function anchorLevel(bars: OhlcBar[], i: number, anchor: ZoneAnchor, ref?
   if (anchor === "swing_high") return Math.max(...w.map((b) => b.h));
   if (anchor === "swing_low") return Math.min(...w.map((b) => b.l));
   if (anchor === "poc") { const lo = Math.min(...w.map((b) => b.l)), hi = Math.max(...w.map((b) => b.h)); return (lo + hi) / 2; }
-  if ((anchor === "evidence" || anchor === "l5_state") && ref) { const s = customMetricSeries(ref, bars); if (s && isFinite(s[i])) return bars[i].c + s[i] * atrOf(bars, i); }
+  if(anchor==="l5_state")return NaN; // no implemented L5 state series; never substitute close price
+  if(anchor==="evidence"){if(!ref)return NaN;const series=customMetricSeries(ref,bars);return series&&Number.isFinite(series[i])?bars[i].c+series[i]*atrOf(bars,i):NaN;}
   return bars[i].c;
 }
 // chuỗi TÂM vùng (center) = anchorLevel + offset*ATR — tín-hiệu liên tục pre-threshold cho Coordinate Lab.
-export function zoneCenterSeries(z: Pick<CustomL6Zone, "anchor" | "anchorRef" | "offsetAtr">, bars: OhlcBar[]): number[] {
-  return bars.map((_, i) => anchorLevel(bars, i, z.anchor, z.anchorRef) + z.offsetAtr * atrOf(bars, i));
+export function zoneAtrSeries(bars:OhlcBar[],p=14):number[]{
+ if(!bars.length)return [];let a=bars[0].h-bars[0].l;const out=[a];
+ for(let i=1;i<bars.length;i++){const tr=Math.max(bars[i].h-bars[i].l,Math.abs(bars[i].h-bars[i-1].c),Math.abs(bars[i].l-bars[i-1].c));a=(a*(p-1)+tr)/p;out.push(a||1);}return out;
+}
+export function zoneCenterSeries(z: Pick<CustomL6Zone, "anchor" | "anchorRef" | "offsetAtr">, bars: OhlcBar[], resolveEvidence:typeof customMetricSeries=customMetricSeries): number[] {
+ const atr=zoneAtrSeries(bars);
+ const evidence=z.anchor==="evidence"&&z.anchorRef?resolveEvidence(z.anchorRef,bars):null;
+ return bars.map((bar,i)=>{
+  const anchor=z.anchor==="evidence"?(evidence&&Number.isFinite(evidence[i])?bar.c+evidence[i]*atr[i]:NaN):anchorLevel(bars,i,z.anchor,z.anchorRef);
+  return anchor+z.offsetAtr*atr[i];
+ });
 }

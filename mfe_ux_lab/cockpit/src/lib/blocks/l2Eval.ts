@@ -61,7 +61,7 @@ export function availableInputs(): AvailInput[] {
   const builtin: AvailInput[] = L1_PICKABLE.map((t, i) => ({ key: t.key, label: t.title, layer: "L1", color: PALETTE[i % PALETTE.length], role: suggestRoles(t.graph).primaryRole, status: "BUILTIN" }));
   const dL2: AvailInput[] = CLASSIC_INPUTS.map((c) => ({ key: c.key, label: c.label, layer: "L2", color: "#5ad1c4", status: "BUILTIN" }));   // default L2 indicators (qualified)
   const cL1: AvailInput[] = loadCustomL1().map((m, i) => ({ key: m.id, label: m.name, layer: "L1", color: PALETTE[(builtin.length + i) % PALETTE.length], role: m.roles?.primaryRole, status: m.status }));
-  const cL2: AvailInput[] = loadCustomL2().map((m) => ({ key: m.id, label: m.name, layer: "L2", color: "#a371f7", role: m.primaryRole, status: m.status }));
+  const cL2: AvailInput[] = loadCustomL2().filter(m=>m.kind!=="overlay").map((m) => ({ key: m.id, label: m.name, layer: "L2", color: "#a371f7", role: m.primaryRole, status: m.status }));
   return [...builtin, ...dL2, ...cL1, ...cL2];
 }
 // causal RSI (Wilder-ish EMA of gains/losses) — không có helper sẵn nên tự viết, no-lookahead.

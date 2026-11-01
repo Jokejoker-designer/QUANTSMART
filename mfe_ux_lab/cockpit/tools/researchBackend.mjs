@@ -88,7 +88,7 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
         const chunks = []; let size = 0;
         for await (const chunk of req) { size += chunk.length; if (size > 64 * 1024 * 1024) return send(res, 413, { error: 'INPUT_TOO_LARGE' }); chunks.push(chunk); }
         const request = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-        if (!['backtest', 'calibration', 'market','diagnostic','csv_import','csv_view'].includes(request.kind)) return send(res, 400, { error: 'INVALID_JOB_KIND' });
+        if (!['backtest', 'calibration', 'market','diagnostic','csv_import','csv_view','feature_preview','layer_preview'].includes(request.kind)) return send(res, 400, { error: 'INVALID_JOB_KIND' });
         if(request.kind==='diagnostic'&&!['ablation','funding','beast_roles','attribution'].includes(request.analysis))return send(res,400,{error:'INVALID_ANALYSIS'});
         if (request.kind === 'backtest' && (!request.card || !Array.isArray(request.card.modules))) return send(res, 400, { error: 'CARD_REQUIRED' });
         if (request.kind === 'backtest') {
@@ -99,7 +99,7 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
         if(request.kind==='csv_import'&&(typeof request.text!=='string'||Buffer.byteLength(request.text)>32*1024*1024||(typeof request.filename!=='string'||request.filename.length>255||/[\u0000-\u001f]/.test(request.filename))||!/^[A-Z0-9]{3,12}$/.test(request.symbol||'')))return send(res,400,{error:'INVALID_CSV_IMPORT'});
         if(request.importId&&!/^[a-f0-9]{64}$/.test(request.importId))return send(res,400,{error:'INVALID_IMPORT_ID'});
         if(request.importId&&(!imports.list().some(m=>m.id===request.importId)))return send(res,404,{error:'CSV_IMPORT_NOT_FOUND'});
-        if(request.kind==='csv_view'&&!request.importId)return send(res,400,{error:'IMPORT_REQUIRED'});
+        if(['csv_view','feature_preview','layer_preview'].includes(request.kind)&&!request.importId)return send(res,400,{error:'IMPORT_REQUIRED'});
         let dataVersion = '';
         if (request.dataset) {
           const { symbol, tf, from, to } = request.dataset;

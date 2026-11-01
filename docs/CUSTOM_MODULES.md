@@ -58,3 +58,13 @@ different milestones. Research runs remain separate from optional manual MT5 Dem
 tickets.
 
 Return to the [product tour](PRODUCT_TOUR.md) or [installation guide](../README.md).
+
+## CSV-backed studios and AI authoring
+
+Select a saved CSV and evaluation timeframe in the studio. Output, replay and the individual-bar inspector use that source. Preview uses the latest 2,000 selected observations. Save Shadow keeps a definition in the library; use Attach explicitly to change the current Card.
+
+Each L1–L6 studio provides a layer-specific prompt and JSON importer. Canvas Research mode also provides a strategy authoring brief and a generic module importer. These tools export a specification for your external assistant. They do not call an AI provider or accept arbitrary code. Inspect the returned definition, then run a separate complete Card backtest.
+
+BEAST composes Cards by role. Member Cards must agree on symbol, design timeframe and execution timeframe. The builder preserves that context when saving and exporting. CSV role analysis measures leave-one-role-out changes; it does not confer an independent edge.
+
+See [video tutorials](TUTORIALS.md) and [layer verification](LAYER_VALIDATION.md) for the tested workflows and limits.

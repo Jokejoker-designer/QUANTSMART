@@ -1,3 +1,4 @@
+import{normalizeOverlayDefinition}from"./overlayDefinition.ts";
 // aiContextPack — WO INTENT_SANDBOX. Context Pack cho AI của USER — **PER-TẦNG**, không phải một pack khổng lồ.
 //
 // VÌ SAO per-tầng (cứng trong code, không phải sở thích):
@@ -212,13 +213,13 @@ function outputLock(layer: PackLayer): string {
   if (layer === "L2") return `${L}
 > L2 output: weighted-sum JSON with \`name\`, \`explain\`, \`kind\` (indicator/regime/bias/confidence), \`featureKeys\`, numeric \`weights\` and \`explanation\`. Feature keys must already exist in the supplied L1 list. Build missing L1 features first. Do not return L4/L5 module JSON.`;
   return `${L}
-> L6 output: reference-zone JSON with \`name\`, \`explain\`, \`anchor\`, optional \`anchorRef\`, \`role\`, \`offsetAtr\`, \`widthAtr\` and \`explanation\`. Anchors: swing_high/swing_low/poc/evidence/l5_state/price. Roles: OBSERVE/RISK/DEMAND/INVALIDATE. Evidence/l5_state anchors require an existing module ID. Do not create order instructions.`;
+> L6 output: reference-zone JSON with \`name\`, \`explain\`, \`anchor\`, optional \`anchorRef\`, \`role\`, \`offsetAtr\`, \`widthAtr\` and \`explanation\`. Anchors: swing_high/swing_low/poc/evidence/price. L5 state anchors are not implemented and must not be emitted. Roles: OBSERVE/RISK/DEMAND/INVALIDATE. Evidence anchors require an existing numeric L1/L2/L3 module ID. Do not create order instructions.`;
 }
 
 /** Pack cho MỘT tầng — OUTPUT-LOCK trước + section của tầng (chuỗi con literal của master) + schema nếu executable. */
 export function buildLayerPack(layer: PackLayer): string {
   const m = LAYER_META[layer];
-  const head = `# MFE Context Pack — ${m.title}\n\n${outputLock(layer)}
+  const head = `# QUANTSMART Context Pack — ${m.title}\n\n${outputLock(layer)}
 
 Help the user turn one idea for **${m.title}** into a QUANTSMART module using this layer's components.
 ${CHAIN}\n\n${RULES}
@@ -259,7 +260,7 @@ ${JSON.stringify(L2_EXAMPLE, null, 2)}\n\`\`\``;
   return `${head}
 
 ## Import JSON
-Checks include supported anchor/role, positive widthAtr and an existing anchorRef for evidence/l5_state. Zones are visual references only.
+Checks include supported anchor/role, positive widthAtr and an existing anchorRef for evidence. Zones are visual references only.
 
 ### Valid example
 \`\`\`json
@@ -402,7 +403,7 @@ ${RULES}
 ${metricList()}
 
 ## Level & Role
-| level | roles | vai | |
+| level | roles | purpose | |
 |---|---|---|---|
 ${levelRows}
 
@@ -421,7 +422,7 @@ const ALLOWED_COND = new Set(["metric", "op", "value", "value2"]);
 export interface ParseResult { ok: boolean; module?: CustomModule; errors: string[]; strippedFields: string[]; aiExplanation?: string }
 
 /** Parse JSON AI trả về → module đã validate. CHỈ nhận field trong schema (order/lot/risk bị BỎ, không leak). */
-export function parseAiModule(json: string): ParseResult {
+export function parseAiModule(json: string, extraMetrics:string[]=[]): ParseResult {
   let raw: unknown;
   try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], strippedFields: [] }; }
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false, errors: ["Expected one JSON object."], strippedFields: [] };
@@ -442,9 +443,9 @@ export function parseAiModule(json: string): ParseResult {
     exitAction: clean.exitAction as CustomModule["exitAction"], lockR: clean.lockR as number,
     zoneRole: clean.zoneRole as CustomModule["zoneRole"], zoneOffsetAtr: clean.zoneOffsetAtr as number,
   };
-  const v = validateModule(draft, customMetricKeys());   // CỬA CHẶN đã có — cho phép thêm metric = id module evidence đã build (block-native)
+  const v = validateModule(draft, new Set([...customMetricKeys(),...extraMetrics]));   // CỬA CHẶN đã có — cho phép thêm metric = id module evidence đã build (block-native)
   if (!v.ok) return { ok: false, errors: v.errors, strippedFields: stripped, aiExplanation };
-  const module: CustomModule = { ...(draft as CustomModule), id: "cm_ai_" + Date.now(), status: "SHADOW", createdAt: new Date().toISOString() };
+  const module: CustomModule = { ...(draft as CustomModule), id: "cm_ai_" + crypto.randomUUID(), status: "SHADOW", createdAt: new Date().toISOString() };
   return { ok: true, module, errors: [], strippedFields: stripped, aiExplanation };
 }
 
@@ -456,11 +457,12 @@ export function parseAiFormula(json: string, extraInputs: string[] = []): Formul
   if (!raw || typeof raw !== "object") return { ok: false, errors: ["Expected a JSON object."] };
   const src = raw as Record<string, unknown>;
   const aiExplanation = typeof src.explanation === "string" ? src.explanation.trim() : undefined;
-  const ast = src.ast as QuantFormulaAst | undefined;
+  const ast = (src.ast||(src.rootNodeId&&src.nodes?src:undefined)) as QuantFormulaAst | undefined;
   if (!ast || typeof ast !== "object") return { ok: false, errors: ["Missing 'ast'; supply nested {op,args} or flat {rootNodeId,nodes}."], aiExplanation };
   // AI thường trả cây LỒNG NHAU { op, args } — hệ cần dạng PHẲNG { rootNodeId, nodes }. Tự chuyển nếu là nested.
   const flat = (ast as { nodes?: unknown }).nodes ? (ast as QuantFormulaAst) : nestedAstToFlat(ast as unknown as NestedAstNode, typeof src.name === "string" ? src.name : "AI L3");
   if (!flat || !flat.nodes || !flat.rootNodeId) return { ok: false, errors: ["Missing 'ast'; supply nested {op,args} or flat {rootNodeId,nodes}."], aiExplanation };
+  if(src.outputType!==undefined&&!["SCORE","PROBABILITY_LIKE_SCORE","INDICATOR","EV_COMPONENT"].includes(String(src.outputType)))return{ok:false,errors:["Unknown L3 output type."]};
   const macroIds = Object.keys(SEED_MACROS);
   const val = validateAst(flat, [...KNOWN_L3_INPUTS, ...extraInputs], macroIds);   // ← cửa chặn RIÊNG của L3 (+ feature L1/L2 đã build)
   if (!val.ok) return { ok: false, ast: flat, errors: val.errors, aiExplanation, opsUsed: val.report.opsUsed };
@@ -532,7 +534,7 @@ function knownFeatureKeys(): Set<string> {
 function knownL3Inputs(): string[] {
   const extra = [...L1_PICKABLE.map((f) => f.key)];
   for (const m of loadCustomL1()) { extra.push(m.id); extra.push(m.name); }
-  for (const m of loadCustomL2()) { extra.push(m.id); extra.push(m.name); }
+  for (const m of loadCustomL2().filter(m=>m.kind!=="overlay")) { extra.push(m.id); extra.push(m.name); }
   return extra;
 }
 
@@ -542,20 +544,21 @@ export function parseAiFeature(json: string): { ok: boolean; module?: CustomL1Mo
   if (!raw || typeof raw !== "object") return { ok: false, errors: ["Expected a JSON object."], warnings: [] };
   const s = raw as Record<string, unknown>;
   const aiExplanation = typeof s.explanation === "string" ? s.explanation.trim() : undefined;
-  const g = s.graph as Partial<FeatureGraph> | undefined;
+  const nativeGraph = Array.isArray(s.nodes) && typeof s.output === "string";
+  const g = (nativeGraph ? s : s.graph) as Partial<FeatureGraph> | undefined;
   if (!g || !Array.isArray(g.nodes) || typeof g.output !== "string") return { ok: false, errors: ["Missing 'graph'; supply {nodes:[…],output}."], warnings: [], aiExplanation };
-  const name = typeof s.name === "string" && s.name.trim() ? s.name.trim() : "AI L1 feature";
-  const explain = typeof s.explain === "string" ? s.explain : "";
-  const why = typeof s.why === "string" ? s.why : "";
-  const graph: FeatureGraph = { id: "l1g_" + Date.now().toString(36), name, description: explain || undefined, nodes: g.nodes as FeatureGraph["nodes"], output: g.output };
+  const name = typeof s.name === "string" && s.name.trim() ? s.name.trim() : "Imported L1 feature";
+  const explain = typeof s.explain === "string" ? s.explain : nativeGraph && typeof s.description === "string" && s.description.length >= 12 ? s.description : nativeGraph ? "Imported feature graph awaiting measurement review." : "";
+  const why = typeof s.why === "string" ? s.why : nativeGraph ? "Imported definition; review its rationale before research use." : "";
+  const graph: FeatureGraph = { id: "l1g_" + crypto.randomUUID(), name, description: explain || undefined, nodes: g.nodes as FeatureGraph["nodes"], output: g.output };
   const v = validateL1Draft({ name, explain, why, graph });   // ← cửa RIÊNG L1: type-check port + emit-feature + explainability
   if (!v.ok) return { ok: false, errors: v.errors, warnings: v.warnings, aiExplanation };
-  const module: CustomL1Module = { id: "l1_" + Date.now().toString(36), name, explain, why, graph, status: "SHADOW", createdAt: new Date().toISOString() };
+  const module: CustomL1Module = { id: "l1_" + crypto.randomUUID(), name, explain, why, graph, status: "SHADOW", createdAt: new Date().toISOString() };
   return { ok: true, module, errors: [], warnings: v.warnings, aiExplanation };
 }
 
 // L2 — weighted-sum indicator. AI trả { name, explain, kind, featureKeys:[…], weights:{key:w}, explanation }.
-export function parseAiIndicator(json: string): { ok: boolean; module?: CustomL2Module; errors: string[]; warnings: string[]; aiExplanation?: string } {
+export function parseAiIndicator(json: string, extraFeatures: string[] = []): { ok: boolean; module?: CustomL2Module; errors: string[]; warnings: string[]; aiExplanation?: string } {
   let raw: unknown; try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], warnings: [] }; }
   if (!raw || typeof raw !== "object") return { ok: false, errors: ["Expected a JSON object."], warnings: [] };
   const s = raw as Record<string, unknown>;
@@ -563,23 +566,28 @@ export function parseAiIndicator(json: string): { ok: boolean; module?: CustomL2
   const errors: string[] = []; const warnings: string[] = [];
   const kind = (typeof s.kind === "string" ? s.kind : "indicator") as L2Kind;
   if (!L2_KINDS.has(kind)) errors.push("Unknown kind '" + kind + "'; supported kinds: indicator/regime/bias/confidence/overlay");
+  if(kind==='overlay'){
+    try{const normalized=normalizeOverlayDefinition(s);const module={...normalized,id:'l2_'+crypto.randomUUID(),name:String(normalized.name),explain:String(normalized.explain),kind:'overlay' as const,featureKeys:[],weights:{},status:'SHADOW' as const,createdAt:new Date().toISOString()};return{ok:true,module,errors:[],warnings,aiExplanation};}catch(error){return{ok:false,errors:[error instanceof Error?error.message:String(error)],warnings,aiExplanation};}
+  }
   const featureKeys = Array.isArray(s.featureKeys) ? s.featureKeys.filter((k): k is string => typeof k === "string") : [];
+  if (Array.isArray(s.featureKeys) && featureKeys.length !== s.featureKeys.length || new Set(featureKeys).size !== featureKeys.length) errors.push("featureKeys must be distinct strings");
   if (featureKeys.length < 1) errors.push("featureKeys must contain at least one L1 feature key");
   const weightsRaw = (s.weights && typeof s.weights === "object") ? s.weights as Record<string, unknown> : {};
   const weights: Record<string, number> = {};
-  for (const k of featureKeys) { const w = Number(weightsRaw[k]); if (!isFinite(w)) errors.push("Missing numeric weights['" + k + "']"); else weights[k] = w; }
+  for (const k of featureKeys) { const w = weightsRaw[k]; if (typeof w!=="number" || !Number.isFinite(w)) errors.push("Missing numeric weights['" + k + "']"); else weights[k] = w; }
+  if (featureKeys.length && !Object.values(weights).some(w=>w!==0)) errors.push("At least one weight must be nonzero");
   const pool = knownFeatureKeys();
-  for (const k of featureKeys) if (!pool.has(k)) warnings.push("feature '" + k + "' is not in the built-in/promoted custom L1 pool; its L2 input remains unavailable until it exists");
+  for (const k of featureKeys) if (!pool.has(k) && !extraFeatures.includes(k)) errors.push("Missing L1 feature dependency: " + k);
   const explain = typeof s.explain === "string" ? s.explain : "";
   if (explain.trim().length < 8) errors.push("explain must contain at least 8 characters");
   if (errors.length) return { ok: false, errors, warnings, aiExplanation };
   const name = typeof s.name === "string" && s.name.trim() ? s.name.trim() : "AI L2 indicator";
-  const module: CustomL2Module = { id: "l2_" + Date.now().toString(36), name, explain, kind, featureKeys, weights, status: "SHADOW", createdAt: new Date().toISOString() };
+  const module: CustomL2Module = { id: "l2_" + crypto.randomUUID(), name, explain, kind, featureKeys, weights, status: "SHADOW", createdAt: new Date().toISOString() };
   return { ok: true, module, errors: [], warnings, aiExplanation };
 }
 
 // L6 — ZONE. AI trả { name, explain, anchor, anchorRef?, role, offsetAtr, widthAtr, explanation }.
-export function parseAiZone(json: string): { ok: boolean; zone?: CustomL6Zone; errors: string[]; warnings: string[]; aiExplanation?: string } {
+export function parseAiZone(json: string, extraEvidence: string[] = []): { ok: boolean; zone?: CustomL6Zone; errors: string[]; warnings: string[]; aiExplanation?: string } {
   let raw: unknown; try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], warnings: [] }; }
   if (!raw || typeof raw !== "object") return { ok: false, errors: ["Expected a JSON object."], warnings: [] };
   const s = raw as Record<string, unknown>;
@@ -593,8 +601,11 @@ export function parseAiZone(json: string): { ok: boolean; zone?: CustomL6Zone; e
     widthAtr: typeof s.widthAtr === "number" ? s.widthAtr : NaN,
   };
   const v = validateL6Zone(draft);   // cửa RIÊNG L6
+  if(draft.anchor==='l5_state')v.errors.push("L5 state anchors have no implemented runtime series; choose a supported anchor.");
+  if(draft.anchor==='evidence'&&(!draft.anchorRef||!customMetricKeys().has(draft.anchorRef)&&!extraEvidence.includes(draft.anchorRef)))v.errors.push("Missing evidence anchor dependency: "+draft.anchorRef);
+  v.ok=v.errors.length===0;
   if (!v.ok) return { ok: false, errors: v.errors, warnings: v.warnings, aiExplanation };
-  const zone: CustomL6Zone = { id: "l6_" + Date.now().toString(36), name: draft.name!.trim(), explain: draft.explain!.trim(), anchor: draft.anchor!, anchorRef: draft.anchorRef, role: draft.role!, offsetAtr: draft.offsetAtr!, widthAtr: draft.widthAtr!, status: "SHADOW", createdAt: new Date().toISOString() };
+  const zone: CustomL6Zone = { id: "l6_" + crypto.randomUUID(), name: draft.name!.trim(), explain: draft.explain!.trim(), anchor: draft.anchor!, anchorRef: draft.anchorRef, role: draft.role!, offsetAtr: draft.offsetAtr!, widthAtr: draft.widthAtr!, status: "SHADOW", createdAt: new Date().toISOString() };
   return { ok: true, zone, errors: [], warnings: v.warnings, aiExplanation };
 }
 
@@ -621,7 +632,7 @@ export function importAnyLayer(json: string): ImportResult {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false, errors: ["Expected one module as a JSON object."] };
   const s = raw as Record<string, unknown>;
 
-  if ("ast" in s) {   // L3 — công thức
+  if ("ast" in s || "rootNodeId" in s && "nodes" in s) {   // L3 — công thức
     const r = parseAiFormula(json, knownL3Inputs());
     if (!r.ok || !r.ast) return { ok: false, layer: "L3", errors: r.errors, aiExplanation: r.aiExplanation };
     const name = typeof s.name === "string" && s.name.trim() ? s.name.trim() : "AI L3 formula";
@@ -629,13 +640,13 @@ export function importAnyLayer(json: string): ImportResult {
     upsertCustomL3(m);
     return { ok: true, layer: "L3", id: m.id, name, errors: [], aiExplanation: r.aiExplanation };
   }
-  if ("graph" in s) {   // L1 — FeatureGraph
+  if ("graph" in s || "nodes" in s && "output" in s) {   // L1 — FeatureGraph
     const r = parseAiFeature(json);
     if (!r.ok || !r.module) return { ok: false, layer: "L1", errors: r.errors, warnings: r.warnings, aiExplanation: r.aiExplanation };
     saveCustomL1([r.module, ...loadCustomL1()]);
     return { ok: true, layer: "L1", id: r.module.id, name: r.module.name, errors: [], warnings: r.warnings, aiExplanation: r.aiExplanation };
   }
-  if ("featureKeys" in s || "weights" in s) {   // L2 — weighted-sum indicator
+  if ("featureKeys" in s || "weights" in s || "overlayKey" in s || "overlayLines" in s) {   // L2 — weighted-sum indicator
     const r = parseAiIndicator(json);
     if (!r.ok || !r.module) return { ok: false, layer: "L2", errors: r.errors, warnings: r.warnings, aiExplanation: r.aiExplanation };
     saveCustomL2([r.module, ...loadCustomL2()]);

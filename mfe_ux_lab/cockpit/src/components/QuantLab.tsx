@@ -1,9 +1,13 @@
+import {writePromptText} from "../lib/promptClipboard.ts";
+import{useDefinitionPersistence}from"../lib/definitionPersistence.ts";
+import{useSandboxDataset}from"../lib/sandboxDataset.ts";
+import{SandboxDatasetControls}from"./SandboxDatasetControls.tsx";
 // QuantLab — the L3 formula lab UI (QL-4). Full-screen overlay, 5 tabs per the mockups: Formula Text · Block Tree
 // / AST · Coordinate Lab · Replay Output · Passport / Validation. Formula Text + Block Tree run REAL on the proven
 // engine (parseFormula ↔ astToText ↔ evaluateSeries, validateAst); Coordinate/Replay show real computed summaries;
 // Passport shows the REAL structural checks (no-lookahead/KIDI/parse/sample) and honestly marks OOS/WFO/MonteCarlo
 // as not-yet-run (QL-8 backend). Output is ALWAYS a number — advisory only, NO order/zone/entry.
-import { useEffect, useMemo, useState } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import { TK } from "./ui/Ui.tsx";
 import { Glyph } from "./ui/Glyph.tsx";
 import { buildLayerPack, parseAiFormula } from "../lib/aiContextPack.ts";
@@ -119,7 +123,11 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
   const avail = useMemo(availableInputs, []);   // L1 features (built-in + PROMOTED custom) + PROMOTED L2 contexts
   const known = useMemo(() => [...avail.map((a) => a.key), ...RAW_L3_KEYS], [avail]);
   const [aiOpen, setAiOpen] = useState(false); const [aiJson, setAiJson] = useState(""); const [aiMsg, setAiMsg] = useState<{ ok: boolean; text: string } | null>(null); const [aiCopied, setAiCopied] = useState(false);
-  function copyL3Prompt() { try { navigator.clipboard?.writeText(buildLayerPack("L3")); } catch { /* clipboard blocked */ } setAiCopied(true); setTimeout(() => setAiCopied(false), 1600); }
+  async function copyL3Prompt() {
+    setAiCopied(false);
+    try {await writePromptText(buildLayerPack("L3"));setAiCopied(true);setTimeout(()=>setAiCopied(false),1600);}
+    catch(error){setAiMsg({ok:false,text:error instanceof Error?error.message:String(error)});}
+  }
   function importL3Ai() {
     const r = parseAiFormula(aiJson, [...known]);   // cửa RIÊNG L3 (validateAst) — KHÔNG nới
     if (!r.ok || !r.ast) { setAiMsg({ ok: false, text: "✗ " + (r.errors[0] || "Invalid JSON") }); return; }
@@ -127,7 +135,9 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
     setTreeMode("view"); setFlow(null); setAiMsg({ ok: true, text: "Formula loaded. Inspect the AST, flow and preview before use." + (r.aiExplanation ? " 💬 " + r.aiExplanation : "") });
   }
   const inLabel = (k: string) => { const a = avail.find((x) => x.key === k); return a && a.label !== k ? `${a.label} · ${k}` : k; };   // friendly name + key for selects
-  const [bars, setBars] = useState<OhlcBar[]>([]);
+  const persistence=useDefinitionPersistence();
+  const dataset=useSandboxDataset();
+  const bars=dataset.bars;
   const [guideOpen, setGuideOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("formula");
   const [text, setText] = useState(initial?.formulaText ?? DEFAULT_F);
@@ -153,7 +163,7 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
   const [valReport, setValReport] = useState<ValidationReport | null>(initial?.validationReport ?? null);
   const [running, setRunning] = useState(false);
 
-  useEffect(() => { let live = true; loadSimOhlc("H1", false).then((d) => { if (live && d?.bars?.length) setBars(d.bars.slice(-1500)); }); return () => { live = false; }; }, []);
+
 
   // keyboard Delete/Backspace removes the selected node in 🔗 Nối mode (like L1) — ignored while typing in a field.
   useEffect(() => {
@@ -235,13 +245,16 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
       createdAt: now, updatedAt: now,
     };
   }
-  function saveModule(asCopy: boolean, attachAndClose = false) {
+  async function saveModule(asCopy: boolean, attachAndClose = false) {
     const m = buildModule(asCopy);
     if (!m) { alert("Fix the formula syntax before saving."); return; }
-    upsertCustomL3(m); setSavedId(m.id); setSavedHash(m.astHash); onSaved?.("myL3_" + m.id); if (attachAndClose) onClose();
+    if(!await persistence.commit(()=>{upsertCustomL3(m);},["mfe_custom_l3"]))return; setSavedId(m.id); setSavedHash(m.astHash); if (attachAndClose) onSaved?.("myL3_" + m.id); if (attachAndClose) onClose();
   }
+  useEffect(()=>{setValReport(null);},[curHash,dataset.id,dataset.tf]);
   // validation runs on the SAME 1500 M1 bars + SAME formula score as the Replay Output tab → the two tabs never disagree.
-  function runVal() { if (!ast || !okParse || !m1Bars.length || !m1Root.length) return; setRunning(true); setTimeout(() => { setValReport(runValidation(m1Root, m1Bars)); setRunning(false); }, 10); }
+  const validationSnapshot=useRef('');validationSnapshot.current=JSON.stringify({curHash,importId:dataset.id,tf:dataset.tf});
+  function runVal(){if(!ast||!okParse||!m1Bars.length||!m1Root.length)return;const expected=validationSnapshot.current;setRunning(true);setTimeout(()=>{if(validationSnapshot.current!==expected){setRunning(false);return;}const report=runValidation(m1Root,m1Bars);if(validationSnapshot.current===expected)setValReport(report);setRunning(false);},10);}
+
   // a mockup-style POINTWISE weighted-sum signal score (so the Region Map is exact, not the rolling approximation).
   function loadMockupExample() {
     const want: [string, number][] = [["ema_slope", 1.12], ["rsi_value", 0.84], ["atr_percentile", 0.63], ["wick_rejection_strength", 0.58], ["pullback_pressure", 0.44], ["range_expansion_score", 0.29]];
@@ -250,13 +263,13 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
     setText("score = " + terms.map(([k, w]) => `${w}*${k}`).join(" + "));
     setXk(terms[0][0]); setYk(terms[1][0]); setCoordTmpl("region"); setAxisTransform("zscore"); setPinned(null); setCoordHover(null);
   }
-  function persistVal(attachAndClose = false) {
+  async function persistVal(attachAndClose = false) {
     const m = buildModule(false); if (!m || !valReport) { alert("Run validation before saving its results."); return; }
     const wf = valReport.walkForward.status;
     const mcRisk = valReport.monteCarlo.risk;
     m.validation = { structuralStatus: m.validation.structuralStatus, oosStatus: valReport.oos.pass ? "PASS" : "FAIL", walkForwardStatus: wf, monteCarloStatus: mcRisk === "ELEVATED" ? "FAIL" : mcRisk === "UNKNOWN" ? "NOT_RUN" : "PASS", eraStabilityStatus: wf };
     m.validationReport = valReport;
-    upsertCustomL3(m); setSavedId(m.id); setSavedHash(m.astHash); onSaved?.("myL3_" + m.id); if (attachAndClose) onClose();
+    if(!await persistence.commit(()=>{upsertCustomL3(m);},["mfe_custom_l3"]))return; setSavedId(m.id); setSavedHash(m.astHash); if (attachAndClose) onSaved?.("myL3_" + m.id); if (attachAndClose) onClose();
   }
 
   // ── geometry of the output (REAL, computed from root) ──
@@ -295,13 +308,13 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
 
   // ── Replay Output: 1500 M1 bars + a user-chosen window. Lazy-loaded (only when the tab is open). The formula is
   // evaluated on the FULL M1 series (so rolling ops get warmup) → charts slice the chosen window. Causal · advisory.
-  const [m1Bars, setM1Bars] = useState<OhlcBar[]>([]);
+  const m1Bars=bars;
   const [rpWin, setRpWin] = useState(400);
   const [rpStart, setRpStart] = useState(0);
   const [rpAnchorEnd, setRpAnchorEnd] = useState(true);   // keep the window pinned to the latest bar until the user scrolls
   const [rpPlaying, setRpPlaying] = useState(false);
   const [rpSpeed, setRpSpeed] = useState(8);              // bars advanced per playback tick
-  useEffect(() => { if ((tab !== "replay" && tab !== "passport") || m1Bars.length) return; let live = true; loadSimOhlc("M1", false).then((d) => { if (live && d?.bars?.length) setM1Bars(d.bars.slice(-1500)); }); return () => { live = false; }; }, [tab, m1Bars.length]);
+
   // ▶/⏸ playback — advance the window forward through history (like a backtest player). Stops at the last bar.
   useEffect(() => {
     if (!rpPlaying || tab !== "replay") return;
@@ -311,7 +324,7 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
   const m1Inputs = useMemo(() => Object.fromEntries([...avail.map((a) => [a.key, inputSeries(a.key, m1Bars)]), ...RAW_L3_KEYS.map((k) => [k, inputSeries(k, m1Bars)])]) as Record<string, number[]>, [avail, m1Bars]);
   const m1Root = useMemo(() => (ast && m1Bars.length ? evaluateSeries(ast, m1Inputs, m1Bars.length, SEED_MACROS).root : [] as number[]), [ast, m1Inputs, m1Bars.length]);
 
-  if (!n) return <div style={{ position: "fixed", inset: 0, background: "#070b11", zIndex: 130, display: "flex", alignItems: "center", justifyContent: "center", color: TK.muted }}>Loading observations…</div>;
+  if (!n) return <div className="sandbox-workspace sandbox-empty" role="dialog" aria-label="L3 formula sandbox" style={{position:'fixed',inset:0,zIndex:130,background:'var(--bg-app)'}}><button onClick={onClose}>Close L3 sandbox</button><SandboxDatasetControls data={dataset}/>{persistence.error&&<p role="alert" style={{color:"#fca5a5"}}>{persistence.error}</p>}</div>;
 
   const yLine = (s: number[], h: number, pad = 6) => { const lo = Math.min(...s), hi = Math.max(...s), sp = hi - lo || 1; return (v: number) => pad + (1 - (v - lo) / sp) * (h - 2 * pad); };
 
@@ -328,7 +341,8 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "var(--bg-app, #070B14)", zIndex: 130, display: "flex", flexDirection: "column", padding: 12, boxSizing: "border-box", overflow: "hidden" }}>
+    <div className="sandbox-workspace" role="dialog" aria-modal="true" aria-label="L3 formula sandbox" style={{ position: "fixed", inset: 0, background: "var(--bg-app, #070B14)", zIndex: 130, display: "flex", flexDirection: "column", padding: 12, boxSizing: "border-box", overflow: "hidden" }}>
+      <SandboxDatasetControls data={dataset}/>{persistence.error&&<p role="alert" style={{color:"#fca5a5"}}>{persistence.error}</p>}
       <div style={{ display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #1f2630", paddingBottom: 7, marginBottom: 7 }}>
         <b style={{ color: "#37c0ff", fontSize: 14 }}><Glyph name="calc" size={14} /> QuantLab · L3</b>
         <span style={{ fontSize: 9.5, color: "#e3b341", border: "1px solid #e3b34166", borderRadius: 4, padding: "1px 7px" }}>ADVISORY ONLY</span>
@@ -347,10 +361,10 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
         <button onClick={() => saveModule(false, false)} disabled={!okParse} style={{ ...inp, cursor: okParse ? "pointer" : "not-allowed", background: okParse ? "#15786e" : "var(--mfe-s3)", color: okParse ? "#fff" : "var(--mfe-muted)", border: "none", fontWeight: 700 }}><Glyph name="save" size={12} /> Save Shadow Only</button>
         {savedId && <button onClick={() => saveModule(true)} style={{ ...inp, cursor: "pointer" }}>Save a copy</button>}
         <span className="pmut psm" style={{ fontFamily: "var(--mfe-mono)" }}>{savedId ? (savedHash === curHash ? `Saved · hash${curHash}` : `Unsaved changes · hash${curHash ?? "—"}`) : (curHash ? `hash ${curHash}` : "—")}</span>
-        <span style={{ marginLeft: "auto", fontSize: 9.5, color: "#5eead4", border: "1px solid rgba(94,234,212,0.4)", borderRadius: 4, padding: "1px 7px", fontWeight: 700 }}>CONFIRMATION · AST Score · ATK 65 · DEF 72</span>
+        <span style={{ marginLeft: "auto", fontSize: 9.5, color: "#5eead4", border: "1px solid rgba(94,234,212,0.4)", borderRadius: 4, padding: "1px 7px", fontWeight: 700 }}>L3 · AST SCORE</span>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+      <div data-sandbox-main style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         {tab === "formula" && FormulaTab()}
         {tab === "tree" && TreeTab()}
         {tab === "coord" && CoordTab()}
@@ -365,7 +379,7 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
         <span className="pmut">AST <b style={{ fontFamily: "var(--mfe-mono)" }}>{nodeCount}</b> node</span>
         <span style={{ color: okParse ? "#3fb950" : "#f7768e", fontWeight: 700 }}>{okParse ? <><Glyph name="check" size={11} /> parse PASS</> : <><Glyph name="x" size={11} /> parse FAIL</>}</span>
         {valReport && <span className="pmut">IC <b style={{ fontFamily: "var(--mfe-mono)", color: valReport.realIC >= 0 ? "#3fb950" : "#f7768e" }}>{valReport.realIC >= 0 ? "+" : ""}{valReport.realIC.toFixed(3)}</b> · {valReport.overall}</span>}
-        <span className="pmut">{n} H1 bars</span>
+        <span className="pmut">{n} {dataset.tf} bars</span>
         <span style={{ marginLeft: "auto", fontSize: 9.5, color: "#a371f7", border: "1px solid #a371f755", borderRadius: 4, padding: "1px 7px" }}>SHADOW</span>
         <span className="pmut" style={{ fontSize: 9, fontStyle: "italic" }}>research &amp; advisory only · output = number · no order/zone/entry</span>{guideOpen && <LayerInfoPopup initialLevel={3} onClose={() => setGuideOpen(false)} />}
       </div>
@@ -375,7 +389,7 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
   // ─────────────────────────── FORMULA TEXT ───────────────────────────
   function FormulaTab() {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "210px 1fr 290px", gap: 10, height: "100%" }}>
+      <div className="sandbox-main-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)", gap: 10, height: "100%" }}>
         <div style={{ overflowY: "auto", paddingRight: 4 }}>
           <Sec title={`Variables and inputs${avail.length}`}>
             {(() => { const groups: [string, AvailInput[]][] = [
@@ -534,7 +548,7 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
       const rYY = (v: number) => 30 - ((v - rLo) / ((rHi - rLo) || 1)) * 28;
       const swap = selN?.op ? (Object.keys(OP_SPEC) as QuantOp[]).filter((o) => o !== "MACRO_REF" && OP_SPEC[o].arity === OP_SPEC[selN.op!].arity && OP_SPEC[o].kind === OP_SPEC[selN.op!].kind && !!OP_SPEC[o].windowed === !!OP_SPEC[selN.op!].windowed) : [];
       return (
-        <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 270px", gap: 10, height: "100%" }}>
+        <div className="sandbox-main-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)", gap: 10, height: "100%" }}>
           {nodeLibCol}
           <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
             <QuantFlowCanvas graph={g} sel={sel} onSel={setSel} onMove={fMove} onConnect={fConnect} onCreate={fAdd} onSetOutput={fSetOutput} onDelete={fDelete} onAutoLayout={fLayout} />
@@ -589,7 +603,7 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
       );
     }
     if (!ast) return (
-      <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 280px", gap: 10, height: "100%" }}>
+      <div className="sandbox-main-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)", gap: 10, height: "100%" }}>
         {nodeLibCol}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#7d8a99", fontSize: 13, padding: 20, background: "#0b0f15", borderRadius: 8, border: "1px dashed var(--mfe-border)" }}>Empty formula. <b style={{ color: "#37c0ff", margin: "0 4px" }}>Select a block from the node library</b> or enter a formula in the text editor.</div>
         <div style={{ overflowY: "auto" }}><div className="pc" style={{ margin: 0, background: "var(--mfe-s2)" }}><b style={{ fontSize: 12, color: "#e7eef6" }}>Inspector</b><div className="pmut psm" style={{ marginTop: 8 }}>Create a formula before editing its nodes.</div></div></div>
@@ -617,7 +631,7 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
     // ops the selected node can swap to (same operand arity) — for building/editing in the tree
     const swapOps = selNd?.op ? (Object.keys(OP_SPEC) as QuantOp[]).filter((o) => o !== "MACRO_REF" && OP_SPEC[o]?.arity === OP_SPEC[selNd.op!]?.arity && OP_SPEC[o]?.kind === OP_SPEC[selNd.op!]?.kind && !!OP_SPEC[o]?.windowed === !!OP_SPEC[selNd.op!]?.windowed) : [];
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 280px", gap: 10, height: "100%" }}>
+      <div className="sandbox-main-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)", gap: 10, height: "100%" }}>
         {nodeLibCol}
         <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
           <div style={{ flex: 1, minHeight: 0, overflow: "auto", background: "#0b0f15", borderRadius: 8, border: "1px solid var(--mfe-border)" }}>
@@ -1084,7 +1098,7 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
           {weights.length > 0 ? (
             <div className="pc" style={{ margin: "8px 0 0", background: "var(--mfe-s2)", border: "1px solid " + ("#5ad1c4") }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}><b style={{ fontSize: 12, color: "#5ad1c4" }}><Glyph name="balance" size={12} /> Editable weights</b><span className="pmut psm" style={{ marginLeft: "auto" }}>Adjust to redraw</span></div>
-              <div className="pmut" style={{ fontSize: 8.5, marginBottom: 2 }}>A coefficient change recomputes the diagnostics on {total} M1 bars</div>
+              <div className="pmut" style={{ fontSize: 8.5, marginBottom: 2 }}>A coefficient change recomputes the diagnostics on {total} {dataset.tf} bars</div>
               {weights.map((w, k) => (
                 <div key={w.constId} style={{ borderTop: "1px solid #1c232c", padding: "4px 0" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5 }}>
@@ -1112,7 +1126,7 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
 
   // ─────────────────────────── PASSPORT / VALIDATION (honest) ───────────────────────────
   function PassportTab() {
-    const real: [string, string, string][] = [["No-Lookahead", "PASS", "#3fb950"], ["KIDI-safe", "PASS", "#3fb950"], ["Parse/Syntax", okParse ? "PASS" : "FAIL", okParse ? "#3fb950" : "#f7768e"], ["Finite Output", (m1Root.length ? m1Root : root).every(isFinite) ? "PASS" : "FAIL", "#3fb950"], ["Authority (no order)", "PASS", "#3fb950"]];
+    const real: [string, string, string][] = [["Leakage audit", "NOT RUN", "#94a3b8"], ["Dataset quality audit", "NOT RUN", "#94a3b8"], ["Parse/Syntax", okParse ? "PASS" : "FAIL", okParse ? "#3fb950" : "#f7768e"], ["Finite Output", (m1Root.length ? m1Root : root).every(isFinite) ? "PASS" : "FAIL", "#3fb950"], ["Authority (no order)", "PASS", "#3fb950"]];
     const VERDICT: Record<string, [string, string]> = { EDGE_OOS_QUALIFIED: ["EDGE · OOS QUALIFIED", "#3fb950"], CONDITIONAL_EDGE: ["CONDITIONAL EDGE", "#e3b341"], NULL_EDGE: ["NULL EDGE: not distinguishable from the null baseline", "#f7768e"], INSUFFICIENT: ["INSUFFICIENT SAMPLE", "#8b949e"] };
     const v = valReport;
     const stCol = (s: string) => (s === "PASS" ? "#3fb950" : s === "PARTIAL" ? "#e3b341" : s === "FAIL" ? "#f7768e" : "#8b949e");
@@ -1138,18 +1152,18 @@ export function QuantLab({ onClose, initial, onSaved }: { onClose: () => void; i
               {usedInputs.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 5 }}><span className="pmut" style={{ fontSize: 8.5, alignSelf: "center" }}>variables:</span>{usedInputs.map((k) => <span key={k} style={{ fontSize: 8.5, fontFamily: "var(--mfe-mono)", color: colorOf(k), border: `1px solid ${colorOf(k)}55`, borderRadius: 3, padding: "0 5px" }}>{k}</span>)}</div>}
             </div>
             {real.map(([k, vv, c]) => <Row key={k} k={k} v={vv} c={c} />)}
-            <Row k="Effective sample" v={m1Bars.length ? `${m1Bars.length} M1 bars` : "Loading M1 history…"} c="#5ad1c4" />
+            <Row k="Effective sample" v={m1Bars.length ? `${m1Bars.length} ${dataset.tf} bars` : "Select a CSV dataset…"} c="#5ad1c4" />
             <Row k="AST nodes" v={String(nodeCount)} />
             <div className="pc" style={{ margin: "8px 0 0", background: "#0b0f15", border: "1px solid " + ("#5ad1c4"), padding: "6px 8px" }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: "#5ad1c4", marginBottom: 2 }}>Evaluation identity</div>
-              <div className="pmut" style={{ fontSize: 9, lineHeight: 1.55 }}>Replay and formula validation use <b style={{ color: "#9fd0ff" }}>the same 1,500 M1 observations and formula</b> . Card backtests in Microscope and Strategy Lab evaluate <b style={{ color: "#9fd0ff" }}>the complete Strategy Card</b> including entries, exits and modeled costs. L3 eligibility requires its separate qualification gate.</div>
+              <div className="pmut" style={{ fontSize: 9, lineHeight: 1.55 }}>Replay and formula validation use <b style={{ color: "#9fd0ff" }}>the same selected CSV observations and formula</b> . Card backtests in Microscope and Strategy Lab evaluate <b style={{ color: "#9fd0ff" }}>the complete Strategy Card</b> including entries, exits and modeled costs. L3 eligibility requires its separate qualification gate.</div>
             </div>
             <div className="pmut" style={{ fontSize: 9, marginTop: 8, fontStyle: "italic" }}>Shadow research. Numeric output does not establish future performance or execution authority.</div>
           </div>
           <div className="pc" style={{ margin: 0, background: "var(--mfe-s2)", border: "1px solid " + (v ? VERDICT[v.overall][1] : "#e3b341") }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <b style={{ fontSize: 12, color: "#9fd0ff" }}>QL-8 Validation (IC + OOS + Walk-forward + Permutation-null)</b>
-              <button onClick={runVal} disabled={!okParse || running || !m1Bars.length} style={{ ...inp, marginLeft: "auto", cursor: okParse && m1Bars.length ? "pointer" : "not-allowed", background: "#1f6feb", color: "#fff", border: "none", fontWeight: 700 }}>{running ? "Running…" : !m1Bars.length ? "Loading M1 history…" : v ? "Run again" : "Run validation"}</button>
+              <button onClick={runVal} disabled={!okParse || running || !m1Bars.length} style={{ ...inp, marginLeft: "auto", cursor: okParse && m1Bars.length ? "pointer" : "not-allowed", background: "#1f6feb", color: "#fff", border: "none", fontWeight: 700 }}>{running ? "Running…" : !m1Bars.length ? "Select a CSV dataset…" : v ? "Run again" : "Run validation"}</button>
             </div>
             {!v ? <div className="pmut" style={{ fontSize: 10.5, marginTop: 10, lineHeight: 1.6, fontStyle: "italic" }}>Run score validation on the stated M1 observations: raw forward-return labels, a chronological holdout, era stability and permutation null. This tests a numeric score, not complete strategy performance.</div> : <>
               <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>

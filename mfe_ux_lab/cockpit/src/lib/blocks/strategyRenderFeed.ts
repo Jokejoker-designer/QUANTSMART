@@ -5,7 +5,7 @@
 import type { OhlcBar } from "../../adapters/loadOhlcReplayChart.ts";
 import type { ChartOverlay, ChartMarker, ChartOscillator } from "../../components/vizkit/ChartPane.tsx";   // type-only → erased, no React runtime
 import { STD_BY_KEY } from "./stdIndicators.ts";
-import { zoneCenterSeries, atrOf } from "./l6Eval.ts";
+import { zoneCenterSeries, zoneAtrSeries } from "./l6Eval.ts";
 import { previewMarginSeries, previewModule } from "../moduleIntentPreview.ts";
 import { customMetricSeries } from "../customMetricBridge.ts";
 import { computeSignature } from "./sandboxSignature.ts";
@@ -53,10 +53,11 @@ export function strategyRenderFeed(input: StrategyRenderInput): StrategyRenderFe
   }
 
   // ── L6 zone bands (center ± widthAtr·ATR) ──
+  const zoneAtr=zoneAtrSeries(bars);
   for (const z of input.zones ?? []) {
     const center = zoneCenterSeries(z, bars);
-    const lo = center.map((c, i) => c - z.widthAtr * atrOf(bars, i));
-    const hi = center.map((c, i) => c + z.widthAtr * atrOf(bars, i));
+    const lo = center.map((c, i) => c - z.widthAtr * zoneAtr[i]);
+    const hi = center.map((c, i) => c + z.widthAtr * zoneAtr[i]);
     const color = ZONE_ROLE_COL[z.role] ?? "#5aa9ff";
     overlays.push({ id: "zone_" + z.id, points: center, color, band: { lo, hi }, label: z.name });
     layers.push({ id: "zone_" + z.id, label: `Zone ${z.name} · ${z.role}`, kind: "zone", color });

@@ -16,7 +16,7 @@ export function loadCustomL4(): CustomL4Recipe[] {
   try { const raw = localStorage.getItem(KEY); _mem = raw ? (JSON.parse(raw) as CustomL4Recipe[]) : []; } catch { _mem = []; }
   return _mem!;
 }
-export function saveCustomL4(list: CustomL4Recipe[]): void { _mem = list; try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* mem-only */ } }
+export function saveCustomL4(list: CustomL4Recipe[]): void { if(typeof localStorage!=="undefined")localStorage.setItem(KEY,JSON.stringify(list)); _mem=list; }
 export function deleteCustomL4(id: string): CustomL4Recipe[] { const list = loadCustomL4().filter((r) => r.id !== id); saveCustomL4(list); return list; }
 
 export function reloadCustomL4() { _mem = null; return loadCustomL4(); }

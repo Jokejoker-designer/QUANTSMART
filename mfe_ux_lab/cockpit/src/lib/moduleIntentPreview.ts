@@ -1,3 +1,4 @@
+import{entryIndicatorSeries}from"./realisticStrategySim.ts";
 // moduleIntentPreview — WO INTENT_SANDBOX. Chạy condsMet ĐÃ CÓ trên metric-ctx CAUSAL per bar → trả điểm module
 // "bắn" + câu lý do đọc được. Mục tiêu = INTENT VERIFICATION ("module bắn đúng ý không"), KHÔNG phải edge.
 //
@@ -56,12 +57,12 @@ function atrSeriesP(bars: OhlcBar[], p: number): number[] {
   for (let i = 1; i < n; i++) { const tr = Math.max(bars[i].h - bars[i].l, Math.abs(bars[i].h - bars[i - 1].c), Math.abs(bars[i].l - bars[i - 1].c)); a = i === 1 ? tr : (a * (p - 1) + tr) / p; out[i] = a || 1; }
   return out;
 }
-interface PreCtx { ema10: number[]; ema34: number[]; atr14: number[]; atr100: number[] }
+interface PreCtx { ema10: number[]; ema34: number[]; atr14: number[]; atr100: number[]; rsi14:number[] }
 const _preCache = new WeakMap<OhlcBar[], PreCtx>();
 function preCtx(bars: OhlcBar[]): PreCtx {
   const hit = _preCache.get(bars); if (hit) return hit;
   const closes = bars.map((x) => x.c);
-  const pre: PreCtx = { ema10: emaSeries(closes, 10), ema34: emaSeries(closes, 34), atr14: atrSeriesP(bars, 14), atr100: atrSeriesP(bars, 100) };
+  const pre:PreCtx=entryIndicatorSeries(bars);
   _preCache.set(bars, pre); return pre;
 }
 
@@ -72,7 +73,7 @@ export function buildPreviewCtx(bars: OhlcBar[], i: number): PreviewCtx {
   const a = i < 1 ? ((bars[0].h - bars[0].l) || 1) : pre.atr14[i]; const e10 = pre.ema10[i] ?? b.c; const e34 = pre.ema34[i] ?? b.c;
   const rng = b.h - b.l, body = Math.abs(b.c - b.o);
   const ctx: Ctx = {
-    price: b.c, rsi: rsiAt(bars, i), regime: e10 > e34 ? 1 : e10 < e34 ? -1 : 0, hour: hourOf(b.t),
+    price: b.c, rsi: pre.rsi14[i], regime: e10 > e34 ? 1 : e10 < e34 ? -1 : 0, hour: hourOf(b.t),
     atrPct: a / b.c * 100, atrRatio: a / (pre.atr100[i] || a), emaGapAtr: (e10 - e34) / a, priceEmaAtr: (b.c - e10) / a,
     brokeHigh20: b.c > hi20(bars, i) ? 1 : 0, brokeLow20: b.c < lo20(bars, i) ? 1 : 0,
     wickRatio: rng > 0 ? +((rng - body) / rng).toFixed(3) : 0, bodyRatio: rng > 0 ? +(body / rng).toFixed(3) : 0,
@@ -184,4 +185,11 @@ export function previewModule(bars: OhlcBar[], m: CustomModule, warmup = 40): Pr
     }
   }
   return { fires, previewable, naConditions: naMetrics.length, naMetrics, usedMetrics, scannedBars: Math.max(0, bars.length - warmup) };
+}
+
+// Count only evaluated observations; warmup and unavailable inputs are not WATCH states.
+export function countPreviewStates<T extends string>(states:T[], inputs:number[][], warmup=40): {counts:Partial<Record<T,number>>;observations:number} {
+ const counts:Partial<Record<T,number>>={};let observations=0;
+ for(let i=warmup;i<states.length;i++){if(inputs.some(series=>!Number.isFinite(series[i])))continue;const state=states[i];counts[state]=(counts[state]||0)+1;observations++;}
+ return {counts,observations};
 }

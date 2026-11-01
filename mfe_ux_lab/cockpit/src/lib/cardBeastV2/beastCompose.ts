@@ -1,3 +1,4 @@
+import type {BeastOperatingContext} from "./beastContext.ts";
 // cardBeastV2/beastCompose (P3) — Beast composition where each role GENUINELY interacts, not decoration:
 //   ATTACKER contributes ONLY its trigger votes · GUARD contributes ONLY its veto gates (blocks the attacker's
 //   candidates) · CONFIRMATION contributes ONLY weight/quality scaling on the attacker's votes · EXIT_SENTINEL
@@ -93,8 +94,8 @@ export function composeBeast(members: BeastMember[]): ComposedBeast {
 }
 
 export interface ArmMetrics { n: number; netR: number; exp: number | null; dd: number }
-export function runBeastArm(bars: OhlcBar[], modules: string[], customs: CustomModule[], hard = false, tf = "M15"): ArmMetrics {
-  const bt = runRealisticBacktest(bars, { id: "beast", name: "beast", modules, design_tf: tf }, { symbol: "XAUUSD", chartTf: tf, customModules: customs, hard });
+export function runBeastArm(bars: OhlcBar[], modules: string[], customs: CustomModule[], hard = false, tf = "M15", symbol = "XAUUSD"): ArmMetrics {
+  const bt = runRealisticBacktest(bars, { id: "beast", name: "beast", modules, design_tf: tf }, { symbol, chartTf: tf, customModules: customs, hard });
   const t = bt.sim.trades || []; const n = t.length;
   const netR = +t.reduce((s, x) => s + x.netR, 0).toFixed(2);
   let peak = 0, dd = 0, cum = 0; for (const x of t) { cum += x.netR; peak = Math.max(peak, cum); dd = Math.min(dd, cum - peak); }
@@ -109,9 +110,11 @@ export interface BeastIdentityEvidence {
   fallbackTakeoverRate: number | null;
   status: "PRIMARY_ATTACKER" | "FALLBACK_DOMINANT" | "NO_FALLBACK" | "INSUFFICIENT";
 }
-export function rolePowerReport(bars: OhlcBar[], members: BeastMember[], hard = false): { full: ArmMetrics; rows: RolePowerRow[]; identity: BeastIdentityEvidence } {
+export function rolePowerReport(bars: OhlcBar[], members: BeastMember[], hard = false, context:BeastOperatingContext={symbol:"XAUUSD",design_tf:"M15",execution_tf:"M15"}): { full: ArmMetrics; rows: RolePowerRow[]; identity: BeastIdentityEvidence } {
+  if(context.design_tf!==context.execution_tf)throw new Error("BEAST_ROLE_ANALYSIS_MIXED_TIMEFRAME_UNSUPPORTED");
   const fullC = composeBeast(members);
-  const full = runBeastArm(bars, fullC.modules, fullC.customModules, hard);
+  if(!fullC.ok)throw new Error("INVALID_BEAST_COMPOSITION: "+fullC.errors.join("; "));
+  const full = runBeastArm(bars, fullC.modules, fullC.customModules, hard, context.design_tf, context.symbol);
   const roles = [...new Set(members.map((m) => m.role))].filter((r) => r !== "SAFETY");
   const rows: RolePowerRow[] = [];
   let withoutFallback: ArmMetrics | null = null;
@@ -122,7 +125,7 @@ export function rolePowerReport(bars: OhlcBar[], members: BeastMember[], hard = 
     }
     const rest = members.filter((m) => m.role !== role);
     const c = composeBeast(rest);
-    const m = runBeastArm(bars, c.modules, c.customModules, hard);
+    const m = runBeastArm(bars, c.modules, c.customModules, hard, context.design_tf, context.symbol);
     if (role === "FALLBACK") withoutFallback = m;
     rows.push({
       role, withoutRole: m,

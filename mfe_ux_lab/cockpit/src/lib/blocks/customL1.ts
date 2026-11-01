@@ -29,8 +29,8 @@ export function loadCustomL1(): CustomL1Module[] {
   return _mem!;
 }
 export function saveCustomL1(list: CustomL1Module[]): void {
-  _mem = list;
-  try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* mem-only */ }
+  if(typeof localStorage!=="undefined")localStorage.setItem(KEY,JSON.stringify(list));
+  _mem=list;
 }
 
 // promote/demote a saved L1 module (SHADOW → PROMOTED makes it usable at L1; reversible).
@@ -53,9 +53,9 @@ export interface L1Validation { ok: boolean; errors: string[]; warnings: string[
 export function validateL1Draft(d: { name: string; explain: string; why: string; graph: FeatureGraph }): L1Validation {
   const g = validateGraph(d.graph);
   const errors = [...g.errors];
-  if (d.name.trim().length < 2) errors.push("Module name must contain at least 2 characters");
-  if (d.explain.trim().length < 12) errors.push("Explain what it does in at least 12 characters");
-  if (d.why.trim().length < 12) errors.push("Explain the rationale in at least 12 characters");
+  if (typeof d.name !== "string" || d.name.trim().length < 2) errors.push("Module name must contain at least 2 characters");
+  if (typeof d.explain !== "string" || d.explain.trim().length < 12) errors.push("Explain what it does in at least 12 characters");
+  if (typeof d.why !== "string" || d.why.trim().length < 12) errors.push("Explain the rationale in at least 12 characters");
   return { ok: errors.length === 0, errors, warnings: g.warnings };
 }
 

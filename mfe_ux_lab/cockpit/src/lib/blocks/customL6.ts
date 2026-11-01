@@ -26,8 +26,8 @@ export function validateL6Zone(d: Partial<CustomL6Zone>): L6Validation {
   if (!d.anchor || !ZONE_ANCHORS.includes(d.anchor)) errors.push("Unknown anchor; supported values: " + ZONE_ANCHORS.join("/"));
   if (!d.role || !ZONE_ROLES.includes(d.role)) errors.push("Unknown role; supported values: " + ZONE_ROLES.join("/"));
   if ((d.anchor === "evidence" || d.anchor === "l5_state") && !d.anchorRef) errors.push("Evidence/l5_state anchors require anchorRef with an existing module ID");
-  if (typeof d.widthAtr !== "number" || !(d.widthAtr > 0)) errors.push("widthAtr must be a number greater than zero");
-  if (typeof d.offsetAtr !== "number" || isNaN(d.offsetAtr)) errors.push("offsetAtr must be numeric");
+  if (typeof d.widthAtr !== "number" || !Number.isFinite(d.widthAtr) || !(d.widthAtr > 0)) errors.push("widthAtr must be a number greater than zero");
+  if (typeof d.offsetAtr !== "number" || !Number.isFinite(d.offsetAtr)) errors.push("offsetAtr must be numeric");
   // KHÔNG cho field order/lot/SL-TP lọt vào (vắng field = enforcement)
   for (const k of ["order_send", "lot", "risk_pct", "sl", "tp", "direction"]) if (k in (d as Record<string, unknown>)) warnings.push(`Discarded field '${k}': L6 draws zones and does not place orders`);
   return { ok: errors.length === 0, errors, warnings };
@@ -40,7 +40,7 @@ export function loadCustomL6(): CustomL6Zone[] {
   try { const raw = localStorage.getItem(KEY); _mem = raw ? (JSON.parse(raw) as CustomL6Zone[]) : []; } catch { _mem = []; }
   return _mem!;
 }
-export function saveCustomL6(list: CustomL6Zone[]): void { _mem = list; try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* mem-only */ } }
+export function saveCustomL6(list: CustomL6Zone[]): void { if(typeof localStorage!=="undefined")localStorage.setItem(KEY,JSON.stringify(list)); _mem=list; }
 export function deleteCustomL6(id: string): CustomL6Zone[] { const list = loadCustomL6().filter((z) => z.id !== id); saveCustomL6(list); return list; }
 
 // Refresh after an explicit portable-definition import.

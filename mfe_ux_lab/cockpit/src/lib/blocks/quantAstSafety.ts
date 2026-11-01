@@ -18,6 +18,12 @@ export interface AstValidation { ok: boolean; errors: string[]; report: AstRepor
 
 export function validateAst(ast: QuantFormulaAst, knownInputs: string[], macroIds: string[] = []): AstValidation {
   const errors: string[] = [], opsUsed = new Set<QuantOp>(), inputsUsed = new Set<string>();
+  const invalid=(message:string):AstValidation=>({ok:false,errors:[message],report:{kidiSafe:false,domainSafe:false,nanInfSafe:false,causalSafe:false,noLookahead:false,opsUsed:[],inputsUsed:[]}});
+  if (!ast || typeof ast!=="object" || !ast.nodes || typeof ast.nodes!=="object" || Array.isArray(ast.nodes) || typeof ast.rootNodeId!=="string" || Object.keys(ast.nodes).length>256) return invalid("AST requires a root ID and at most 256 nodes.");
+  for(const [id,node] of Object.entries(ast.nodes)){
+    if(!/^[A-Za-z0-9_.:-]{1,128}$/.test(id)||["constructor","prototype","__proto__"].includes(id)||!node||typeof node!=="object"||!["INPUT","CONST","POINT_OP","ROLLING_OP","LOGIC_OP","MACRO"].includes(node.kind)||node.children!==undefined&&(!Array.isArray(node.children)||node.children.some(child=>typeof child!=="string")))return invalid(`Malformed AST node: ${id}`);
+    if(node.params){if(typeof node.params!=="object"||Array.isArray(node.params))return invalid(`Invalid parameters at ${id}`);for(const[key,value]of Object.entries(node.params)){if(key==='macroId'){if(typeof value!=='string')return invalid(`Invalid macro at ${id}`);}else if(typeof value!=='number'||!Number.isFinite(value))return invalid(`Nonfinite AST parameter at ${id}`);if((key==='window'||key==='lag')&&(typeof value!=='number'||!Number.isInteger(value)||value<0||value>10000||key==='window'&&value<1))return invalid(`Invalid window/lag at ${id}`);if(key==='q'&&(typeof value!=='number'||value<0||value>1))return invalid(`Invalid quantile at ${id}`);}}
+  }
   if (!ast.nodes[ast.rootNodeId]) errors.push("Missing root node");
   for (const id of Object.keys(ast.nodes)) {
     const nd = ast.nodes[id];
@@ -32,7 +38,7 @@ export function validateAst(ast: QuantFormulaAst, knownInputs: string[], macroId
   }
   const grey = new Set<string>(), black = new Set<string>(); let cyclic = false;
   const visit = (id: string) => { if (black.has(id)) return; if (grey.has(id)) { cyclic = true; return; } grey.add(id); for (const c of ast.nodes[id]?.children ?? []) if (ast.nodes[c]) visit(c); grey.delete(id); black.add(id); };
-  if (ast.nodes[ast.rootNodeId]) visit(ast.rootNodeId);
+  for(const id of Object.keys(ast.nodes))visit(id);
   if (cyclic) errors.push("AST contains a cycle");
   const ok = errors.length === 0;
   return { ok, errors, report: { kidiSafe: ok, domainSafe: ok, nanInfSafe: ok, causalSafe: ok, noLookahead: ok, opsUsed: [...opsUsed], inputsUsed: [...inputsUsed] } };

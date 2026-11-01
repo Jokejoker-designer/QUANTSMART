@@ -44,6 +44,7 @@ top.push('docs/INSTALLATION.md','.github/workflows/public-install.yml','scripts/
 top.push('tests/default-port.test.mjs','tests/portable-entry.test.mjs','tests/csv-import.test.mjs','tests/csv-runtime.test.mjs','tests/execution-contract.test.mjs','tests/strategy-attribution.test.mjs','docs/CSV_IMPORT.md','docs/CSV_RESEARCH_VALIDATION.md','docs/CSV_RESEARCH_RESULTS.json');
 top.push('docs/QUANT_CHRONOLOGY_AUDIT.md','docs/QUANT_CHRONOLOGY_RESULTS.json','tests/quant-chronology.test.mjs');
 top.push('docs/INSTALLER_VALIDATION.md','docs/QUANT_METHODOLOGY_AUDIT.md','docs/QUANT_AUDIT_RESULTS.json','tests/quant-methodology.test.mjs','tests/research-trials.test.mjs','tests/quant-history-impact.mjs');
+top.push('docs/LAYER_VALIDATION.md','docs/TUTORIALS.md','tests/l1-import.test.mjs','tests/layers-import.test.mjs','tests/portable-definitions.test.mjs','tests/module-preview-consistency.test.mjs','tests/sandbox-render.test.mjs','tests/beast-context.test.mjs','tests/layers-runtime.test.mjs','tests/module-chain-fixture.mjs');
 // Only reviewed public screenshots are eligible; never enumerate the private artifact tree.
 for(const page of ['home','entry-danger','microscope','kidi-events','playbook','strategy-lab','strategy-canvas','blocks-modules','beast-lab','formula-lab','weekly-audit','strategy-ranking','assets','hidden-coefficients','analysis','debugger','help'])top.push(`docs/screenshots/${page}.jpg`);
 for(const file of top)add(file);

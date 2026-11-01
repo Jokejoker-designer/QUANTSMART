@@ -19,7 +19,7 @@ export interface CustomMetricDef { key: string; label: string; layer: "L1" | "L2
 export function listCustomMetrics(): CustomMetricDef[] {
   return [
     ...loadCustomL1().map((m) => ({ key: m.id, label: m.name, layer: "L1" as const })),
-    ...loadCustomL2().map((m) => ({ key: m.id, label: m.name, layer: "L2" as const })),
+    ...loadCustomL2().filter(m=>m.kind!=="overlay").map((m) => ({ key: m.id, label: m.name, layer: "L2" as const })),
     ...loadCustomL3().map((m) => ({ key: m.id, label: m.name, layer: "L3" as const })),
   ];
 }

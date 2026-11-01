@@ -72,6 +72,13 @@ export const EXECUTABLE_ROLES: Role[] = ["SAFETY_VETO", "CONTEXT_GATE", "TRIGGER
 // [[block-is-fixed-foundation-doctrine]]). Default undefined → hành vi CŨ y hệt (chỉ 29 catalog) → regression-safe.
 export function validateModule(m: Partial<CustomModule>, allowedExtra?: Set<string>): { ok: boolean; errors: string[] } {
   const e: string[] = [];
+  if (!m || typeof m !== "object" || typeof m.name !== "string" || typeof m.explain !== "string" || typeof m.why !== "string" || !Number.isInteger(m.level) || !Object.prototype.hasOwnProperty.call(LEVEL_TEMPLATES, String(m.level))) return {ok:false,errors:["Module requires text metadata and a valid numeric level."]};
+  if (m.logic !== undefined && !["ALL","ANY"].includes(m.logic)) e.push("Logic must be ALL or ANY.");
+  if (m.direction !== undefined && !["LONG","SHORT","REGIME"].includes(m.direction)) e.push("Invalid direction.");
+  if (m.exitAction !== undefined && !["CLOSE","BREAKEVEN","LOCK_SL"].includes(m.exitAction)) e.push("Invalid exit action.");
+  if (m.weight !== undefined && (typeof m.weight!=="number" || !Number.isFinite(m.weight) || m.weight<0 || m.weight>100)) e.push("Weight must be a finite number from 0 to 100.");
+  if (m.reliability !== undefined && (typeof m.reliability!=="number" || !Number.isFinite(m.reliability) || m.reliability<=0 || m.reliability>=1)) e.push("Reliability must be between zero and one.");
+  if (m.conditions !== undefined && (!Array.isArray(m.conditions) || m.conditions.length>100 || m.conditions.some(c=>!c || typeof c!=="object"))) return {ok:false,errors:[...e,"Conditions must be an array of at most 100 condition objects."]};
   if (!m.name || m.name.trim().length < 3) e.push("Name must contain at least 3 characters.");
   if (m.level == null || !(m.level in LEVEL_TEMPLATES)) e.push("Invalid level.");
   if (!m.role || (m.level != null && !LEVEL_TEMPLATES[m.level as Level].roles.includes(m.role))) e.push("Role does not match the level.");
@@ -82,13 +89,14 @@ export function validateModule(m: Partial<CustomModule>, allowedExtra?: Set<stri
     const allowed = new Set(metricsForScope(scope).map((x) => x.key));
     if (allowedExtra) for (const k of allowedExtra) allowed.add(k);   // + metric block-native (id module evidence đã build)
     (m.conditions || []).forEach((c, i) => {
+      if (![">","<",">=","<=","==","between","outside"].includes(c.op)) e.push(`Condition ${i+1}: unknown operator.`);
       if (!allowed.has(c.metric)) e.push(`Condition ${i + 1}: metric "${c.metric}" is unavailable at ${scope}.`);
-      if (typeof c.value !== "number" || isNaN(c.value)) e.push(`Condition ${i + 1}: invalid value.`);
-      if ((c.op === "between" || c.op === "outside") && (c.value2 == null || isNaN(c.value2))) e.push(`Condition ${i + 1}: a second value is required.`);
+      if (typeof c.value !== "number" || !Number.isFinite(c.value)) e.push(`Condition ${i + 1}: invalid value.`);
+      if ((c.op === "between" || c.op === "outside") && (typeof c.value2!=="number" || !Number.isFinite(c.value2) || c.value2<c.value)) e.push(`Condition ${i + 1}: an ordered finite second value is required.`);
     });
   }
   if (m.role === "TRIGGER" && !m.direction) e.push("TRIGGER requires a direction (LONG/SHORT/REGIME).");
-  if (m.role === "EXIT" && m.exitAction === "LOCK_SL" && (typeof m.lockR !== "number" || m.lockR < 0)) e.push("LOCK_SL requires lockR ≥ 0 to lock simulated profit at +lockR R.");
+  if (m.role === "EXIT" && m.exitAction === "LOCK_SL" && (typeof m.lockR !== "number" || !Number.isFinite(m.lockR) || m.lockR < 0)) e.push("LOCK_SL requires finite lockR ≥ 0.");
   // explainability gate
   if (!m.explain || m.explain.trim().length < 12) e.push("Explain what the module does in at least 12 characters.");
   if (!m.why || m.why.trim().length < 12) e.push("Explain why the module is appropriate in at least 12 characters.");
@@ -178,5 +186,5 @@ export const CREATABLE_LEVELS: Level[] = [4, 5];
 
 const LS_KEY = "mfe_custom_modules";
 export function loadCustomModules(): CustomModule[] { try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; } }
-export function saveCustomModules(list: CustomModule[]) { try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch { /* ignore */ } }
+export function saveCustomModules(list: CustomModule[]) { if(typeof localStorage!=="undefined")localStorage.setItem(LS_KEY,JSON.stringify(list)); }
 export function deleteCustomModule(id: string): CustomModule[] { const next = loadCustomModules().filter((m) => m.id !== id); saveCustomModules(next); return next; }

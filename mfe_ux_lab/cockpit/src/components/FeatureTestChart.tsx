@@ -13,15 +13,19 @@ const fmt = (v: number) => (!isFinite(v) ? "—" : Math.abs(v) >= 1 ? v.toFixed(
 const WIN = 120;
 const btn: React.CSSProperties = { background: "var(--mfe-s3)", border: "1px solid var(--mfe-border)", color: "var(--mfe-text)", borderRadius: 6, padding: "3px 9px", fontSize: 12, cursor: "pointer" };
 
-export function FeatureTestChart({ graph, threshold = 0.7 }: { graph: FeatureGraph; threshold?: number }) {
-  const [bars, setBars] = useState<OhlcBar[]>([]);
-  const [pos, setPos] = useState(WIN);
+export function FeatureTestChart({ graph, threshold = 0.7, bars: suppliedBars, sourceLabel, dataError }: { graph: FeatureGraph; threshold?: number; bars?: OhlcBar[]; sourceLabel?: string; dataError?: string }) {
+  const [localBars, setLocalBars] = useState<OhlcBar[]>([]);
+  const bars=suppliedBars??localBars;
+  const [loadError,setLoadError]=useState("");
+  const [loading,setLoading]=useState(suppliedBars===undefined);
+  const [pos, setPos] = useState(Math.min(WIN-1,Math.max(0,bars.length-1)));
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(2);
   const [view, setView] = useState<"window" | "overview">("window");
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => { let live = true; loadSimOhlc("M1", false).then((d) => { if (live && d?.bars?.length) { const b = d.bars.slice(-1200); setBars(b); setPos(Math.min(WIN, b.length - 1)); } }); return () => { live = false; }; }, []);
+  useEffect(() => {if(suppliedBars!==undefined)return;let live=true;setLoading(true);loadSimOhlc("M1",false).then(d=>{if(live){setLocalBars(d?.bars?.slice(-1200)||[]);setLoadError(d?.bars?.length?"":"No local M1 observations are available.");}}).catch(error=>{if(live)setLoadError(error.message||"The dataset could not be loaded.");}).finally(()=>{if(live)setLoading(false);});return()=>{live=false;};},[suppliedBars]);
+  useEffect(()=>{setPlaying(false);setPos(Math.min(WIN-1,Math.max(0,bars.length-1)));},[bars]);
 
   const valid = useMemo(() => validateGraph(graph), [graph]);
   const series = useMemo(() => (bars.length && valid.ok ? evalGraph(graph, bars) : []), [graph, bars, valid.ok]);
@@ -29,7 +33,7 @@ export function FeatureTestChart({ graph, threshold = 0.7 }: { graph: FeatureGra
   // when the feature STRUCTURE changes (blocks added/removed/rewired/output), reset the playhead + stop, so the
   // user re-runs cleanly on the new feature. Pure param tweaks keep the playhead (the overlay just updates live).
   const structKey = useMemo(() => graph.nodes.map((nd) => `${nd.id}:${nd.blockId}:${nd.inputs.join(",")}`).join("|") + "#" + graph.output, [graph]);
-  useEffect(() => { setPlaying(false); setPos((p) => (bars.length ? Math.min(WIN, bars.length - 1) : p)); }, [structKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPlaying(false); setPos((p) => (bars.length ? Math.min(WIN-1, Math.max(0,bars.length - 1)) : p)); }, [structKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const outBlock = BLOCKS_BY_ID[graph.nodes.find((nd) => nd.id === graph.output)?.blockId ?? ""];
   const ratio = outBlock?.outputs[0].range === "[0,1]";
 
@@ -40,7 +44,7 @@ export function FeatureTestChart({ graph, threshold = 0.7 }: { graph: FeatureGra
     return () => { if (timer.current) clearInterval(timer.current); };
   }, [playing, n, speed, view]);
 
-  if (!bars.length) return <div className="pmut psm" style={{ padding: 20 }}>Loading historical M1 observations…</div>;
+  if (!bars.length) return <div className="pmut psm" role="status" style={{ padding: 20 }}>{dataError||loadError||(loading?"Loading historical observations…":"No observations loaded. Select a dataset above.")}</div>;
   if (!valid.ok) return <div className="psm" style={{ color: TK.orange, padding: 12 }}> Feature validation failed ({valid.errors[0]}). Fix the graph before retrying.</div>;
 
   const isOv = view === "overview";
@@ -60,7 +64,7 @@ export function FeatureTestChart({ graph, threshold = 0.7 }: { graph: FeatureGra
   const cur = series[pos] ?? 0;
   const revealed = series.slice(0, (isOv ? n : pos + 1)).filter(isFinite);
   const activePct = revealed.length ? (revealed.filter((v) => v > threshold).length / revealed.length) * 100 : 0;
-  const tlabel = (bars[pos] as { t?: string }).t ? String((bars[pos] as { t?: string }).t).slice(0, 16).replace("T", " ") : `#${pos}`;
+  const tlabel = (bars[Math.min(pos,n-1)] as { t?: string }).t ? String((bars[Math.min(pos,n-1)] as { t?: string }).t).slice(0, 16).replace("T", " ") : `#${pos}`;
 
   return (
     <div>
@@ -70,16 +74,17 @@ export function FeatureTestChart({ graph, threshold = 0.7 }: { graph: FeatureGra
           {([["window", "120 bars"], ["overview", "Overview"]] as const).map(([v, l]) => <button key={v} onClick={() => { setView(v); setPlaying(false); }} style={{ ...btn, border: "none", borderRadius: 0, fontWeight: 700, background: view === v ? "rgba(37,183,255,.18)" : "transparent", color: view === v ? TK.cyan : "var(--mfe-text2)" }}>{l}</button>)}
         </div>
         {!isOv && <>
-          <button style={btn} title={"Reset to start"} onClick={() => { setPlaying(false); setPos(Math.min(WIN, n - 1)); }}>⏮</button>
-          <button style={btn} onClick={() => setPos((p) => Math.max(WIN - 1, p - speed))}>◀</button>
+          <button style={btn} aria-label="Reset feature replay" title={"Reset to start"} onClick={() => { setPlaying(false); setPos(Math.min(WIN-1, n - 1)); }}>⏮</button>
+          <button aria-label="Previous feature observation" style={btn} onClick={() => setPos((p) => Math.max(0, p - speed))}>◀</button>
           <button style={{ ...btn, background: playing ? "#5a3a18" : "#1f6feb", color: "#fff", border: "none", fontWeight: 800, minWidth: 76 }} onClick={() => setPlaying((p) => !p)}>{playing ? "Pause" : "▶ Play"}</button>
-          <button style={btn} onClick={() => setPos((p) => Math.min(n - 1, p + speed))}>▶</button>
+          <button aria-label="Next feature observation" style={btn} onClick={() => setPos((p) => Math.min(n - 1, p + speed))}>▶</button>
           <div style={{ display: "inline-flex", border: "1px solid var(--mfe-border)", borderRadius: 6, overflow: "hidden" }}>{[1, 2, 4].map((s) => <button key={s} onClick={() => setSpeed(s)} style={{ ...btn, border: "none", borderRadius: 0, padding: "3px 8px", background: speed === s ? "rgba(37,183,255,.18)" : "transparent", color: speed === s ? TK.cyan : "var(--mfe-text2)" }}>{s}×</button>)}</div>
-          <input type="range" min={Math.min(WIN, n - 1)} max={n - 1} value={pos} onChange={(e) => { setPlaying(false); setPos(parseInt(e.target.value)); }} style={{ flex: 1, minWidth: 140 }} />
+          <input aria-label="Feature replay position" type="range" min={0} max={n - 1} value={pos} onChange={(e) => { setPlaying(false); setPos(parseInt(e.target.value)); }} style={{ flex: 1, minWidth: 140 }} />
           <span className="pmut psm" style={{ fontFamily: "var(--mfe-mono)" }}>{pos + 1}/{n} · {tlabel}</span>
         </>}
-        {isOv && <span className="pmut psm">All {n}  M1 bars in one view</span>}
+        {isOv && <span className="pmut psm">All {n} bars in one view · {sourceLabel||"Local M1 history"}</span>}
       </div>
+      <div className="pmut psm" style={{marginBottom:6}}>{sourceLabel||"Local M1 history"} · {n.toLocaleString()} observations</div>
       {/* stats */}
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 11, marginBottom: 4 }}>
         {!isOv && <span className="pmut">Value at playhead <b style={{ color: TK.cyan }}>{fmt(cur)}</b></span>}
@@ -87,7 +92,7 @@ export function FeatureTestChart({ graph, threshold = 0.7 }: { graph: FeatureGra
         <span className="pmut">Feature output overlaid on price</span>
       </div>
       <div style={{ background: "#0b0f15", borderRadius: 8, border: "1px solid var(--mfe-border)" }}>
-        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
+        <svg role="img" aria-label="OHLC candles and L1 feature output on the same selected dataset" width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
           {/* active shading */}
           {ratio && vis.map((_, i) => (sv(i) > threshold ? <rect key={i} x={x(i) - cw / 2} y={top} width={cw} height={H - top - bot} fill={TK.cyan} opacity={0.06} /> : null))}
           {/* feature area (behind candles) */}

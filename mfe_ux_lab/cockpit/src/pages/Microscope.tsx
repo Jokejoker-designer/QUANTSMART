@@ -27,7 +27,7 @@ import { HonestyDashboard } from "../components/HonestyDashboard.tsx";
 import { FundingPanel } from "../components/FundingPanel.tsx";
 import { StageStepper } from "../components/StageStepper.tsx";
 import { sliceForStage, STAGE_LABEL, STAGE_DAYS, STAGE_HINT, STAGE_SOURCE, type Stage } from "../lib/stageWindow.ts";
-import { compareCardSummary, type CompareCardSummary } from "../lib/microscopeComputed.ts";
+import { replayLastIndex, compareCardSummary, type CompareCardSummary } from "../lib/microscopeComputed.ts";
 import { recordWindow } from "../lib/cardRunStore.ts";
 import { honestyVerdict } from "../lib/simHonesty.ts";
 import { computeCardZones } from "../lib/cardZones.ts";
@@ -203,7 +203,7 @@ export function Microscope() {
     const trades: TradeSeg[] = realisticBt.sim.trades.map((t) => ({ entryI: t.entryI, entry: t.entry_effective, exitI: t.exitI, exit: t.exit_effective ?? t.entry_effective, dir: t.dir, outcome: t.outcome, R: Math.round(t.netR * 100) / 100, t: t.fill_time, why: t.why }));
     return { trades, markers: realisticBt.sim.markers.filter((m) => m.kind === "buy" || m.kind === "sell") };
   }, [activeCard, realisticBt]);
-  const lastI = replayBars.length ? replayBars.length - 2 : 0;
+  const lastI = replayLastIndex(replayBars.length, source);
   const runDone = cursor != null && cursor >= lastI && replayBars.length > 0;
   const revealed = cursor == null ? [] : replay.trades.filter((t) => t.exitI <= cursor);
   // L6 ZONE modules → real chart geometry, anchored to current structure at the cursor (else last bar).
@@ -245,9 +245,9 @@ export function Microscope() {
   useEffect(() => {
     if (!running || !replayBars.length) return;
     const inc = speed; // bars per tick — watchable pace (use 8× to fast-forward, ⏭ to jump to the result)
-    runTimer.current = window.setInterval(() => { setCursor((c) => { const next = (c == null ? 40 : c) + inc; if (next >= replayBars.length - 2) { setRunning(false); return replayBars.length - 2; } return next; }); }, 110);
+    runTimer.current = window.setInterval(() => { setCursor((c) => { const next = (c == null ? 40 : c) + inc; if (next >= lastI) { setRunning(false); return lastI; } return next; }); }, 110);
     return () => { if (runTimer.current) window.clearInterval(runTimer.current); };
-  }, [running, speed, replayBars]);
+  }, [running, speed, replayBars, lastI]);
   useEffect(() => { setRunning(false); setCursor(null); }, [activeId]);
   // changing the cascade window (advance Y10→M6→M1, or click an unlocked stage) HIDES the result again —
   // the user must Play / Kết-quả that window before its Honesty/Funding/Realism surface re-appears.
@@ -371,7 +371,7 @@ export function Microscope() {
             <select className="ms-sel" value={m1Year} onChange={(e) => setM1Year(e.target.value)}>{m1Years.map((y) => <option key={y.year} value={y.year}>{y.year} · {Math.round(y.n / 1000)}k bars</option>)}</select>
           </span>
         )}
-        <span className="pflag a">SYNTHETIC VOLUME: NOT EVIDENCE</span>
+        <span className="pflag a">{source === "CSV" ? "VOLUME NOT USED AS EVIDENCE" : "SYNTHETIC VOLUME: NOT EVIDENCE"}</span>
         {csvName && <span className="pmut psm" style={{ maxWidth: 230, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{csvName}</span>}
         {csvErr && <span className="pflag r" style={{ margin: 0 }}><Glyph name="warning" size={12} /> {explainResearchError(csvErr)}</span>}
         {source==="CSV"&&csvWarnings.length>0&&<details style={{fontSize:11,color:TK.orange}}><summary>Import notes ({csvWarnings.length})</summary><ul>{csvWarnings.map(note=><li key={note}>{note}</li>)}</ul></details>}
@@ -395,7 +395,7 @@ export function Microscope() {
           <div className="pc"><div className={`pc-h ${kidi && kidi.frozen ? "red" : kidi && kidi.total ? "amber" : "green"}`}>KIDI Status <span className="mut">{isLive ? "live tape" : source === "Live" ? "historical fallback" : source.toLowerCase()}</span></div>
             <div className="pkv"><span>Integrity</span><b style={{ color: kidi && kidi.frozen ? TK.red : kidi && kidi.total ? TK.yellow : TK.green }}>{kidi ? (kidi.frozen ? "BLOCK · frozen feed" : kidi.total ? "WARN · " + kidi.total + " events" : "CLEAN") : "—"}</b></div>
             <div className="pkv"><span>Frozen / Range-0</span><b style={{ color: kidi && (kidi.frozen || kidi.rangeZero) ? TK.yellow : TK.muted }}>{kidi ? kidi.frozen + " / " + kidi.rangeZero : "—"}</b></div>
-            <div className="pkv"><span>Data gap</span><b style={{ color: kidi && kidi.gap ? TK.orange : TK.muted }}>{kidi ? kidi.gap : "—"}</b></div>
+            <div className="pkv"><span>{source === "CSV" ? "Source gaps (full import)" : "Data gap"}</span><b style={{ color: TK.orange }}>{source === "CSV" && csvMeta ? csvMeta.quality.gapCount : kidi ? kidi.gap : "—"}</b></div>
           </div>
           <div className="pc"><div className="pc-h amber">Liquidity / Spread</div>
             <div className="pkv"><span>Spread</span><b>{(adv as any).spread != null ? f((adv as any).spread, 2) + " " : "—"}<span className="pmut">{(adv as any).spread != null ? "Normal" : "no data"}</span></b></div>
@@ -608,9 +608,9 @@ export function Microscope() {
         <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="pc" style={{ borderColor: STAGE_SOURCE[stage] === "Live" ? "#1c5b3c" : "#43306a" }}>
             <div className="pc-h violet">
-              Window Results: {STAGE_LABEL[stage]}
+              Window Results: {source === "CSV" ? "Selected CSV interval" : STAGE_LABEL[stage]}
               <span className="pflag" style={{ margin: "0 0 0 6px", background: STAGE_SOURCE[stage] === "Live" ? "rgba(33,208,122,.14)" : "rgba(159,208,255,.12)", color: STAGE_SOURCE[stage] === "Live" ? TK.green : "#9fd0ff", border: "1px solid " + (STAGE_SOURCE[stage] === "Live" ? "#1c5b3c" : "#27506e") }}>{STAGE_SOURCE[stage] === "Live" ? "🔴 LIVE · 1M Forward" : "📼 REPLAY · Historical"}</span>
-              <span className="mut">{stage === "Y10" ? "Walk-Forward Enabled" : "Single Window"}</span>
+              <span className="mut">{source !== "CSV" && stage === "Y10" ? "Walk-forward requested" : "Single descriptive window"}</span>
             </div>
             {stageRange && <div className="pmut psm pmono" style={{ marginTop: 2 }}><Glyph name="calendar" size={12} /> Range: <b style={{ color: TK.text2 }}>{stageRange.from} → {stageRange.to}</b> · {stageBars.length.toLocaleString()} bars ({designTf}{source==="CSV"?", selected CSV interval":`, ${STAGE_DAYS[stage]}d`})</div>}
             {realisticBt && realisticBt.sim.signals_blocked_by_drift_guard > 0 && (

@@ -1,3 +1,5 @@
+import {loadCustomL6} from "./blocks/customL6.ts";
+import {anchorLevel,atrOf} from "./blocks/l6Eval.ts";
 // cardZones — turn a card's L6 ZONE modules (observation/confirmation/risk/invalidation/avoid) into ACTUAL
 // chart geometry. Each zone is a price band anchored to the CURRENT structure (causal: swing range + ATR +
 // EMA trend at the chosen bar). This is DESCRIPTIVE geometry ("where the strategy is watching"), NOT a
@@ -9,7 +11,7 @@ import { valueAreaOf } from "./valueAreaProxy.ts";
 
 const ZONE_IDS = ["observation_zone", "confirmation_zone", "risk_zone", "invalidation_zone", "avoid_zone", "dynamic_zone", "value_area_zone"] as const;
 export function cardHasZones(modules: string[] | undefined): boolean {
-  return Array.isArray(modules) && modules.some((m) => (ZONE_IDS as readonly string[]).includes(m));
+  return Array.isArray(modules) && modules.some((m) => (ZONE_IDS as readonly string[]).includes(m) || loadCustomL6().some(z=>z.id===m.replace(/^myL6_/,"")));
 }
 
 // causal indicators evaluated at bar `i` (uses only bars ≤ i).
@@ -70,5 +72,10 @@ export function computeCardZones(bars: OhlcBar[] | null | undefined, modules: st
     const va = valueAreaOf(bars, i, atr);
     z.push({ role: "value_area", label: "VALUE AREA · 70% TPO proxy (VAL→VAH)", color: "#25B7FF", lo: +Math.min(va.val, va.vah).toFixed(5), hi: +Math.max(va.val, va.vah).toFixed(5) });
   }
+  const custom=loadCustomL6().filter(zone=>mods.some(id=>id.replace(/^myL6_/, "")===zone.id));
+  const colors:Record<string,string>={OBSERVE:"#22d3ee",RISK:"#ff3b5c",DEMAND:"#00e676",INVALIDATE:"#b388ff"};
+  const roles:Record<string,string>={OBSERVE:"observation",RISK:"risk",DEMAND:"demand",INVALIDATE:"invalidation"};
+  for(const zone of custom){const a=atrOf(bars,i),center=anchorLevel(bars,i,zone.anchor,zone.anchorRef)+zone.offsetAtr*a,half=zone.widthAtr*a;
+    if(Number.isFinite(center)&&Number.isFinite(half))z.push({role:roles[zone.role]||"observation",label:zone.name+" · REFERENCE",color:colors[zone.role]||"#22d3ee",lo:center-half,hi:center+half});}
   return z;
 }

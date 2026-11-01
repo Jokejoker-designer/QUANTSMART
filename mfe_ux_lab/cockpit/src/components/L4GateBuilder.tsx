@@ -1,3 +1,7 @@
+import {writePromptText} from "../lib/promptClipboard.ts";
+import{useDefinitionPersistence}from"../lib/definitionPersistence.ts";
+import{useSandboxDataset}from"../lib/sandboxDataset.ts";
+import{SandboxDatasetControls}from"./SandboxDatasetControls.tsx";
 // L4GateBuilder — Streamlined, step-by-step L4 Context-Gate Studio.
 // Preserves 100% of L4 capabilities (25 curated context blocks across 6 categories, L1/L2/L3 evidence slots,
 // ALL/ANY logic, causal ChartPane + RibbonLane preview, binding-condition breakdown, recipes, AI JSON import,
@@ -131,7 +135,9 @@ export function L4GateBuilder({ onClose, onSaved }: { onClose: () => void; onSav
   const [advOpen, setAdvOpen] = useState(false);
   const [specOpen, setSpecOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
-  const [bars, setBars] = useState<OhlcBar[] | null>(null);
+  const persistence=useDefinitionPersistence();
+  const dataset=useSandboxDataset();
+  const bars=dataset.bars;
   const [aiOpen, setAiOpen] = useState(false);
   const [aiJson, setAiJson] = useState("");
   const [aiMsg, setAiMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -140,11 +146,9 @@ export function L4GateBuilder({ onClose, onSaved }: { onClose: () => void; onSav
   const [intentOn, setIntentOn] = useState(false);
   const [recipes, setRecipes] = useState<CustomL4Recipe[]>(() => loadCustomL4());
 
-  useEffect(() => {
-    loadSimOhlc("M15").then((d) => setBars(d?.bars || null));
-  }, []);
 
-  function saveRecipe() {
+
+  async function saveRecipe() {
     const r: CustomL4Recipe = {
       id: "l4r_" + Date.now().toString(36),
       name: name.trim() || "L4 gate",
@@ -155,7 +159,7 @@ export function L4GateBuilder({ onClose, onSaved }: { onClose: () => void; onSav
       status: "SHADOW",
       createdAt: new Date().toISOString(),
     };
-    saveCustomL4([r, ...loadCustomL4()]);
+    if(!await persistence.commit(()=>saveCustomL4([r,...loadCustomL4()]),["mfe_custom_l4_recipe"]))return;
     setRecipes(loadCustomL4());
   }
   function loadRecipe(id: string) {
@@ -230,21 +234,17 @@ export function L4GateBuilder({ onClose, onSaved }: { onClose: () => void; onSav
     return { label: bi?.label ?? (metric || "—"), color: "#38bdf8", unit: "", desc: "Built-in market metric" };
   };
 
-  function save(attachAndClose = false) {
+  async function save(attachAndClose = false) {
     if (!valid.ok) return;
-    saveCustomModules([module, ...loadCustomModules()]);
+    if(!await persistence.commit(()=>saveCustomModules([module,...loadCustomModules()]),["mfe_custom_modules"]))return;
     setSaved(true);
-    onSaved?.(module.id);
+    if (attachAndClose) onSaved?.(module.id);
     if (attachAndClose) onClose();
   }
-  function copyPrompt() {
-    try {
-      navigator.clipboard?.writeText(buildLayerPack("L4"));
-    } catch {
-      /* ignore */
-    }
-    setAiCopied(true);
-    setTimeout(() => setAiCopied(false), 1600);
+  async function copyPrompt() {
+    setAiCopied(false);
+    try {await writePromptText(buildLayerPack("L4"));setAiCopied(true);setTimeout(()=>setAiCopied(false),1600);}
+    catch(error){setAiMsg({ok:false,text:error instanceof Error?error.message:String(error)});}
   }
   function importAi() {
     const r = parseAiModule(aiJson);
@@ -287,7 +287,8 @@ export function L4GateBuilder({ onClose, onSaved }: { onClose: () => void; onSav
   const groupBlocks = L4_BLOCKS.filter((b) => b.group === activeGroup);
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "var(--bg-app, #070B14)", zIndex: 130, display: "flex", flexDirection: "column", padding: 14, boxSizing: "border-box", overflow: "hidden" }}>
+    <div className="sandbox-workspace" role="dialog" aria-modal="true" aria-label="L4 context sandbox" style={{ position: "fixed", inset: 0, background: "var(--bg-app, #070B14)", zIndex: 130, display: "flex", flexDirection: "column", padding: 14, boxSizing: "border-box", overflow: "hidden" }}>
+      <SandboxDatasetControls data={dataset}/>{persistence.error&&<p role="alert" style={{color:"#fca5a5"}}>{persistence.error}</p>}
       {/* ── TOP HEADER BAR ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", borderBottom: "1px solid var(--border-panel, rgba(56,189,248,0.22))", paddingBottom: 10, marginBottom: 12 }}>
         <span style={{ fontSize: 10.5, fontWeight: 900, color: "#070B14", background: "#fbbf24", borderRadius: 5, padding: "3px 8px", letterSpacing: ".06em" }}>L4 STUDIO</span>
@@ -297,7 +298,7 @@ export function L4GateBuilder({ onClose, onSaved }: { onClose: () => void; onSav
         </div>
         <div style={{ display: "flex", gap: 6, marginLeft: 8 }}>
           {([
-            ["GUARD · DEF 89", "#fbbf24"],
+            ["L4 · CONTEXT", "#fbbf24"],
             ["NO-LOOKAHEAD", "#34d399"],
           ] as const).map(([t, c]) => (
             <span key={t} style={{ fontSize: 10, color: c, border: `1px solid ${c}55`, background: `${c}14`, borderRadius: 4, padding: "2px 7px", fontWeight: 800 }}>
@@ -329,7 +330,7 @@ export function L4GateBuilder({ onClose, onSaved }: { onClose: () => void; onSav
       </div>
 
       {/* ── 3-COLUMN WORKBENCH ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "330px 1fr 330px", gap: 14, flex: 1, minHeight: 0 }}>
+      <div className="sandbox-main-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)", gap: 14, flex: 1, minHeight: 0 }}>
         {/* ══ LEFT COLUMN: 3-STEP BUILDER ══ */}
         <div style={{ overflowY: "auto", paddingRight: 4 }}>
           {/* STEP 1: QUICK PRESETS */}
@@ -620,7 +621,7 @@ export function L4GateBuilder({ onClose, onSaved }: { onClose: () => void; onSav
             </div>
             {pctOpen != null && (
               <span style={{ fontSize: 11, fontWeight: 800, color: po > 5 && po < 95 ? "#34d399" : "#fbbf24", background: "rgba(7,11,20,0.7)", padding: "3px 8px", borderRadius: 5, border: "1px solid rgba(148,163,184,0.2)" }}>
-                Gate Open: {po.toFixed(0)}% of M15 Bars
+                Gate Open: {po.toFixed(0)}% of {dataset.tf} bars
               </span>
             )}
           </div>
@@ -687,7 +688,7 @@ export function L4GateBuilder({ onClose, onSaved }: { onClose: () => void; onSav
 
               {intentOn && (
                 <div style={{ marginTop: 10 }}>
-                  <ModuleIntentSandbox draft={module} valid={valid.ok} />
+                  <ModuleIntentSandbox draft={module} valid={valid.ok} bars={bars} timeframe={dataset.tf} sourceLabel={dataset.label} />
                 </div>
               )}
             </>
@@ -701,7 +702,7 @@ export function L4GateBuilder({ onClose, onSaved }: { onClose: () => void; onSav
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
               <span style={{ fontSize: 10, fontWeight: 900, color: "#fbbf24", letterSpacing: ".06em" }}>COUNTER-TRAP SHIELD · L4</span>
               <span style={{ fontSize: 10, fontFamily: "var(--mfe-mono)", fontWeight: 800, color: "#34d399", background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.35)", borderRadius: 4, padding: "1px 6px" }}>
-                ATK 15 · DEF 89
+                L4 · CONTEXT
               </span>
             </div>
             <div style={{ fontSize: 15, fontWeight: 900, color: "#f8fafc", marginBottom: 4 }}>{name || "Unnamed Gate"}</div>
@@ -767,22 +768,22 @@ export function L4GateBuilder({ onClose, onSaved }: { onClose: () => void; onSav
             <InspPass k="Conditions valid & complete" ok={valid.ok} />
             <InspPass k="Metrics & evidence resolved" ok={valid.ok} />
             <InspPass k="Causal preview available" ok={!!gateEnv?.previewable} />
-            <InspPass k="Non-degenerate coverage (1%–98%)" ok={!degenerate} />
+            <InspPass k="Non-degenerate coverage (1%–98%)" ok={!!gateEnv?.previewable && !degenerate} />
 
             <button
               onClick={() => setSpecOpen((o) => !o)}
               style={{ ...inp, width: "100%", marginTop: 8, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", color: "#94a3b8", fontSize: 10.5 }}
             >
-              <span>🛡 Safety &amp; Contract Seal (5/5 PASS)</span>
+              <span>Preview scope & limitations</span>
               <span>{specOpen ? "▾" : "▸"}</span>
             </button>
             {specOpen && (
               <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--border-panel)" }}>
-                <InspPass k="KIDI Safe" />
-                <InspPass k="NaN / Inf Guard" />
-                <InspPass k="No-Lookahead Seal" />
-                <InspPass k="Closed-Bar Evaluation Only" />
-                <InspPass k="Context Filter Only (No Order Send)" />
+                <p>Dataset quality requires a separate audit. No independent validation is implied.</p>
+
+                <p>Only completed observations are supplied. Leakage audit: NOT RUN.</p>
+
+                <p>Context output only. Order authority: NONE.</p>
               </div>
             )}
           </div>

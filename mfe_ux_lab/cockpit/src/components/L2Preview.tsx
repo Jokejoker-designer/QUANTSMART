@@ -1,3 +1,7 @@
+import {writePromptText} from "../lib/promptClipboard.ts";
+import{useDefinitionPersistence}from"../lib/definitionPersistence.ts";
+import{useSandboxDataset}from"../lib/sandboxDataset.ts";
+import{SandboxDatasetControls}from"./SandboxDatasetControls.tsx";
 // L2Preview — the L2 Fusion-Context Builder (form-first, graph-backed). 3 columns: the weighted-fusion FORM,
 // the chart + signature viz (Composite Oscillator · Regime Ribbons · Contribution Bars · TF Heatmap · Context
 // Confidence gauge), and the Inspector & Contract (input/output contract · safety/compliance · validation).
@@ -52,7 +56,9 @@ const Row = ({ k, v, c }: { k: string; v: string; c?: string }) => <div style={{
 
 export function L2Preview({ onClose, onSaved }: { onClose: () => void; onSaved?: (savedId?: string) => void }) {
   const avail = useMemo(availableL1, []);
-  const [bars, setBars] = useState<OhlcBar[]>([]);
+  const persistence=useDefinitionPersistence();
+  const dataset=useSandboxDataset();
+  const bars=dataset.bars;
   const [tfBars, setTfBars] = useState<Record<string, OhlcBar[]>>({});
   const [tab, setTab] = useState<"simple" | "graph" | "advanced">("simple");
   const [presetNote, setPresetNote] = useState("");
@@ -69,7 +75,7 @@ export function L2Preview({ onClose, onSaved }: { onClose: () => void; onSaved?:
   const [stochK, setStochK] = useState(14);
   const [tfLensOn, setTfLensOn] = useState(false);
   const [name, setName] = useState("L2_CTX_REGVOL_01");
-  const [desc, setDesc] = useState("Regime and volatility context from qualified L1 inputs.");
+  const [desc, setDesc] = useState("Regime and volatility context from selected L1 inputs.");
   const [mode, setMode] = useState<L2OutputMode>("regime");
   const [role, setRole] = useState<FeatureUsageRole>("REGIME_VOL");
   const [selected, setSelected] = useState<string[]>(() => avail.map((a) => a.key));
@@ -84,14 +90,14 @@ export function L2Preview({ onClose, onSaved }: { onClose: () => void; onSaved?:
   const [speed, setSpeed] = useState(2);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => { let live = true; loadSimOhlc("H1", false).then((d) => { if (live && d?.bars?.length) { const b = d.bars.slice(-1200); setBars(b); setPos(Math.min(WIN, b.length - 1)); } }); return () => { live = false; }; }, []);
+  useEffect(()=>{setPlaying(false);setPos(Math.min(WIN-1,Math.max(0,bars.length-1)));},[bars]);
   useEffect(() => {
     if (timer.current) { clearInterval(timer.current); timer.current = null; }
     if (!playing || view !== "window" || !bars.length) return;
     timer.current = setInterval(() => setPos((p) => { const np = p + speed; if (np >= bars.length - 1) { setPlaying(false); return bars.length - 1; } return np; }), 55);
     return () => { if (timer.current) clearInterval(timer.current); };
   }, [playing, view, speed, bars.length]);
-  useEffect(() => { let live = true; (async () => { const r: Record<string, OhlcBar[]> = {}; for (const tf of TFS) { const d = await loadSimOhlc(tf, false); r[tf] = d?.bars?.slice(-300) ?? []; } if (live) setTfBars(r); })(); return () => { live = false; }; }, []);
+  useEffect(()=>{setTfBars({[dataset.tf]:bars});},[dataset.tf,bars]);
 
   const featList = useMemo(() => avail.filter((a) => selected.includes(a.key)), [avail, selected]);
   const feats = useMemo(() => featList.map((a) => ({ key: a.key, label: a.label, color: a.color, series: l1Series(a.key, bars) })), [featList, bars]);
@@ -119,11 +125,17 @@ export function L2Preview({ onClose, onSaved }: { onClose: () => void; onSaved?:
   function loadPreset(key: string) { const pr = STD_PRESET[key]; if (!pr) return; setName(pr.name); setMode(pr.mode); setRole(pr.role); setSelected(pr.featureKeys.filter((k) => avail.some((a) => a.key === k))); setWeights((w) => ({ ...w, ...pr.weights })); setPresetNote(pr.note); setSaved(false); if (OVERLAY_KEYS.includes(key)) pickOverlay(key); if (key === "ch_episode") setLensOn(true); if (key === "stoch_k") setStochOn(true); }
   function newModule() { setName(""); setDesc(""); setMode("regime"); setRole("REGIME_VOL"); setSelected(avail.map((a) => a.key)); setWeights(Object.fromEntries(avail.map((a) => [a.key, 1]))); setOverlayKey(""); setOvName(""); setOvLines([]); setOvSource("recipe"); setPresetNote(""); setSaved(false); setSavedOv(false); setTab("simple"); }
   const [aiOpen, setAiOpen] = useState(false); const [aiJson, setAiJson] = useState(""); const [aiMsg, setAiMsg] = useState<{ ok: boolean; text: string } | null>(null); const [aiCopied, setAiCopied] = useState(false);
-  function copyL2Prompt() { try { navigator.clipboard?.writeText(buildLayerPack("L2")); } catch { /* clipboard blocked */ } setAiCopied(true); setTimeout(() => setAiCopied(false), 1600); }
+  async function copyL2Prompt() {
+    setAiCopied(false);
+    try {await writePromptText(buildLayerPack("L2"));setAiCopied(true);setTimeout(()=>setAiCopied(false),1600);}
+    catch(error){setAiMsg({ok:false,text:error instanceof Error?error.message:String(error)});}
+  }
   function importL2Ai() {
     const r = parseAiIndicator(aiJson);
     if (!r.ok || !r.module) { setAiMsg({ ok: false, text: "✗ " + (r.errors[0] || "Invalid JSON") }); return; }
-    const m = r.module; const mode: L2OutputMode = (["indicator", "regime", "bias", "confidence"] as string[]).includes(m.kind) ? (m.kind as L2OutputMode) : "indicator";
+    const m=r.module;
+    if(m.kind==="overlay"){setOverlayKey(m.overlayKey||"");setStdParams(m.overlayParams||{});setOvLines(m.overlayLines||[]);setOvSource(m.overlayLines?.length?"scratch":"recipe");setOvName(m.name);setSavedOv(false);setTab("simple");setAiMsg({ok:true,text:"Overlay definition loaded. Inspect its lines on the selected CSV before saving."});return;}
+    const mode: L2OutputMode = (["indicator", "regime", "bias", "confidence"] as string[]).includes(m.kind) ? (m.kind as L2OutputMode) : "indicator";
     setName(m.name); setDesc(m.explain); setMode(mode); setSelected(m.featureKeys); setWeights((w) => ({ ...w, ...m.weights })); setTab("simple"); setSaved(false);
     setAiMsg({ ok: true, text: `Loaded ${m.featureKeys.length} features and weights. Inspect the preview.` + (r.warnings.length ? " ⚠ " + r.warnings.join("; ") : "") });
   }
@@ -131,44 +143,44 @@ export function L2Preview({ onClose, onSaved }: { onClose: () => void; onSaved?:
   function addLine() { setOvLines((ls) => [...ls, newLine(ls.length)]); setOvSource("scratch"); setScratchOpen(true); setSavedOv(false); }
   function patchLine(id: string, patch: Partial<OverlayLineSpec>) { setOvLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l))); setOvSource("scratch"); setSavedOv(false); }
   function delLine(id: string) { setOvLines((ls) => ls.filter((l) => l.id !== id)); setSavedOv(false); }
-  function saveOverlay(promoteAndClose = false) {
+  async function saveOverlay(promoteAndClose = false) {
     if (ovName.trim().length < 2) return;
     let m: CustomL2Module;
     if (ovSource === "scratch") {
       if (!ovLines.length) return;
       const recipe = ovLines.map((l) => lineRecipe(l)).join(" · ");
-      m = { id: "l2_" + Date.now().toString(36), name: ovName.trim(), explain: `L1 overlay (${ovLines.length} lines): ${recipe}`, kind: "overlay", featureKeys: [], weights: {}, primaryRole: role, overlayLines: ovLines, status: promoteAndClose ? "PROMOTED" : "SHADOW", createdAt: new Date().toISOString() };
+      m = { id: "l2_" + crypto.randomUUID(), name: ovName.trim(), explain: `L1 overlay (${ovLines.length} lines): ${recipe}`, kind: "overlay", featureKeys: [], weights: {}, primaryRole: role, overlayLines: ovLines, status: "SHADOW", createdAt: new Date().toISOString() };
     } else {
       const ind = STD_BY_KEY[overlayKey]; if (!ind) return;
       const cfg = (ind.params || []).map((p) => `${p.label}=${stdParams[p.name] ?? p.def}`).join(" · ");
-      m = { id: "l2_" + Date.now().toString(36), name: ovName.trim(), explain: `${ind.name} — ${cfg}`, kind: "overlay", featureKeys: [], weights: {}, primaryRole: ind.role, overlayKey, overlayParams: { ...stdParams }, status: promoteAndClose ? "PROMOTED" : "SHADOW", createdAt: new Date().toISOString() };
+      m = { id: "l2_" + crypto.randomUUID(), name: ovName.trim(), explain: `${ind.name} — ${cfg}`, kind: "overlay", featureKeys: [], weights: {}, primaryRole: ind.role, overlayKey, overlayParams: { ...stdParams }, status: "SHADOW", createdAt: new Date().toISOString() };
     }
-    saveCustomL2([m, ...loadCustomL2()]);
+    if(!await persistence.commit(()=>saveCustomL2([m,...loadCustomL2()]),["mfe_custom_l2"]))return;
     setSavedOv(true);
-    onSaved?.("myL2_" + m.id);
+    if (promoteAndClose) onSaved?.("myL2_" + m.id);
     if (promoteAndClose) onClose();
   }
-  function save(promoteAndClose = false) {
+  async function save(promoteAndClose = false) {
     if (name.trim().length < 2 || !selected.length) return;
     const m: CustomL2Module = {
-      id: "l2_" + Date.now().toString(36),
+      id: "l2_" + crypto.randomUUID(),
       name: name.trim(),
       explain: desc.trim() || `Weighted sum of ${selected.length} features → ${MODE_LABEL[mode]}`,
       kind: mode as L2Kind,
       featureKeys: selected,
-      weights,
-      weightSrc: wsrc,
+      weights:Object.fromEntries(selected.map(key=>[key,weights[key]])),
+      weightSrc:Object.fromEntries(selected.map(key=>[key,wsrc[key]||"USER_WEIGHTED"])),
       primaryRole: role,
-      status: promoteAndClose ? "PROMOTED" : "SHADOW",
+      status: "SHADOW",
       createdAt: new Date().toISOString(),
     };
-    saveCustomL2([m, ...loadCustomL2()]);
+    if(!await persistence.commit(()=>saveCustomL2([m,...loadCustomL2()]),["mfe_custom_l2"]))return;
     setSaved(true);
-    onSaved?.("myL2_" + m.id);
+    if (promoteAndClose) onSaved?.("myL2_" + m.id);
     if (promoteAndClose) onClose();
   }
 
-  if (!bars.length) return <div style={{ position: "fixed", inset: 0, background: "var(--bg-app, #070B14)", zIndex: 130, display: "flex", alignItems: "center", justifyContent: "center", color: TK.muted }}>Loading bars…</div>;
+  if (!bars.length) return <div className="sandbox-workspace sandbox-empty" role="dialog" aria-label="L2 indicator sandbox" style={{position:'fixed',inset:0,zIndex:130,background:'var(--bg-app)'}}><button onClick={onClose}>Close L2 sandbox</button><SandboxDatasetControls data={dataset}/>{persistence.error&&<p role="alert" style={{color:"#fca5a5"}}>{persistence.error}</p>}</div>;
   const start = view === "overview" ? 0 : Math.max(0, pos - WIN + 1), end = view === "overview" ? n : Math.min(n, pos + 1);
   const vis = bars.slice(start, end), visN = Math.max(1, vis.length), cw = W / visN, phk = i - start;
   const lo = Math.min(...vis.map((b) => b.l)), hi = Math.max(...vis.map((b) => b.h)), span = hi - lo || 1;
@@ -186,7 +198,8 @@ export function L2Preview({ onClose, onSaved }: { onClose: () => void; onSaved?:
   const ovLabel = ovSource === "scratch" ? (ovLines.length ? `${ovLines.length} L1 lines` : "") : (overlayKey ? STD_BY_KEY[overlayKey]?.name ?? "" : "");
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "var(--bg-app, #070B14)", zIndex: 130, display: "flex", flexDirection: "column", padding: 12, boxSizing: "border-box", overflow: "hidden" }}>
+    <div className="sandbox-workspace" role="dialog" aria-modal="true" aria-label="L2 indicator sandbox" style={{ position: "fixed", inset: 0, background: "var(--bg-app, #070B14)", zIndex: 130, display: "flex", flexDirection: "column", padding: 12, boxSizing: "border-box", overflow: "hidden" }}>
+      <SandboxDatasetControls data={dataset}/>{persistence.error&&<p role="alert" style={{color:"#fca5a5"}}>{persistence.error}</p>}
       {/* top bar */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", borderBottom: "1px solid var(--border-panel, rgba(56,189,248,0.22))", paddingBottom: 8, marginBottom: 8 }}>
         <span style={{ fontSize: 10, fontWeight: 900, color: "#070B14", background: "#a78bfa", borderRadius: 4, padding: "2px 7px", letterSpacing: ".06em" }}>L2 STUDIO</span>
@@ -201,7 +214,7 @@ export function L2Preview({ onClose, onSaved }: { onClose: () => void; onSaved?:
         <button onClick={onClose} style={{ ...inp, cursor: "pointer" }}><Glyph name="x" size={12} /> Close</button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "310px 1fr 330px", gap: 12, flex: 1, minHeight: 0 }}>
+      <div className="sandbox-main-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)", gap: 12, flex: 1, minHeight: 0 }}>
         {/* ── LEFT: form ── */}
         <div style={{ overflowY: "auto", paddingRight: 4 }}>
           {tab === "simple" ? <>
@@ -262,7 +275,7 @@ export function L2Preview({ onClose, onSaved }: { onClose: () => void; onSaved?:
         {/* ── CENTER: chart + viz ── */}
         <div style={{ display: "flex", flexDirection: "column", minHeight: 0, overflowY: "auto", paddingRight: 2 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-            <div style={{ display: "inline-flex", border: "1px solid var(--border-panel)", borderRadius: 6, overflow: "hidden" }}>{([["window", "120 bars"], ["overview", "1,200 bars"]] as const).map(([v, l]) => <button key={v} onClick={() => { setView(v); setPlaying(false); }} style={{ ...btn, border: "none", borderRadius: 0, fontWeight: 700, background: view === v ? "rgba(37,183,255,.18)" : "transparent", color: view === v ? TK.cyan : "var(--mfe-text2)" }}>{l}</button>)}</div>
+            <div style={{ display: "inline-flex", border: "1px solid var(--border-panel)", borderRadius: 6, overflow: "hidden" }}>{([["window", "120 bars"], ["overview", "Selected interval"]] as const).map(([v, l]) => <button key={v} onClick={() => { setView(v); setPlaying(false); }} style={{ ...btn, border: "none", borderRadius: 0, fontWeight: 700, background: view === v ? "rgba(37,183,255,.18)" : "transparent", color: view === v ? TK.cyan : "var(--mfe-text2)" }}>{l}</button>)}</div>
             {view === "window" ? <>
               <button style={btn} title={"Reset to start"} onClick={() => { setPlaying(false); setPos(Math.min(WIN, n - 1)); }}>⏮</button>
               <button style={btn} onClick={() => setPos((p) => Math.max(WIN - 1, p - speed))}>◀</button>
@@ -308,7 +321,7 @@ export function L2Preview({ onClose, onSaved }: { onClose: () => void; onSaved?:
           {lensOn && <EpisodeLens ep={episodes} i={i} start={start} end={end} window={lensWin} onWindow={setLensWin} W={W} />}
           {stochOn && <StochLens bars={bars} i={i} start={start} end={end} kPeriod={stochK} onK={setStochK} W={W} />}
           {tfLensOn && <TimeframeLens tf={tfHeat} W={W} />}
-          <div className="pmut" style={{ fontSize: 9, marginTop: 6, fontStyle: "italic" }}>{view === "window" ? `Observe ${WIN} bars. Play advances through ${n} H1 bars; the background shows configured context bands.` : `All ${n} H1 bars in the same view.`} Causal calculations; no future observations.</div>
+          <div className="pmut" style={{ fontSize: 9, marginTop: 6, fontStyle: "italic" }}>{view === "window" ? `Observe ${WIN} bars. Play advances through ${n} ${dataset.tf} bars; the background shows configured context bands.` : `All ${n} ${dataset.tf} bars in the same view.`} Causal calculations; no future observations.</div>
         </div>
 
         {/* ── RIGHT: inspector & contract ── */}
@@ -316,7 +329,7 @@ export function L2Preview({ onClose, onSaved }: { onClose: () => void; onSaved?:
           <div className="pc" style={{ margin: "0 0 8px", background: "var(--bg-panel, #0F172A)", border: "1px solid rgba(167,139,250,0.4)", borderLeft: "3px solid #a78bfa" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
               <b style={{ fontSize: 12, color: "#a78bfa" }}>Save & Wire L2 Indicator</b>
-              <span style={{ fontSize: 9.5, fontWeight: 800, color: "#38bdf8", border: "1px solid rgba(56,189,248,0.35)", borderRadius: 4, padding: "1px 6px" }}>SCOUT · ATK 50 · DEF 60</span>
+              <span style={{ fontSize: 9.5, fontWeight: 800, color: "#38bdf8", border: "1px solid rgba(56,189,248,0.35)", borderRadius: 4, padding: "1px 6px" }}>L2 · CONTEXT</span>
             </div>
             <button
               disabled={!canSave}
@@ -332,7 +345,7 @@ export function L2Preview({ onClose, onSaved }: { onClose: () => void; onSaved?:
                 padding: "8px 10px",
               }}
             >
-              <Glyph name="check" size={12} /> Save, Qualify for L3/L4/L5 & Attach to L2
+              <Glyph name="check" size={12} /> Save Shadow & Attach to L2
             </button>
             <button
               disabled={!canSave}
@@ -359,10 +372,10 @@ export function L2Preview({ onClose, onSaved }: { onClose: () => void; onSaved?:
             <Row k="Layer" v="L2 (Indicator / Context)" />
             <Row k="Role" v={ROLE_META[role].label} c="#e7eef6" />
             <Row k="Authority" v={"Context output only"} c={TK.orange} />
-            <Sec title="Input contract"><Row k={"Primary input"} v="Promoted L1 Features" /><Row k="Higher TF Feature" v="As-of (Closed)" /><Row k="Raw Ref" v={"Minimum requirement"} /><Row k="Lookahead" v={"Not permitted"} c="#f7768e" /></Sec>
+            <Sec title="Input contract"><Row k={"Primary input"} v="Available L1 measurements" /><Row k="Higher TF Feature" v="As-of (Closed)" /><Row k="Raw Ref" v={"Minimum requirement"} /><Row k="Lookahead" v={"Not permitted"} c="#f7768e" /></Sec>
             <Sec title="Output contract"><Row k="Output Type" v={MODE_LABEL[mode]} /><Row k={"Scope"} v="[-1,+1] normalized" /><Row k="Consumer" v="L3+ Decision/Gating/Sizing" /><Row k={"Not intended for"} v="Entry / Zone / Order" c="#f7768e" /></Sec>
-            <Sec title="Safety & compliance"><Pass k="KIDI Safe" /><Pass k="NaN / Inf Guard" /><Pass k="No-Lookahead Seal" /><Pass k="AsOf Valid (Closed Only)" /><Pass k="Closed-Bar Only" /></Sec>
-            <Sec title="Validation & integrity"><Pass k="Input Contract Check" /><Pass k="Feature Integrity" /><Pass k="Weight Schema Check" /><Pass k="Output Range & Stability" /><Pass k="Backtest Leakage Scan" /></Sec>
+            <Sec title="Measured preview checks"><Row k="Inputs resolved" v={selected.every(key=>avail.some(a=>a.key===key))?"PASS":"FAIL"}/><Row k="Finite composite" v={fused.composite.length>0&&fused.composite.every(Number.isFinite)?"PASS":"FAIL"}/><Row k="Weight schema" v={selected.every(key=>Number.isFinite(weights[key]))?"PASS":"FAIL"}/></Sec>
+            <Sec title="Validation scope"><Row k="Source" v="Selected CSV interval"/><Row k="Leakage audit" v="NOT RUN"/><Row k="Independent holdout" v="NOT RUN"/><Row k="Order authority" v="NONE"/></Sec>
             <div className="pmut" style={{ fontSize: 9, marginTop: 6, fontStyle: "italic" }}>L2 emits context. Downstream use and combined performance require separate validation.</div>
           </div>
 

@@ -1,0 +1,114 @@
+.sandbox-workspace {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  height: 100dvh;
+}
+.sandbox-workspace * {
+  box-sizing: border-box;
+  min-width: 0;
+}
+.sandbox-workspace > div {
+  flex-shrink: 0;
+}
+.sandbox-workspace .sandbox-main-grid {
+  flex: none !important;
+  min-height: 460px !important;
+  height: clamp(460px, 68vh, 850px);
+  grid-template-columns: clamp(220px, 24vw, 330px) minmax(0, 1fr) clamp(
+      240px,
+      25vw,
+      330px
+    ) !important;
+}
+.sandbox-workspace [data-sandbox-main] {
+  min-height: 460px !important;
+  flex: none !important;
+  overflow: visible !important;
+}
+.sandbox-workspace input,
+.sandbox-workspace select,
+.sandbox-workspace textarea {
+  max-width: 100%;
+}
+.sandbox-workspace :focus-visible {
+  outline: 2px solid #22d3ee;
+  outline-offset: 2px;
+}
+.sandbox-dataset {
+  padding: 8px 10px;
+  margin: 6px 0;
+  border: 1px solid var(--border-panel);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  flex-shrink: 0;
+  font-size: 11px;
+}
+.sandbox-dataset-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+}
+.sandbox-dataset-fields label {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 4px;
+  min-width: min(100%, 180px);
+}
+.sandbox-dataset-fields select {
+  padding: 5px;
+  background: var(--bg-card-inner);
+  border: 1px solid var(--border-panel);
+  border-radius: 4px;
+  color: #f8fafc;
+}
+.sandbox-dataset-fields p {
+  flex-basis: 100%;
+  margin: 3px 0;
+}
+.sandbox-dataset [role="alert"] {
+  color: #fca5a5;
+}
+.sandbox-dataset .csv-import {
+  margin: 5px 0;
+}
+.sandbox-empty {
+  padding: 14px;
+  overflow: auto;
+}
+.sandbox-empty button {
+  padding: 8px 12px;
+  color: #fff;
+  background: #087e9a;
+  border: 1px solid #22d3ee;
+  border-radius: 4px;
+}
+@media (max-width: 1279px) {
+  .sandbox-workspace .sandbox-main-grid {
+    grid-template-columns: minmax(210px, 30%) minmax(0, 1fr) !important;
+    height: auto;
+    grid-template-rows: minmax(420px, 62vh) auto;
+  }
+  .sandbox-workspace .sandbox-main-grid > div:last-child {
+    grid-column: 1/-1;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+}
+@media (max-width: 759px) {
+  .sandbox-workspace .sandbox-main-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(420px, 65vh) auto;
+  }
+  .sandbox-workspace .sandbox-main-grid > div:first-child {
+    max-height: 300px;
+    overflow: auto;
+  }
+  .sandbox-workspace .sandbox-main-grid > div:last-child {
+    grid-column: auto;
+  }
+}
+
+/* Keep expanded authoring forms in column flow; the column owns scrolling. */
+.sandbox-main-grid > div > * { flex-shrink: 0; }

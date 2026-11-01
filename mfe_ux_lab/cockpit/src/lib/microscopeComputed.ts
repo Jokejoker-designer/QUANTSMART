@@ -29,3 +29,5 @@ export function compareCardSummary(bt2: BtLike): CompareCardSummary {
   const win = n ? +(t.filter((x: { netR: number }) => x.netR > 0).length / n * 100).toFixed(1) : 0;
   return { n, netR, exp, pf, grossPf, dd, win, edge: pf > 1 && netR > 0 };
 }
+
+export function replayLastIndex(count:number, source:string):number { return Math.max(0,count-(source==="Live"?2:1)); }

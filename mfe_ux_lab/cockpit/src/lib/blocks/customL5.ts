@@ -17,7 +17,7 @@ export function loadCustomL5(): CustomL5Recipe[] {
   try { const raw = localStorage.getItem(KEY); _mem = raw ? (JSON.parse(raw) as CustomL5Recipe[]) : []; } catch { _mem = []; }
   return _mem!;
 }
-export function saveCustomL5(list: CustomL5Recipe[]): void { _mem = list; try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* mem-only */ } }
+export function saveCustomL5(list: CustomL5Recipe[]): void { if(typeof localStorage!=="undefined")localStorage.setItem(KEY,JSON.stringify(list)); _mem=list; }
 export function deleteCustomL5(id: string): CustomL5Recipe[] { const list = loadCustomL5().filter((r) => r.id !== id); saveCustomL5(list); return list; }
 
 export function reloadCustomL5() { _mem = null; return loadCustomL5(); }
