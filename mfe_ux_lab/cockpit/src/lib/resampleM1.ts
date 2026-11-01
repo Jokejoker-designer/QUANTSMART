@@ -45,14 +45,15 @@ export function resampleM1(m1: OhlcBar[], targetTf: ResampleTf): ResampleResult 
     const close = group[group.length - 1].c;
     const startMin = curKey * M, endMin = (curKey + 1) * M;
     const complete = (endMin - 1) <= lastMin;
-    const hasGap = group.length < expected(M, targetTf);
+    const minutes = new Set(group.map(b => epochMin(b.t)));
+    const hasGap = minutes.size !== M || group.length !== M || group.some((b, index) => epochMin(b.t) !== startMin + index);
     const p = parseBarTime(group[0].t);
     const session = classifySession(p.h, p.mi);
     const weekendGap = !isNaN(prevEndMin) && (startMin - prevEndMin) > 1440;   // >1 day since prev bar
     const bar: ResampledBar = {
       i: idx++, o, h: hi, l: lo, c: close, r: "N", t: isoFromMin(startMin),
       sourceStartTime: group[0].t, sourceEndTime: group[group.length - 1].t,
-      sourceM1Count: group.length, expectedM1Count: expected(M, targetTf),
+      sourceM1Count: group.length, expectedM1Count: M,
       complete, hasGap, sessionTag: SESSION_LABEL[session], rolloverTag: p.h === 21, weekendGapTag: weekendGap,
     };
     bars.push(bar); m1ByBar.push(group);
@@ -74,12 +75,9 @@ export function resampleM1(m1: OhlcBar[], targetTf: ResampleTf): ResampleResult 
   return { targetTf, bars, completeBars, incompleteBars, gapBars, warnings, m1ByBar };
 }
 
-// expected M1 minutes per higher-TF bar (gold trades ~23h/day so D1 is never "full" — use a tolerant expectation)
-function expected(M: number, tf: ResampleTf): number { return tf === "D1" ? 1380 : M; }
-
 // signal-eligible = closed bars only
 export function completeBarsOnly(r: ResampleResult): { bars: ResampledBar[]; m1ByBar: OhlcBar[][] } {
   const bars: ResampledBar[] = []; const m1ByBar: OhlcBar[][] = [];
-  r.bars.forEach((b, i) => { if (b.complete) { bars.push({ ...b, i: bars.length }); m1ByBar.push(r.m1ByBar[i]); } });
+  r.bars.forEach((b, i) => { if (b.complete) { if (b.hasGap) throw new Error("M1_INCOMPLETE_CLOSED_BUCKET: closed in time but missing or duplicated M1 minutes"); bars.push({ ...b, i: bars.length }); m1ByBar.push(r.m1ByBar[i]); } });
   return { bars, m1ByBar };
 }

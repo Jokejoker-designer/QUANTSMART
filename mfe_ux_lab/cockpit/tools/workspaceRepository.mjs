@@ -71,7 +71,7 @@ export function createWorkspaceRepository(directory) {
       const r=job.result,request=job.request;
       const {grossEquity,netEquity,...summary}=r.analytics;
       const declared=runtime(request.card),matches=request.mode==='m1'||declared.design_tf===declared.execution_tf;
-      const receipt={card_runtime_hash:digest(declared),context_hash:digest(context(request.storage||{})),public:{job_id:job.id,input_hash:job.key,engine_hash:job.engineHash,source_hash:job.provenance?.dataHash,manifest:r.manifest,analytics:summary,walk_forward:r.walkForward,purpose:request.purpose||'diagnostic',path_matches_declared_execution:matches,cost_mode:request.options?.hard?'HARD':'NORMAL',stage:request.stage,source:request.source||(request.dataset?'Replay':'Input'),mode:request.mode||'design',created_at:new Date().toISOString()}};
+      const receipt={card_runtime_hash:digest(declared),context_hash:digest(context(request.storage||{})),public:{job_id:job.id,input_hash:job.key,engine_hash:job.engineHash,source_hash:job.provenance?.dataHash,csv_source:job.provenance?.csvSource,manifest:r.manifest,analytics:summary,walk_forward:r.walkForward,purpose:request.purpose||'diagnostic',path_matches_declared_execution:matches,cost_mode:request.options?.hard?'HARD':'NORMAL',stage:request.stage,source:request.source||(request.dataset?'Replay':'Input'),mode:request.mode||'design',created_at:new Date().toISOString()}};
       const receipts={...state.receipts,[job.id]:receipt};
       // Keep recent receipts plus every receipt still referenced by a saved card/run.
       const referenced=new Set();

@@ -271,3 +271,7 @@ The [methodology audit](docs/QUANT_METHODOLOGY_AUDIT.md) documents reproduced ga
 ### Entry chronology corrections in 1.1.2
 
 The [follow-up audit](docs/QUANT_CHRONOLOGY_AUDIT.md) reproduces and fixes next-open ATR/Auto R:R look-ahead, missed exits in the intrabar entry candle, and tick-exact labels inferred from metadata. Versions 1.1.0 and 1.1.1 contain these defects. Rerun earlier experiments with the corrected engine. OHLC and M1 results remain approximate; no profitable edge or tick-exact execution is certified.
+
+## Durable CSV research and matched controls
+
+Import historical prices in the [CSV workflow](docs/CSV_IMPORT.md), review strict validation and reopen local datasets after restart. The same stored bars feed chart aggregation and supported Card runs. The [1.2.0 validation record](docs/CSV_RESEARCH_VALIDATION.md) documents actual market-CSV checks, stop-floor/ambiguity/gap corrections and the remaining browser acceptance boundary. Matched entry/exit controls are descriptive and support an explicit native-module subset; they do not certify a profitable edge.

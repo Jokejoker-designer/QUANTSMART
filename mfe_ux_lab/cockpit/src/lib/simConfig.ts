@@ -60,7 +60,7 @@ export interface SimulatorRealismConfig {
                           // "$1 structure-stop → +37R" artifact. undefined/0 = no floor (NORMAL). Affects GROSS R too.
 }
 
-export const SIM_VERSION = "realistic-sim-1.1.2";
+export const SIM_VERSION = "realistic-sim-1.2.0";
 
 export const DEFAULT_REALISTIC_SIM_CONFIG: SimulatorRealismConfig = {
   simulatorMode: "REALISTIC_SIM",

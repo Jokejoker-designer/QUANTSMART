@@ -5,6 +5,7 @@ import { statSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createWorkspaceRepository } from './workspaceRepository.mjs';
+import { createImportRepository } from './importRepository.mjs';
 import { createResearchTrials } from './researchTrials.mjs';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const dataRoot = join(root, 'public', 'data', 'sim');
@@ -25,6 +26,7 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
   const engineHash = createHash('sha256').update(code).digest('hex');
   const workspace = createWorkspaceRepository(workspaceDirectory);
   let trials;try{trials=createResearchTrials(join(workspaceDirectory,'search-trials.jsonl'));}catch(error){workspace.close();throw error;}
+  const importDirectory=join(workspaceDirectory,'imports');let imports;try{imports=createImportRepository(importDirectory);}catch(error){workspace.close();throw error;}
   workspace.setEngineHash(engineHash);
   const jobs = new Map(); let active = null, totalBytes = 0, closed = false;
   const expires = 15 * 60 * 1000;
@@ -35,7 +37,7 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
     if (active || closed) return;
     const job = [...jobs.values()].find((j) => j.status === 'queued'); if (!job) return;
     active = job; job.status = 'running';
-    const worker = new Worker(code, { eval: true, workerData: { request: job.request, dataRoot }, resourceLimits: { maxOldGenerationSizeMb: 768 } });
+    const worker = new Worker(code, { eval: true, workerData: { request: job.request, dataRoot, importDirectory }, resourceLimits: { maxOldGenerationSizeMb: 768 } });
     job.worker = worker;
     const finish = () => { clearTimeout(job.deadline); if (active === job) active = null; job.worker = null; job.request = null; job.completedAt = Date.now(); pump(); };
     job.deadline = setTimeout(() => { job.error = 'RESEARCH_JOB_TIMEOUT'; job.status = 'failed'; void worker.terminate(); }, 120000);
@@ -47,7 +49,7 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
       else {
         const bytes = Buffer.byteLength(JSON.stringify(message.result));
         if (bytes > 40 * 1024 * 1024) { job.status = 'failed'; job.error = 'RESULT_TOO_LARGE'; }
-        else { while (totalBytes + bytes > 96 * 1024 * 1024) { const victim = [...jobs.values()].find((j) => j.status === 'done' && j.id !== job.id); if (!victim) break; remove(victim); } job.result = message.result; job.provenance = message.provenance; job.resultBytes = bytes; totalBytes += bytes; try { workspace.recordJob(job); job.status = 'done'; } catch { job.status = 'failed'; job.error = 'RECEIPT_PERSISTENCE_FAILED'; } }
+        else { while (totalBytes + bytes > 96 * 1024 * 1024) { const victim = [...jobs.values()].find((j) => j.status === 'done' && j.id !== job.id); if (!victim) break; remove(victim); } try { job.result = job.kind==='csv_import'?imports.save(job.request,message.result):message.result; job.provenance = message.provenance; job.resultBytes = Buffer.byteLength(JSON.stringify(job.result)); totalBytes += job.resultBytes; workspace.recordJob(job); job.status = 'done'; } catch(error) { job.status = 'failed'; job.error = job.kind==='csv_import'?'CSV_PERSISTENCE_FAILED':'RECEIPT_PERSISTENCE_FAILED'; } }
       }
     });
     worker.once('error', (error) => { if (job.status !== 'cancelled') { job.error = error.message; job.status = 'failed'; } });
@@ -61,6 +63,7 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
     if (!['localhost', '127.0.0.1', '[::1]'].includes(host) || !['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remote)) return send(res, 403, { error: 'LOCAL_RESEARCH_ONLY' });
     if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`) return send(res, 403, { error: 'ORIGIN_MISMATCH' });
     prune();
+    if(url.pathname==='/api/research/imports'&&req.method==='GET')return send(res,200,{imports:imports.list(),...authority});
     if(url.pathname==='/api/research/trials'&&req.method==='GET')return send(res,200,{...trials.summary(),...authority});
     if(url.pathname==='/api/research/assets'&&req.method==='GET'){
       const assets=['XAUUSD','EURUSD','GBPUSD','USDJPY','BTCUSD'].map(symbol=>({symbol,files:['M1','M5','M15','M30','H1','H4','D1'].flatMap(tf=>{try{const file=statSync(join(dataRoot,`ohlc_${symbol}_${tf}.json`));return[{timeframe:tf,bytes:file.size,modified_at:file.mtime.toISOString()}];}catch{return[];}})}));
@@ -85,14 +88,18 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
         const chunks = []; let size = 0;
         for await (const chunk of req) { size += chunk.length; if (size > 64 * 1024 * 1024) return send(res, 413, { error: 'INPUT_TOO_LARGE' }); chunks.push(chunk); }
         const request = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-        if (!['backtest', 'calibration', 'market','diagnostic'].includes(request.kind)) return send(res, 400, { error: 'INVALID_JOB_KIND' });
-        if(request.kind==='diagnostic'&&!['ablation','funding','beast_roles'].includes(request.analysis))return send(res,400,{error:'INVALID_ANALYSIS'});
+        if (!['backtest', 'calibration', 'market','diagnostic','csv_import','csv_view'].includes(request.kind)) return send(res, 400, { error: 'INVALID_JOB_KIND' });
+        if(request.kind==='diagnostic'&&!['ablation','funding','beast_roles','attribution'].includes(request.analysis))return send(res,400,{error:'INVALID_ANALYSIS'});
         if (request.kind === 'backtest' && (!request.card || !Array.isArray(request.card.modules))) return send(res, 400, { error: 'CARD_REQUIRED' });
         if (request.kind === 'backtest') {
           if (request.card.symbol && request.options?.symbol && request.card.symbol !== request.options.symbol) return send(res, 400, {error:'CARD_ASSET_MISMATCH'});
           request.card = {...request.card, symbol:request.options?.symbol || request.card.symbol || 'XAUUSD'};
         }
         if (Object.keys(request.storage || {}).some((key) => !STORAGE.has(key))) return send(res, 400, { error: 'INVALID_STORAGE_KEY' });
+        if(request.kind==='csv_import'&&(typeof request.text!=='string'||Buffer.byteLength(request.text)>32*1024*1024||(typeof request.filename!=='string'||request.filename.length>255||/[\u0000-\u001f]/.test(request.filename))||!/^[A-Z0-9]{3,12}$/.test(request.symbol||'')))return send(res,400,{error:'INVALID_CSV_IMPORT'});
+        if(request.importId&&!/^[a-f0-9]{64}$/.test(request.importId))return send(res,400,{error:'INVALID_IMPORT_ID'});
+        if(request.importId&&(!imports.list().some(m=>m.id===request.importId)))return send(res,404,{error:'CSV_IMPORT_NOT_FOUND'});
+        if(request.kind==='csv_view'&&!request.importId)return send(res,400,{error:'IMPORT_REQUIRED'});
         let dataVersion = '';
         if (request.dataset) {
           const { symbol, tf, from, to } = request.dataset;
@@ -102,13 +109,13 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
           if (years < 0 || years > 20) return send(res, 400, { error: 'INVALID_DATA_WINDOW' });
           const files = years ? Array.from({ length: years }, (_, i) => `ohlc_${symbol}_M1_${Number(from.slice(0,4)) + i}.json`) : [`ohlc_${symbol}_${tf}.json`];
           dataVersion = files.map((file) => { const stat = statSync(join(dataRoot, file)); return `${file}:${stat.size}:${stat.mtimeMs}`; }).join('|');
-        } else if (!Array.isArray(request.bars) || request.bars.length > 750000) return send(res, 400, { error: 'INVALID_BARS' });
+        } else if (request.kind!=='csv_import'&&!request.importId&&(!Array.isArray(request.bars) || request.bars.length > 750000)) return send(res, 400, { error: 'INVALID_BARS' });
         const key = createHash('sha256').update(engineHash + dataVersion + JSON.stringify(request)).digest('hex');
         const existing = [...jobs.values()].find((j) => j.key === key && ['queued','running','done'].includes(j.status));
-        if (existing) {if(existing.kind!=='market')trials.request(existing,true);return send(res, 200, view(existing));}
+        if (existing) {if(!['market','csv_import','csv_view'].includes(existing.kind))trials.request(existing,true);return send(res, 200, view(existing));}
         if ([...jobs.values()].filter((j) => ['queued','running'].includes(j.status)).length >= 4) return send(res, 429, { error: 'RESEARCH_QUEUE_FULL' });
         while (jobs.size >= 12) { const victim = [...jobs.values()].find((j) => !['queued','running'].includes(j.status)); if (!victim) break; remove(victim); }
-        const job = { id: randomUUID(), key, status:'queued', request, kind:request.kind, engineHash, createdAt:Date.now() }; if(request.kind!=='market')trials.request(job); jobs.set(job.id, job); pump(); return send(res, 202, view(job));
+        const job = { id: randomUUID(), key, status:'queued', request, kind:request.kind, engineHash, createdAt:Date.now() }; if(!['market','csv_import','csv_view'].includes(request.kind))trials.request(job); jobs.set(job.id, job); pump(); return send(res, 202, view(job));
       } catch (error) { return send(res, 400, { error: error.code === 'ENOENT' ? 'DATASET_NOT_FOUND' : 'INVALID_RESEARCH_REQUEST' }); }
     }
     const match = url.pathname.match(/^\/api\/research\/jobs\/([a-f0-9-]+)(\/result)?$/);

@@ -18,6 +18,9 @@
 !/docs/QUANT_AUDIT_RESULTS.json
 !/docs/QUANT_CHRONOLOGY_AUDIT.md
 !/docs/QUANT_CHRONOLOGY_RESULTS.json
+!/docs/CSV_IMPORT.md
+!/docs/CSV_RESEARCH_VALIDATION.md
+!/docs/CSV_RESEARCH_RESULTS.json
 !/.github/
 !/.github/workflows/
 !/.github/workflows/public-install.yml

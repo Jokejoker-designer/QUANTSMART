@@ -64,7 +64,7 @@ export function specMoneyMode(spec: SymbolSpec): SpecMoneyMode {
   return "BLOCKED";
 }
 export function assertSpecUsableForMoney(spec: SymbolSpec): void {
-  if (specMoneyMode(spec) === "BLOCKED") {
+  if (specMoneyMode(spec) === "BLOCKED" || ![spec.point,spec.tickSize,spec.tickValue,spec.contractSize,spec.lotStep,spec.minLot].every(value=>typeof value==="number"&&Number.isFinite(value)&&value>0) || !Number.isInteger(spec.digits) || spec.digits<0 || spec.digits>10) {
     throw new Error(`INSUFFICIENT_SPEC: ${spec.symbol} has no broker specification. OHLC research alone cannot establish position sizing or cash P&L. Connect MT5 or load a broker specification first.`);
   }
 }

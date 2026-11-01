@@ -42,7 +42,7 @@ export function buildRunManifest(inp: BuildManifestInput): SimRunManifest {
   return {
     run_id: `run_${Date.now()}_${configHash(hashSource)}`,
     created_at: new Date().toISOString(),
-    simulator_version: SIM_VERSION || SIM_VERSION,
+    simulator_version: SIM_VERSION,
     simulator_mode: cfg.simulatorMode,
     symbol: inp.symbol,
     design_tf: inp.designTf,

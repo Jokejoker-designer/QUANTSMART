@@ -1,191 +1,401 @@
-// Compact, self-healing CSV → OhlcBar[] parser (delimiter / header / column / time auto-detect).
-// Supports standard single-timestamp CSVs, MetaTrader 4/5 two-column (<DATE> + <TIME>) exports,
-// semicolon/tab/comma/pipe delimiters, headerless OHLC rows, and large multi-megabyte files.
+// Strict OHLC CSV reader shared by the isolated backend worker and public tests.
 import type { OhlcBar } from "../adapters/loadOhlcReplayChart.ts";
-
-const DELIMS = [",", ";", "\t", "|"];
-const HINT: Record<string, string[]> = {
-  date: ["date", "day"],
-  timeOnly: ["time"],
-  datetime: ["datetime", "timestamp", "gmt", "ts", "time", "date"],
-  open: ["open", "o", "bid_open", "first"],
-  high: ["high", "h", "max"],
-  low: ["low", "l", "min"],
-  close: ["close", "c", "last", "price"],
+export const CSV_MAX_BYTES = 32 * 1024 * 1024;
+export const CSV_MAX_BARS = 250000;
+export const CSV_MINUTES: Record<string, number> = {
+  M1: 1,
+  M5: 5,
+  M15: 15,
+  M30: 30,
+  H1: 60,
+  H4: 240,
+  D1: 1440,
 };
-const TF: [number, string][] = [
-  [60, "M1"],
-  [300, "M5"],
-  [900, "M15"],
-  [1800, "M30"],
-  [3600, "H1"],
-  [14400, "H4"],
-  [86400, "D1"],
-];
-
-function parseTime(s: string): number {
-  const t = (s || "").replace(/^["']|["']$/g, "").trim();
-  if (!t) return NaN;
-  if (/^\d{10}$/.test(t)) return +t * 1000;
-  if (/^\d{13}$/.test(t)) return +t;
-  // Normalize YYYY.MM.DD or DD.MM.YYYY -> YYYY-MM-DD
-  let norm = t.replace(/\./g, "-").replace(/\//g, "-");
-  norm = norm.replace(/^(\d{2})-(\d{2})-(\d{4})/, "$3-$2-$1");
-  // Ensure HH:mm has :ss if needed for ISO parsing
-  const iso = norm.replace(/\s+/, "T");
-  const withZ = /[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + "Z";
-  const d = Date.parse(withZ);
-  if (!isNaN(d)) return d;
-  const fallback = Date.parse(norm.replace(" ", "T"));
-  return isNaN(fallback) ? Date.parse(t) : fallback;
+export interface CsvOptions {
+  dateOrder?: "YMD" | "DMY" | "MDY";
+  utcOffsetMinutes?: number;
+  timeframe?: string;
+  priceBasis?: "BID" | "ASK" | "MID" | "UNKNOWN";
 }
-
-export type CsvResult = { bars: OhlcBar[]; tf: string; warnings: string[] } | { error: string };
-
-export function parseCsvOhlc(text: string): CsvResult {
-  try {
-    if (!text || !text.trim()) return { error: "CSV file is empty." };
-
-    // Fast tail-slice for huge multi-hundred-MB files while preserving header row
-    let workingText = text;
-    const MAX_CHARS = 12_000_000;
-    if (workingText.length > MAX_CHARS) {
-      const firstNl = workingText.indexOf("\n");
-      const headLine = firstNl > 0 ? workingText.slice(0, firstNl) : "";
-      const tailStart = workingText.indexOf("\n", workingText.length - MAX_CHARS);
-      workingText = headLine + "\n" + (tailStart > 0 ? workingText.slice(tailStart + 1) : workingText.slice(-MAX_CHARS));
-    }
-
-    const allLines = workingText
-      .replace(/\r\n/g, "\n")
-      .replace(/\r/g, "\n")
-      .split("\n")
-      .filter((l) => l.trim());
-    if (allLines.length < 5) return { error: "CSV has too few rows (minimum 5 OHLC bars required)." };
-
-    const delimiter = DELIMS.map((d) => [d, allLines[0].split(d).length - 1] as [string, number]).sort((a, b) => b[1] - a[1])[0][0];
-    const split = (l: string) => l.split(delimiter).map((c) => c.replace(/^["']|["']$/g, "").trim());
-    const head = split(allLines[0]);
-    const cleanHeaderToken = (c: string) => c.replace(/[<>[\]()]/g, "").trim().toLowerCase();
-
-    const numericCellsInFirstRow = head.filter((c) => !isNaN(parseFloat(c)) && c !== "" && !/^\d{4}[./-]\d{2}[./-]\d{2}/.test(c) && !/^\d{2}:\d{2}/.test(c)).length;
-    const hasHeader = numericCellsInFirstRow <= Math.max(1, Math.floor(head.length / 4));
-    const cols = hasHeader ? head.map(cleanHeaderToken) : head.map((_, i) => `col${i}`);
-
-    let body = hasHeader ? allLines.slice(1) : allLines;
-    if (body.length > 80000) body = body.slice(-80000);
-    const rows = body.map(split);
-
-    let ti: number | undefined;
-    let dateIdx: number | undefined;
-    let timeOnlyIdx: number | undefined;
-    let oi: number | undefined;
-    let hi: number | undefined;
-    let li: number | undefined;
-    let ci: number | undefined;
-
-    if (hasHeader) {
-      const used = new Set<number>();
-      // Check if separate date + time columns exist (e.g. MT4/MT5 <DATE> and <TIME>)
-      const dCol = cols.findIndex((c) => HINT.date.includes(c));
-      const tCol = cols.findIndex((c, idx) => idx !== dCol && HINT.timeOnly.includes(c));
-      if (dCol >= 0 && tCol >= 0) {
-        dateIdx = dCol;
-        timeOnlyIdx = tCol;
-        used.add(dCol);
-        used.add(tCol);
+export interface CsvQuality {
+  inputRows: number;
+  duplicatesRemoved: number;
+  reordered: boolean;
+  gapCount: number;
+  missingIntervals: number;
+  longestContinuous: { from: string; to: string; bars: number };
+  delimiter: string;
+  dateOrder: string;
+  utcOffsetMinutes: number;
+  priceBasis: "BID" | "ASK" | "MID" | "UNKNOWN";
+}
+export type CsvResult =
+  | { bars: OhlcBar[]; tf: string; warnings: string[]; quality: CsvQuality }
+  | { error: string };
+const token = (s: string) =>
+  s
+    .replace(/^\uFEFF/, "")
+    .replace(/[<>\[\]()\s_-]/g, "")
+    .toLowerCase();
+function delimiterOf(line: string) {
+  let quoted = false;
+  const counts = new Map([
+    [",", 0],
+    [";", 0],
+    ["\t", 0],
+    ["|", 0],
+  ]);
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (quoted && line[i + 1] === '"') i++;
+      else quoted = !quoted;
+    } else if (!quoted && counts.has(c)) counts.set(c, counts.get(c)! + 1);
+  }
+  return [...counts].sort((a, b) => b[1] - a[1])[0][0];
+}
+function* records(
+  text: string,
+  delimiter: string,
+): Generator<{ cells: string[]; line: number }> {
+  let cells: string[] = [],
+    value = "",
+    quoted = false,
+    closed = false,
+    line = 1,
+    start = 1;
+  for (let i = 0; i <= text.length; i++) {
+    const c = text[i] ?? "\n";
+    if (quoted) {
+      if (c === '"') {
+        if (text[i + 1] === '"') {
+          value += '"';
+          i++;
+        } else {
+          quoted = false;
+          closed = true;
+        }
       } else {
-        for (let i = 0; i < cols.length; i++) {
-          if (HINT.datetime.some((h) => cols[i] === h || (h.length > 2 && cols[i].includes(h)))) {
-            ti = i;
-            used.add(i);
-            break;
-          }
+        if (i === text.length)
+          throw new Error(`Row ${start}: unclosed quoted field`);
+        value += c;
+        if (c === "\n") line++;
+      }
+      continue;
+    }
+    if (c === '"') {
+      if (value.trim() || closed)
+        throw new Error(`Row ${start}: unexpected quote`);
+      quoted = true;
+      value = "";
+    } else if (c === delimiter) {
+      cells.push(value.trim());
+      value = "";
+      closed = false;
+    } else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      cells.push(value.trim());
+      if (cells.some(Boolean)) yield { cells, line: start };
+      cells = [];
+      value = "";
+      closed = false;
+      line++;
+      start = line;
+    } else {
+      if (closed && c.trim())
+        throw new Error(`Row ${start}: text after closing quote`);
+      value += c;
+    }
+  }
+}
+function timestamp(value: string, options: CsvOptions): number {
+  const t = value.trim();
+  if (/^\d{10}$|^\d{13}$|^\d{16}$|^\d{19}$/.test(t)) {
+    const n = BigInt(t);
+    return Number(
+      t.length === 10
+        ? n * 1000n
+        : t.length === 13
+          ? n
+          : t.length === 16
+            ? n / 1000n
+            : n / 1000000n,
+    );
+  }
+  const m = t.match(
+    /^(\d{1,4})[.\/-](\d{1,2})[.\/-](\d{1,4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?)?(Z|[+-]\d{2}:?\d{2})?$/i,
+  );
+  if (!m)
+    throw new Error(
+      "unsupported timestamp; use ISO, epoch, or an explicit date order",
+    );
+  const order = m[1].length === 4 ? "YMD" : (options.dateOrder ?? "YMD");
+  if (order === "YMD" && m[1].length !== 4)
+    throw new Error("ambiguous date; select DMY or MDY");
+  const year = +(order === "YMD" ? m[1] : m[3]),
+    month = +(order === "MDY" ? m[1] : m[2]),
+    day = +(order === "YMD" ? m[3] : order === "DMY" ? m[1] : m[2]);
+  const hour = +(m[4] || 0),
+    minute = +(m[5] || 0),
+    second = +(m[6] || 0),
+    ms = Math.floor(Number(m[7] || 0) * 1000);
+  const utc = Date.UTC(year, month - 1, day, hour, minute, second, ms),
+    check = new Date(utc);
+  if (
+    year < 1970 ||
+    year > 2100 ||
+    check.getUTCFullYear() !== year ||
+    check.getUTCMonth() !== month - 1 ||
+    check.getUTCDate() !== day ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  )
+    throw new Error("invalid calendar date/time");
+  let offset = options.utcOffsetMinutes ?? 0;
+  if (m[8]) {
+    const z = m[8];
+    if (z.toUpperCase() === "Z") offset = 0;
+    else {
+      const digits = z.slice(1).replace(":", "");
+      const h = +digits.slice(0, 2),
+        min = +digits.slice(2);
+      if (h > 14 || min > 59 || (h === 14 && min !== 0))
+        throw new Error("invalid timezone offset");
+      offset = (z[0] === "-" ? -1 : 1) * (h * 60 + min);
+    }
+  }
+  return utc - offset * 60000;
+}
+function price(s: string) {
+  const value = s.replace(",", ".");
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value))
+    throw new Error("invalid numeric price");
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0)
+    throw new Error("prices must be finite and positive");
+  return n;
+}
+export function parseCsvOhlc(
+  text: string,
+  options: CsvOptions = {},
+): CsvResult {
+  try {
+    if (!text.trim()) throw new Error("CSV file is empty.");
+    if (new TextEncoder().encode(text).byteLength > CSV_MAX_BYTES)
+      throw new Error(
+        "CSV exceeds 32 MB; split the file. No rows were imported.",
+      );
+    if (
+      !["YMD", "DMY", "MDY"].includes(options.dateOrder ?? "YMD") ||
+      !Number.isInteger(options.utcOffsetMinutes ?? 0) ||
+      Math.abs(options.utcOffsetMinutes ?? 0) > 840
+    )
+      throw new Error("Invalid date/time options");
+    if (
+      !["BID", "ASK", "MID", "UNKNOWN"].includes(
+        options.priceBasis ?? "UNKNOWN",
+      )
+    )
+      throw new Error("Invalid price basis");
+    if (
+      options.timeframe &&
+      !Object.prototype.hasOwnProperty.call(CSV_MINUTES, options.timeframe)
+    )
+      throw new Error("Unsupported source timeframe");
+    const clean = text.replace(/^\uFEFF/, "");
+    const delimiter = delimiterOf(clean.split(/\r?\n/, 1)[0]);
+    const iterator = records(clean, delimiter);
+    const first = iterator.next().value;
+    if (!first) throw new Error("CSV file is empty.");
+    const headers = first.cells.map(token);
+    const hasHeader = headers.some((h: string) =>
+      ["open", "bidopen", "askopen"].includes(h),
+    );
+    let ti = 0,
+      di = -1,
+      timeOnly = -1;
+    let positions = [1, 2, 3, 4];
+    let basis: CsvQuality["priceBasis"] = options.priceBasis ?? "UNKNOWN";
+    if (hasHeader) {
+      di = headers.indexOf("date");
+      timeOnly = headers.indexOf("time");
+      if (di >= 0 && timeOnly >= 0) {
+        ti = -1;
+      } else {
+        di = -1;
+        timeOnly = -1;
+        ti = headers.findIndex((h: string) =>
+          [
+            "datetime",
+            "timestamp",
+            "time",
+            "date",
+            "opentime",
+            "gmttime",
+            "ts",
+          ].includes(h),
+        );
+      }
+      const prefix =
+        options.priceBasis === "BID"
+          ? "bid"
+          : options.priceBasis === "ASK"
+            ? "ask"
+            : headers.includes("open")
+              ? ""
+              : headers.includes("bidopen")
+                ? "bid"
+                : headers.includes("askopen")
+                  ? "ask"
+                  : "";
+      positions = ["open", "high", "low", "close"].map((k) =>
+        headers.indexOf(prefix + k),
+      );
+      if ((ti < 0 && di < 0) || positions.some((i) => i < 0))
+        throw new Error(
+          "Missing time/open/high/low/close columns for the selected price basis",
+        );
+      if (prefix) basis = prefix === "bid" ? "BID" : "ASK";
+    } else if (
+      first.cells.length >= 6 &&
+      /^\d{1,2}:\d{2}/.test(first.cells[1])
+    ) {
+      di = 0;
+      timeOnly = 1;
+      ti = -1;
+      positions = [2, 3, 4, 5];
+    }
+    const raw: { ms: number; bar: OhlcBar; line: number }[] = [];
+    const accept = ({ cells, line }: { cells: string[]; line: number }) => {
+      if (raw.length >= CSV_MAX_BARS)
+        throw new Error(
+          `CSV exceeds ${CSV_MAX_BARS.toLocaleString()} rows; split the file. No truncation was performed.`,
+        );
+      try {
+        const ms = timestamp(
+          di >= 0 ? `${cells[di]} ${cells[timeOnly]}` : (cells[ti] ?? ""),
+          options,
+        );
+        const [o, h, l, c] = positions.map((i) => price(cells[i] ?? ""));
+        if (h < Math.max(o, c) || l > Math.min(o, c) || h < l)
+          throw new Error("invalid OHLC geometry; prices were not repaired");
+        if (!Number.isFinite(ms)) throw new Error("timestamp out of range");
+        raw.push({
+          ms,
+          bar: {
+            i: 0,
+            t: new Date(ms).toISOString().slice(0, 19),
+            o,
+            h,
+            l,
+            c,
+            r: "N",
+          },
+          line,
+        });
+      } catch (error) {
+        throw new Error(
+          `Row ${line}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    };
+    if (!hasHeader) accept(first);
+    for (const row of iterator) accept(row);
+    const inputRows = raw.length;
+    const reordered = raw.some((b, i) => i > 0 && b.ms < raw[i - 1].ms);
+    raw.sort((a, b) => a.ms - b.ms);
+    const unique: typeof raw = [];
+    let duplicatesRemoved = 0;
+    for (const item of raw) {
+      const previous = unique[unique.length - 1];
+      if (previous?.ms === item.ms) {
+        if (
+          ["o", "h", "l", "c"].some(
+            (k) => previous.bar[k as "o"] !== item.bar[k as "o"],
+          )
+        )
+          throw new Error(
+            `Row ${item.line}: conflicting prices for duplicate timestamp`,
+          );
+        duplicatesRemoved++;
+      } else unique.push(item);
+    }
+    if (unique.length < 5)
+      throw new Error("At least 5 distinct OHLC bars are required.");
+    const counts = new Map<number, number>();
+    for (let i = 1; i < unique.length; i++) {
+      const d = (unique[i].ms - unique[i - 1].ms) / 60000;
+      counts.set(d, (counts.get(d) ?? 0) + 1);
+    }
+    const mostCommon = [...counts].sort(
+      (a, b) => b[1] - a[1] || a[0] - b[0],
+    )[0][0];
+    const tf =
+      options.timeframe ??
+      Object.keys(CSV_MINUTES).find((k) => CSV_MINUTES[k] === mostCommon);
+    if (!tf)
+      throw new Error(
+        "Cannot infer a supported timeframe; choose the source timeframe explicitly.",
+      );
+    const step = CSV_MINUTES[tf] * 60000;
+    let gapCount = 0,
+      missingIntervals = 0,
+      start = 0,
+      longest = { from: unique[0].bar.t, to: unique[0].bar.t, bars: 1 };
+    for (let i = 0; i < unique.length; i++) {
+      if (unique[i].ms % 60000 !== 0)
+        throw new Error(
+          `Row ${unique[i].line}: timestamp is not minute-aligned. Check source timeframe.`,
+        );
+      if (i > 0) {
+        const d = unique[i].ms - unique[i - 1].ms;
+        if (d < step || d % step)
+          throw new Error("Rows do not match the selected source timeframe");
+        if (d > step) {
+          gapCount++;
+          missingIntervals += d / step - 1;
+          start = i;
         }
       }
-
-      const matchCol = (hints: string[]): number | undefined => {
-        for (let i = 0; i < cols.length; i++) {
-          if (used.has(i)) continue;
-          if (hints.some((h) => cols[i] === h || (h.length > 1 && cols[i].includes(h)))) {
-            used.add(i);
-            return i;
-          }
-        }
-        return undefined;
-      };
-
-      oi = matchCol(HINT.open);
-      hi = matchCol(HINT.high);
-      li = matchCol(HINT.low);
-      ci = matchCol(HINT.close);
-    } else if (rows.length > 0) {
-      // Headerless CSV auto-detection
-      const r0 = rows[0];
-      if (r0.length >= 6 && /^\d{2}:\d{2}/.test(r0[1] || "") && !isNaN(parseTime(`${r0[0]} ${r0[1]}`))) {
-        dateIdx = 0;
-        timeOnlyIdx = 1;
-        oi = 2;
-        hi = 3;
-        li = 4;
-        ci = 5;
-      } else if (r0.length >= 5 && !isNaN(parseTime(r0[0]))) {
-        ti = 0;
-        oi = 1;
-        hi = 2;
-        li = 3;
-        ci = 4;
-      }
+      if (i - start + 1 > longest.bars)
+        longest = {
+          from: unique[start].bar.t,
+          to: unique[i].bar.t,
+          bars: i - start + 1,
+        };
     }
-
-    const hasTime = (dateIdx !== undefined && timeOnlyIdx !== undefined) || ti !== undefined;
-    const miss: string[] = [];
-    if (!hasTime) miss.push("time/date");
-    if (oi === undefined) miss.push("open");
-    if (hi === undefined) miss.push("high");
-    if (li === undefined) miss.push("low");
-    if (ci === undefined) miss.push("close");
-    if (miss.length) return { error: `Missing required columns: ${miss.join(", ")}` };
-
-    let dropped = 0;
-    const raw: { t: number; o: number; h: number; l: number; c: number }[] = [];
-    for (const r of rows) {
-      const rawTimeStr = dateIdx !== undefined && timeOnlyIdx !== undefined ? `${r[dateIdx] || ""} ${r[timeOnlyIdx] || ""}` : r[ti!] || "";
-      const t = parseTime(rawTimeStr);
-      const o = parseFloat((r[oi!] || "").replace(",", "."));
-      const h = parseFloat((r[hi!] || "").replace(",", "."));
-      const lo = parseFloat((r[li!] || "").replace(",", "."));
-      const c = parseFloat((r[ci!] || "").replace(",", "."));
-      if (isNaN(t) || isNaN(o) || isNaN(h) || isNaN(lo) || isNaN(c) || o <= 0 || h <= 0 || lo <= 0 || c <= 0) {
-        dropped++;
-        continue;
-      }
-      raw.push({ t, o, h: Math.max(o, h, lo, c), l: Math.min(o, h, lo, c), c });
-    }
-    raw.sort((a, b) => a.t - b.t);
-    const dedup = raw.filter((b, i) => i === 0 || b.t !== raw[i - 1].t);
-    if (dedup.length < 5) return { error: `Only ${dedup.length} valid OHLC bars after cleaning.` };
-
-    const deltas = dedup
-      .slice(1)
-      .map((b, i) => (b.t - dedup[i].t) / 1000)
-      .filter((d) => d > 0)
-      .sort((a, b) => a - b);
-    const med = deltas[Math.floor(deltas.length / 2)] || 0;
-    const tf = TF.reduce((p, x) => (Math.abs(x[0] - med) < Math.abs(p[0] - med) ? x : p))[1];
-    const bars: OhlcBar[] = dedup.slice(-50000).map((b, i) => ({
-      i,
-      o: b.o,
-      h: b.h,
-      l: b.l,
-      c: b.c,
-      r: "N",
-      t: new Date(b.t).toISOString().slice(0, 19),
-    }));
-    const warnings: string[] = [];
-    if (dropped) warnings.push(`Skipped ${dropped} malformed rows`);
-    return { bars, tf, warnings };
-  } catch (e: unknown) {
-    return { error: "CSV parse error: " + (e instanceof Error ? e.message : String(e)) };
+    const warnings: string[] = [`${options.timeframe ? "Declared" : "Inferred"} source timeframe: ${tf}. Confirm that it matches the export.`];
+    if (reordered) warnings.push("Rows were sorted chronologically.");
+    if (duplicatesRemoved)
+      warnings.push(
+        `${duplicatesRemoved} identical duplicate rows were removed.`,
+      );
+    if (gapCount)
+      warnings.push(
+        `${gapCount} gaps; ${missingIntervals} unobserved intervals. No prices were filled in.`,
+      );
+    warnings.push(
+      "Naive timestamps use the selected UTC offset. Price/cost provenance is not independently verified.",
+    );
+    return {
+      bars: unique.map((x, i) => ({ ...x.bar, i })),
+      tf,
+      warnings,
+      quality: {
+        inputRows,
+        duplicatesRemoved,
+        reordered,
+        gapCount,
+        missingIntervals,
+        longestContinuous: longest,
+        delimiter,
+        dateOrder: options.dateOrder ?? "YMD",
+        utcOffsetMinutes: options.utcOffsetMinutes ?? 0,
+        priceBasis: basis,
+      },
+    };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
   }
 }

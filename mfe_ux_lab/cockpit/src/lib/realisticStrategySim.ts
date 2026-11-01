@@ -7,7 +7,7 @@
 // P0 resolves exits on design_tf OHLC (HTF heuristic). M1 intrabar path = DEFERRED_TO_P1.
 import type { OhlcBar } from "../adapters/loadOhlcReplayChart.ts";
 import type { SimulatorRealismConfig, Timeframe, SizingMode } from "./simConfig.ts";
-import type { SymbolSpec } from "./symbolSpec.ts";
+import { assertSpecUsableForMoney, type SymbolSpec } from "./symbolSpec.ts";
 import { getNextOpenFill, parseBarTime, newsWindow, classifySession, TF_MINUTES } from "./simTimeframe.ts";
 import { makeRng, computeTradeCost, sessionSpread, type TradeCostBreakdown } from "./simCostModel.ts";
 import { resolveIntrabarM1, type AmbiguityPolicy } from "./intrabarM1Resolver.ts";
@@ -95,6 +95,8 @@ export interface RealisticSimOptions {
   execByDesign?: OhlcBar[][];  // P1 (entry): execution_tf children per design bar → INTRABAR ENTRY (enter early inside the forming design bar, causal). Absent → entry stays on design_tf close (P0, unchanged).
   ambiguityPolicy?: AmbiguityPolicy;
   customModules?: CustomModule[];   // user-authored modules (template-constrained) executed by the interpreter
+  researchIntervention?: {entries?: {signalI:number;dir:"BUY"|"SELL"}[]; fixedHoldBars?:number; collectOnly?:boolean};
+  onResearchCandidate?: (candidate:{signalI:number;dir:"BUY"|"SELL";entryI:number;risk:number;regime:number})=>void;
   coef?: TriggerCoefOverride;      // self-calibrated OR user-tuned trigger weights/reliabilities. ABSENT → DEFAULT_TRIGGER_COEF (historical values) → regression-identical.
 }
 
@@ -170,8 +172,10 @@ function asiaRangeLevels(bars: OhlcBar[]): { hi: number[]; lo: number[] } {
 }
 
 export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: boolean, opts: RealisticSimOptions): RealisticSimResult {
-  observeSimulationTrial({modules: [...modules].sort(), autoRR, configuration: {cfg: opts.cfg, spec: opts.spec, designTf: opts.designTf, symbol: opts.symbol, ambiguityPolicy: opts.ambiguityPolicy, scenarioMult: opts.scenarioMult, sizingMode: opts.sizingModeOverride, exitResolution: opts.m1ByDesign ? "M1_CHILDREN" : "DESIGN_OHLC", entryResolution: opts.execByDesign ? "EXECUTION_CHILDREN" : "DESIGN_CLOSE"}, customModules: opts.customModules, coefficients: opts.coef});
+  observeSimulationTrial({modules: [...modules].sort(), autoRR, configuration: {researchIntervention:opts.researchIntervention,cfg: opts.cfg, spec: opts.spec, designTf: opts.designTf, symbol: opts.symbol, ambiguityPolicy: opts.ambiguityPolicy, scenarioMult: opts.scenarioMult, sizingMode: opts.sizingModeOverride, exitResolution: opts.m1ByDesign ? "M1_CHILDREN" : "DESIGN_OHLC", entryResolution: opts.execByDesign ? "EXECUTION_CHILDREN" : "DESIGN_CLOSE"}, customModules: opts.customModules, coefficients: opts.coef});
   const { cfg, spec, designTf, cardId, symbol } = opts;
+  if(spec.symbol!==symbol)throw new Error("SYMBOL_SPEC_MISMATCH: research costs require the selected asset specification");
+  assertSpecUsableForMoney(spec);
   const scenarioMult = opts.scenarioMult ?? 1;
   const sizingMode = opts.sizingModeOverride ?? cfg.risk.sizingMode;
   const m1ByDesign = opts.m1ByDesign;
@@ -182,6 +186,9 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
   if (!bars || bars.length < 60) return empty;
   const equityFloor = 0;   // account blown when equity ≤ 0 (cannot cover the next loss)
 
+  const forcedEntries=opts.researchIntervention?.entries;
+  const schedule=new Map((forcedEntries||[]).map(entry=>[entry.signalI,entry.dir]));
+  const fixedHold=opts.researchIntervention?.fixedHoldBars;
   const mods = modules || []; const has = (id: string) => mods.includes(id);
   const closes = bars.map((b) => b.c);
   const e10 = ema(closes, 10), e34 = ema(closes, 34), rsi = rsiArr(closes), atr = atrArr(bars), atrSlow = ema(atr, 100);
@@ -342,6 +349,7 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
       } else { sl = dir === "BUY" ? entry - a : entry + a; tp = null; risk = a; }
       const floor = (cfg.minStopAtrK ?? 0) * a;
       if (floor > 0 && risk < floor) { risk = floor; sl = dir === "BUY" ? entry - floor : entry + floor; }
+      if (tp != null && (dir === "BUY" ? tp - entry : entry - tp) / risk < MINRR) continue;
       res.signals_seen++;
       const why = [...votes.filter((v) => v.dir === ds).map((v) => "▸ " + v.why), `⚙ Intrabar entry (execution_tf ${cfg.executionTf} over ${designTf}) → ${dir}`,
         ...(has("regime_ctx") ? [`Regime matches ${dir}`] : []), ...(has("session_ctx") ? [`✓ Session ${ph}h (7–21 UTC)`] : []),
@@ -364,6 +372,10 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
     let gStop = 0, gTp = 0, m1Resolved = false, intrabarOutcome = "", exitTime = b.t;
     const rOf = (px: number) => (pos!.dir === "BUY" ? px - pos!.entry : pos!.entry - px) / pos!.risk;
     const effTp = pos.tp != null ? pos.tp : (pos.dir === "BUY" ? pos.entry + TPCAP * pos.risk : pos.entry - TPCAP * pos.risk);
+    if(fixedHold!=null){
+      if(held+1<fixedHold)return;
+      exit=b.c;grossR=rOf(exit);gStop=grossR;gTp=grossR;exitTime=new Date(_ms(b.t)+TF_MINUTES[designTf]*60000).toISOString();intrabarOutcome="RESEARCH_FIXED_HOLD";
+    }else{
     const path = entryPath ?? (m1ByDesign ? (m1ByDesign[i] || null) : null);
     let observedBars: OhlcBar[] = path ?? [b];
     if (path && path.length) {
@@ -428,6 +440,7 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
         pos.sl = pos.dir === "BUY" ? Math.max(pos.sl, lockPx) : Math.min(pos.sl, lockPx);
       }
       if (ce.close) { exit = b.c; grossR = rOf(b.c); gStop = grossR; gTp = grossR; intrabarOutcome = "CUSTOM_EXIT"; }
+    }
     }
     if (exit != null) {
       grossR = +grossR.toFixed(4); gStop = +gStop.toFixed(4); gTp = +gTp.toFixed(4);
@@ -593,6 +606,7 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
           if (b.l <= fLo) votes.push({ dir: 1, w: fbW, rel: TC.range.rel, why: `Fallback Range Fade: no attacker candidate; touches the 20-bar lower boundary (${fLo.toFixed(2)}) → fade (↑)` });
         }
       }
+      if(forcedEntries){votes.length=0;const direction=schedule.get(i);if(direction)votes.push({dir:direction==="BUY"?1:-1,w:1,rel:.55,why:"Research matched-entry intervention"});}
       if (!votes.length) continue;
       // F3 custom CONFIRM — weight authority only (like mtf_confirm): scales EXISTING vote weights, never votes.
       if (customConfirmBoost !== 1) for (const v of votes) { v.w = +(v.w * customConfirmBoost).toFixed(4); v.why += " · Confirm ×" + customConfirmBoost; }
@@ -668,6 +682,9 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
       // a REALISTIC stop → kills the "$1 structure-stop → +37R" artifact (affects GROSS R, not just cost/NET).
       const stopFloor = (cfg.minStopAtrK ?? 0) * a;
       if (stopFloor > 0 && risk < stopFloor) { risk = stopFloor; sl = dir === "BUY" ? entry - stopFloor : entry + stopFloor; }
+      if (tp != null && (dir === "BUY" ? tp - entry : entry - tp) / risk < MINRR) continue;
+      opts.onResearchCandidate?.({signalI:i,dir,entryI:fill.fillIndex,risk,regime});
+      if(opts.researchIntervention?.collectOnly)continue;
       decisionEvent("ORDER_INTENT_MODELED", `${dir} @ next-open ${entry}`);
       ev(fill.fillIndex, "FILL_MODELED", `${dir} filled ${entry} (open of bar i+1)`, fill.fillTime);
       ev(fill.fillIndex, "POSITION_OPENED_MODELED", `risk=${risk.toFixed(2)} sl=${sl.toFixed(2)} tp=${tp == null ? "cap" : tp.toFixed(2)}`, fill.fillTime);

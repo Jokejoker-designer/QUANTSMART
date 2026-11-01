@@ -45,11 +45,12 @@ export function honestyVerdict(a: RealisticAnalytics, wf: WalkForwardResult | un
   }
 
   if (calLevel !== "FULLY_CALIBRATED") warnings.push("Modeled measurements; costs " + (calLevel === "FULLY_PROVISIONAL" ? "PROVISIONAL" : "partially calibrated") + ", approximate M1 path. Does not establish live readiness.");
+  warnings.push("Matched random-entry/exit controls are a separate diagnostic; a positive backtest alone does not attribute an edge to the trigger.");
   warnings.push("Research only; no automatic promotion or investment recommendation.");
 
   const map: Record<TrustLevel, { label: string; tone: HonestyVerdict["tone"] }> = {
     NO_EDGE_AFTER_COST: { label: "No measured edge after costs", tone: "red" },
-    FRAGILE_EDGE: { label: "Edge MONG-MANH", tone: "orange" },
+    FRAGILE_EDGE: { label: "Fragile simulated result", tone: "orange" },
     CONDITIONAL_EDGE: { label: "Conditional research evidence", tone: "yellow" },
     ROBUST_IN_SIM: { label: "Robust within the stated simulation", tone: "green" },
   };

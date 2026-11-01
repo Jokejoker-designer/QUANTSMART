@@ -38,6 +38,8 @@ export function resolveIntrabarM1(
     const slHit = dir === "BUY" ? b.l <= sl : b.h >= sl;
     const tpHit = dir === "BUY" ? b.h >= tp : b.l <= tp;
     if (slHit && tpHit) {
+      if (policy === "TICK_REQUIRED") throw new Error("TICK_REQUIRED_FOR_AMBIGUOUS_PATH: no tick executor is available");
+      if (policy === "EXCLUDE_AMBIGUOUS") throw new Error("EXCLUDE_AMBIGUOUS_IS_REPORT_ONLY: use the exclusion sensitivity statistic; a full equity simulation cannot silently discard an unknown outcome");
       const optimistic = policy === "OPTIMISTIC_TP_FIRST";
       return { outcome: "AMBIGUOUS_SAME_M1", exitTime: b.t, exitPrice: optimistic ? tp : sl, ambiguous: true, ambiguityPolicy: policy, m1BarsScanned: scanned, warnings: [...warnings, "SL & TP in one M1 candle — order unknown, tick required"] };
     }

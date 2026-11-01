@@ -6,7 +6,7 @@ import type { CalibrationReport } from "./coefficientCalibration.ts";
 import { getCardRuntimeConfig } from "./simTimeframe.ts";
 export const RESEARCH_STORAGE_KEYS = ["mfe_coef_profile", "mfe_custom_modules", "mfe_custom_l1", "mfe_custom_l2", "mfe_custom_l3", "mfe_custom_l4_recipe", "mfe_custom_l5_recipe", "mfe_custom_l6"];
 export function researchStorage() { const result: Record<string, string> = {}; for (const key of RESEARCH_STORAGE_KEYS) { try { const value = localStorage.getItem(key); if (value !== null) result[key] = value; } catch { /* read-only context */ } } return result; }
-interface ResearchRequest { purpose?: "publication"; source?: "Replay"|"Live"|"CSV"; stage?: "Y10"|"M6"|"M1"; kind: "calibration" | "backtest" | "market" | "diagnostic"; analysis?: "ablation"|"funding"|"beast_roles"; parameters?: unknown; count?: number; mode?: "m1" | "design"; dataset?: { symbol: string; tf: string; from?: string; to?: string; expectedCount?: number; expectedHash?: string; first?: string; last?: string }; bars?: OhlcBar[]; card?: unknown; options?: RealisticBacktestOptions; storage?: Record<string, string> }
+interface ResearchRequest { importId?:string; from?:string; to?:string; windowTf?:string; timeframe?:string; filename?:string; symbol?:string; text?:string; csvOptions?:unknown; purpose?: "publication"; source?: "Replay"|"Live"|"CSV"; stage?: "Y10"|"M6"|"M1"; kind: "calibration" | "backtest" | "market" | "diagnostic" | "csv_import" | "csv_view"; analysis?: "ablation"|"funding"|"beast_roles"|"attribution"; parameters?: unknown; count?: number; mode?: "m1" | "design"; dataset?: { symbol: string; tf: string; from?: string; to?: string; expectedCount?: number; expectedHash?: string; first?: string; last?: string }; bars?: OhlcBar[]; card?: unknown; options?: RealisticBacktestOptions; storage?: Record<string, string> }
 interface Job { id: string; status: "queued" | "running" | "done" | "failed" | "cancelled"; error?: string }
 export interface ResearchJobLifecycle { cancelOnAbort?: boolean; onProgress?: (status: Job["status"]) => void }
 export interface ResearchReceipt { job_id:string; input_hash:string; engine_hash:string; source_hash?:string; verified:true }
@@ -55,14 +55,14 @@ export function runCalibrationJob(symbol: string, signal?: AbortSignal) { return
 export function runDetachedBacktest(bars: OhlcBar[], card: unknown, options: RealisticBacktestOptions, mode:"design"|"m1"="design") { return runResearchJob<ResearchBacktest>({ kind: "backtest", mode, bars, card, options, storage: researchStorage() }); }
 
 // No synchronous simulator call in React render. Any previous result is hidden as soon as inputs change.
-export function useResearchBacktest(bars: OhlcBar[] | null | undefined, card: unknown, options: RealisticBacktestOptions, mode: "m1" | "design" = "design", historical = false, source?: "Replay"|"Live"|"CSV", stage?: "Y10"|"M6"|"M1") {
+export function useResearchBacktest(bars: OhlcBar[] | null | undefined, card: unknown, options: RealisticBacktestOptions, mode: "m1" | "design" = "design", historical = false, source?: "Replay"|"Live"|"CSV", stage?: "Y10"|"M6"|"M1", imported?:{id:string;windowTf:string}) {
   const settings = JSON.stringify({ card, options, storage: researchStorage() });
   const request = useMemo<ResearchRequest | null>(() => {
     if (!card || !bars || bars.length <= 60) return null;
     const { card: frozenCard, options: frozenOptions, storage } = JSON.parse(settings);
     const dataset = historical ? { symbol: frozenOptions.symbol || "XAUUSD", tf: mode === "m1" ? "M1" : getCardRuntimeConfig(frozenCard).design_tf, from: bars[0].t, to: bars[bars.length - 1].t, expectedCount: bars.length, first: JSON.stringify(bars[0]), last: JSON.stringify(bars[bars.length - 1]) } : undefined;
-    return { kind: "backtest", mode, source: source || (historical ? "Replay" : undefined), stage, card: frozenCard, options: frozenOptions, storage, ...(dataset ? { dataset } : { bars }) };
-  }, [bars, settings, mode, historical, source, stage]);
+    return { kind: "backtest", ...(imported?{importId:imported.id,windowTf:imported.windowTf,from:bars[0].t,to:bars[bars.length-1].t}:{}), mode, source: source || (historical ? "Replay" : undefined), stage, card: frozenCard, options: frozenOptions, storage, ...(imported?{}:dataset ? { dataset } : { bars }) };
+  }, [bars, settings, mode, historical, source, stage, imported?.id,imported?.windowTf]);
   const [state, setState] = useState<{ request: ResearchRequest | null; result: ResearchBacktest | null; error: string | null }>({ request: null, result: null, error: null });
   useEffect(() => {
     if (!request) return;
@@ -87,4 +87,4 @@ export function useResearchBacktest(bars: OhlcBar[] | null | undefined, card: un
   return { result: current ? state.result : null, error: current ? state.error : null, pending: !!request && !current };
 }
 
-export function runResearchAnalysis<T>(analysis:"ablation"|"funding"|"beast_roles",bars:OhlcBar[],card:unknown,parameters:unknown):Promise<T>{return runResearchJob<T>({kind:"diagnostic",analysis,bars,card,parameters,storage:researchStorage()});}
+export function runResearchAnalysis<T>(analysis:"ablation"|"funding"|"beast_roles"|"attribution",bars:OhlcBar[],card:unknown,parameters:unknown):Promise<T>{return runResearchJob<T>({kind:"diagnostic",analysis,bars,card,parameters,storage:researchStorage()});}

@@ -104,6 +104,11 @@ export function runRealisticBacktest(designBars: OhlcBar[], card: any, opts: Rea
 // design_tf, resolve SL/TP order on the underlying M1 path. M1 path is APPROX, not tick-exact. ──
 export interface RealisticBacktestM1Options extends RealisticBacktestOptions { ambiguityPolicy?: AmbiguityPolicy }
 export function runRealisticBacktestM1(m1Bars: OhlcBar[], card: any, opts: RealisticBacktestM1Options = {}): RealisticBacktest {
+  for(let i=0;i<m1Bars.length;i++){
+    const ms=Date.parse(m1Bars[i].t.replace(' ','T')+(/Z$|[+-]\d\d:?\d\d$/.test(m1Bars[i].t)?'':'Z'));
+    const previous=i?Date.parse(m1Bars[i-1].t.replace(' ','T')+(/Z$|[+-]\d\d:?\d\d$/.test(m1Bars[i-1].t)?'':'Z')):ms-60000;
+    if(!Number.isFinite(ms)||ms%60000||ms-previous!==60000)throw new Error('M1_DISCONTINUOUS_PATH: select a continuous interval; missing minutes are not filled or skipped');
+  }
   const symbol = opts.symbol || "XAUUSD";
   let cfgBase = opts.cfg ? cloneSimConfig(opts.cfg) : cloneSimConfig(DEFAULT_REALISTIC_SIM_CONFIG);
   if (opts.hard) cfgBase = makeHardConfig(cfgBase);                  // HARD parity with the design-bars facade (×cost + min-stop floor)

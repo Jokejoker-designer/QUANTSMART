@@ -1,11 +1,52 @@
-import assert from 'node:assert/strict';
-import {createRequire} from 'node:module';
-import {fileURLToPath} from 'node:url';
-const require=createRequire(new URL('../mfe_ux_lab/cockpit/package.json',import.meta.url));const {build}=require('esbuild');
-const compiled=await build({stdin:{contents:"export * from './src/lib/pendingCsvImport.ts';export {parseCsvOhlc} from './src/lib/csvOhlc.ts';",resolveDir:fileURLToPath(new URL('../mfe_ux_lab/cockpit',import.meta.url)),loader:'ts'},bundle:true,platform:'node',format:'esm',write:false,logLevel:'silent'});
-const api=await import('data:text/javascript;base64,'+Buffer.from(compiled.outputFiles[0].text).toString('base64'));
-const rows=Array.from({length:130},(_,i)=>`${new Date(Date.UTC(2020,0,1)+i*3600000).toISOString()},100,102,99,101`);
-const parsed=api.parseCsvOhlc('time,open,high,low,close\n'+rows.join('\n'));assert.ok(!('error' in parsed));assert.equal(parsed.tf,'H1');
-api.stageCsvImport({...parsed,filename:'Authorized local file.csv'});const pending=api.takeCsvImport();assert.equal(pending.filename,'Authorized local file.csv');assert.equal(pending.bars.length,130);assert.equal(api.takeCsvImport(),null);
-assert.ok('error' in api.parseCsvOhlc('not an OHLC file'));
-console.log('FIRST RUN PASS: real CSV parser, inferred timeframe, one-shot in-memory transfer and invalid-file rejection. No history fixture is installed.');
+import fs from "node:fs";
+import path from "node:path";
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+const app = fileURLToPath(new URL("../mfe_ux_lab/cockpit", import.meta.url)),
+  require = createRequire(path.join(app, "package.json")),
+  { build } = require("esbuild");
+const state = path.join(app, ".mfe-state");
+fs.mkdirSync(state, { recursive: true });
+const output = path.join(state, "first-run-ui.cjs");
+try {
+  await build({
+    stdin: {
+      contents: "export{FirstRun}from'./src/shell/FirstRun.tsx';export{decodeCsvBytes}from'./src/lib/csvImports.ts';",
+      resolveDir: app,
+      loader: "tsx",
+    },
+    bundle: true,
+    platform: "node",
+    format: "cjs",
+    outfile: output,
+    external: ["react"],
+    loader: { ".css": "empty" },
+    logLevel: "silent",
+  });
+  const { FirstRun, decodeCsvBytes } = require(output),
+    React = require("react"),
+    { renderToStaticMarkup } = require("react-dom/server");
+  globalThis.localStorage = { getItem: () => null };
+  assert.equal(decodeCsvBytes(new Uint8Array(Buffer.from('\ufefftime,open','utf16le'))),'time,open');
+  assert.equal(decodeCsvBytes(new TextEncoder().encode('time,open')),'time,open');
+  assert.throws(()=>decodeCsvBytes(new Uint8Array([255,255,255])));
+  const html = renderToStaticMarkup(
+    React.createElement(FirstRun, { navigate: () => {} }),
+  );
+  assert.match(html, /Choose your first data source/);
+  assert.match(html, /Import or reopen historical CSV/);
+  assert.match(html, /OHLC file/);
+  assert.match(html, /UTC offset for times without a zone/);
+  assert.match(html, /Validate and save locally/);
+  assert.match(html, /32 MB/);
+  assert.match(html, /type="file"/);
+  assert.match(html, /required=""/);
+  assert.ok(!html.includes("Imports are held in this browser session"));
+  console.log(
+    "FIRST RUN PASS: actual import form renders accessible file/date/time/basis controls and durable-workspace copy. Browser interaction is a separate acceptance step.",
+  );
+} finally {
+  delete globalThis.localStorage;
+  fs.rmSync(output, { force: true });
+}

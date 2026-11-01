@@ -1,6 +1,6 @@
 {
   "name": "quantsmart",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "private": true,
   "description": "A local workspace for testing strategies and building your own quantitative algorithms.",
   "license": "Apache-2.0",
@@ -22,7 +22,7 @@
     "test:bridge": "node scripts/test.mjs --bridge",
     "test:product:with-data": "node scripts/test.mjs --with-data",
     "package:portable": "node scripts/package-portable.mjs",
-    "test:quant": "node tests/quant-methodology.test.mjs && node tests/research-trials.test.mjs && node tests/quant-chronology.test.mjs",
+    "test:quant": "node tests/quant-methodology.test.mjs && node tests/research-trials.test.mjs && node tests/quant-chronology.test.mjs && node tests/execution-contract.test.mjs && node tests/strategy-attribution.test.mjs",
     "test:portable": "node tests/portable-entry.test.mjs"
   }
 }

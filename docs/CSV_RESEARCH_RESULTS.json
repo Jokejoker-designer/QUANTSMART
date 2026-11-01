@@ -1,0 +1,82 @@
+{
+  "date": "2026-11-01",
+  "version": "1.2.0",
+  "baseline": "efa819400f0e56501013444b38aa987e5f27c166",
+  "realExternalCsv": {
+    "url": "https://data.binance.vision/data/spot/monthly/klines/BTCUSDT/1m/BTCUSDT-1m-2025-01.zip",
+    "documentation": "https://github.com/binance/binance-public-data",
+    "symbol": "BTCUSDT",
+    "timeframe": "M1",
+    "basis": "exchange traded OHLC, not bid/ask",
+    "timezone": "UTC",
+    "timestampUnit": "microseconds",
+    "archiveSha256": "8d028b2f91aad57d6b693d44449c93f9c4b7044f55f298c8a3ac40ab676dafac",
+    "csvSha256": "591e74443aed0082ecd473dd10239ecbc2c671ae19a5227712f4f50aa58632ba",
+    "bytes": 7064510,
+    "rows": 44640
+  },
+  "localGoldResearchSource": {
+    "source": "existing local XAUUSD research JSON",
+    "declaredSource": "sim_wide",
+    "brokerProvenanceVerified": false,
+    "sourceSha256": "df5bda58cfbd25c0f3a66113ad47aab1fc0fc8b8508b59d1fd98ebc908235988",
+    "csvSha256": "c0d7d2e5e5ad668be5f54b279e6b7dec0075fd9f7efaf1a34f95ed25b5f21d80",
+    "bars": 5000,
+    "from": "2025-02-25T08:00:00",
+    "to": "2025-12-30T23:00:00"
+  },
+  "localGoldEngineeringRun": {
+    "bars": 5000,
+    "timeframe": "H1",
+    "baseline": {
+      "trades": 305,
+      "netR": 17.78,
+      "costModel": "PROVISIONAL",
+      "notIndependentBrokerEvidence": true
+    },
+    "attribution": {
+      "status": "DESCRIPTIVE_ONLY",
+      "events": 24,
+      "seeds": 8,
+      "canonicalCalls": 768,
+      "rows": [
+        {
+          "horizon": 5,
+          "meanEntryLiftBps": 12.04323243678932,
+          "meanExitLiftOnRandomBps": 5.331615779947558,
+          "meanInteractionBps": 12.920196207700595
+        },
+        {
+          "horizon": 10,
+          "meanEntryLiftBps": 22.603885920486206,
+          "meanExitLiftOnRandomBps": -0.48658125539580177,
+          "meanInteractionBps": 2.3595427240037097
+        },
+        {
+          "horizon": 20,
+          "meanEntryLiftBps": 11.10080935593537,
+          "meanExitLiftOnRandomBps": -9.521859452092734,
+          "meanInteractionBps": 13.862619288554544
+        }
+      ]
+    }
+  },
+  "checks": {
+    "csvParser": "PASS",
+    "retainedLongSyntheticRows": 80005,
+    "externalM1Rows": 44640,
+    "externalAggregatedH1Rows": 744,
+    "executionContractBaseline": "FAIL_EXPECTED_FOUR_GROUPS",
+    "executionContractPatched": "PASS_FOUR_GROUPS",
+    "attributionSynthetic": "PASS",
+    "csvBuiltWorkerRoundTrip": "PASS",
+    "restartPersistence": "PASS",
+    "corruptStoredDatasetRefused": true,
+    "browserAcceptance": "PENDING_LOCAL_BROWSER_USE_DISABLED",
+    "humanLabels": "PENDING_ISSUE_4"
+  },
+  "authority": "SHADOW_ONLY",
+  "decision": "NO_DECISION",
+  "live_apply_allowed": false,
+  "releaseStatus": "PREVIEW_PENDING_BROWSER_ACCEPTANCE"
+}
