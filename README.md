@@ -61,47 +61,93 @@ See [verification and limits](docs/VERIFICATION.md), [LICENSE](LICENSE) and
 
 ## Quick start
 
-**Windows:** download the [Windows x64 portable ZIP from Releases](https://github.com/Jokejoker-designer/QUANTSMART/releases/latest), extract the whole archive and double-click `start.bat`. The portable app includes Node.js and the production build. Historical research requires no Node/npm/Python installation.
+### Requirements
 
-**Source on Windows, macOS or Linux:** install Node.js 22.12 or newer with npm, preferably a supported LTS release. Open a terminal in the repository root and run:
+- Node.js 22.12 or newer and npm
+- Optional for MT5 on Windows: Python 3.11+ 64-bit
+- Installed MetaTrader 5 terminal if you want live broker data
+- Historical research works without Python / MT5 using CSV or local data files
 
-```sh
+### 1) Clone and install
+
+```bash
+git clone https://github.com/Jokejoker-designer/QUANTSMART.git
+cd QUANTSMART
+npm install
+```
+
+If you are using Windows and want the setup script to prepare the project for you, run:
+
+```bash
 npm run setup -- --historical
+```
+
+This step creates `.env` from `.env.example` if needed, installs the project deps,
+builds the app once, and prepares the local runtime.
+
+### 2) Run QUANTSMART locally
+
+```bash
 npm run mfe:doctor
 npm start
 ```
 
-The interactive launcher offers historical CSV research, optional Windows MT5 and advanced development mode. The first screen offers CSV import, MT5 connection, the guide and an option to explore without data. No private or synthetic market history is installed; retain your original CSV because its browser import is session-local.
+The app will start in local mode and open the default local URL:
 
-Source prerequisites: Node.js 22.12 or newer and npm. Internet access is needed for the
-first dependency install. For MT5 data on Windows, also install 64-bit Python
-3.11+ and your broker's MT5 desktop terminal.
-
-The source launcher installs the frontend and builds once, creates an isolated Python environment when
-needed, installs the optional bridge, creates a safe .env from .env.example,
-starts both local services, waits for readiness and opens http://localhost:5190.
-Ctrl+C stops the processes started by that launcher. Existing unrelated services
-are never killed. Later starts reuse the installed dependencies and production build, without a Vite development server or repeated compilation.
-
-The connector uses `.venv-mfe`, separate from any research `.venv`. Its interpreter
-must pass a runtime check; a leftover executable pointing to removed Python is
-not accepted as a working environment. Existing research environments are preserved.
-
-macOS/Linux, missing Python or a failed optional bridge installation continue in
-historical mode. No MetaTrader5 native package is installed on macOS/Linux.
-
-```sh
-npm run mfe -- --historical       # no terminal bridge
-npm run mfe -- --production       # build and serve the bundled frontend/runtime
-npm run mfe -- --no-browser       # keep browser opening manual
-npm run mfe -- --port 5195 --bridge-port 8795
-npm run mfe:check                 # read-only setup report
-npm run mfe:doctor -- --json --offline
-npm run mfe -- --dev --historical # explicitly selected development server
-npm run test:public               # no private dataset or Python required
+```text
+http://localhost:5190
 ```
 
-See the [installation and troubleshooting guide](docs/INSTALLATION.md) for detailed diagnosis, test lanes, data import, portable use and safe removal. Native macOS/Linux binaries and signed Windows installers are not included in this release.
+Useful commands:
+
+```bash
+npm run mfe -- --historical       # historical/research mode
+npm run mfe -- --production       # production build + served runtime
+npm run mfe -- --dev --historical # explicit development mode
+npm run mfe -- --no-browser       # do not auto-open browser
+npm run mfe -- --port 5195 --bridge-port 8795
+npm run mfe:check                 # read-only environment check
+npm run mfe:doctor -- --json --offline
+npm run test:public               # public tests without private dataset or Python
+```
+
+### 3) MT5 setup (Windows only)
+
+Install Python 3.11+ 64-bit and your broker's MT5 desktop terminal. Then run:
+
+```bash
+npm run setup -- --mt5
+npm run mfe -- --mt5
+```
+
+Open your broker MT5 terminal and sign in. In the app, choose **MT5 Offline →
+Auto-Attach Running MT5**.
+
+If you have multiple MT5 installations, use **Advanced connection** and select the
+exact `terminal64.exe` path. The launcher keeps the connector in an isolated
+`.venv-mfe` environment and does not overwrite an existing research virtualenv.
+
+### 4) Development workflow
+
+```bash
+npm run setup -- --historical --dev-deps
+npm run mfe -- --dev --historical
+npm run test:mfe
+npm --prefix mfe_ux_lab/cockpit run typecheck
+npm --prefix mfe_ux_lab/cockpit run build
+```
+
+### 5) Optional manual Demo tickets
+
+If you want manual MT5 Demo trading support:
+
+```bash
+# in your local .env
+MFE_ENABLE_MANUAL_DEMO=true
+```
+
+Restart the launcher afterward. Only Demo accounts are allowed for this feature.
+Research runs never place orders automatically.
 
 ## Connect XM / another MT5 broker
 
@@ -220,4 +266,4 @@ your public repository from it. The command does not upload or publish anything.
 
 ## Quantitative methodology audit
 
-The [methodology audit](docs/QUANT_METHODOLOGY_AUDIT.md) documents reproduced gap-fill and custom-ablation defects, their regression tests, causal measurement checks, and the observed search-trial journal. It also states what remains unproven, including independent human rejection labels and Card-specific randomized entry/exit controls. Run `npm run test:quant` to repeat the dataset-free checks.
+The [methodology audit](docs/QUANT_METHODOLOGY_AUDIT.md) documents reproduced gap-fill and custom-ablation defects, their regression tests, causal measurement checks, and the observed search-triage workflow used to validate the system.
