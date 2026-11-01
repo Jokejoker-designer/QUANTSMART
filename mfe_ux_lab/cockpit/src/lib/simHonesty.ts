@@ -16,6 +16,11 @@ export interface HonestyVerdict {
   warnings: string[];
 }
 
+export function costFragilitySummary(a: Pick<RealisticAnalytics, "scenarios">): string {
+  const failed = a.scenarios.filter((s) => s.netPF <= 1 || s.netR <= 0).map((s) => s.scenario.replace("_COST", ""));
+  return failed.length ? `non-positive result under ${failed.join(" / ")} cost` : "sensitive to modeled cost assumptions";
+}
+
 export function honestyVerdict(a: RealisticAnalytics, wf: WalkForwardResult | undefined, calLevel: CalibrationLevel): HonestyVerdict {
   const reasons: string[] = []; const warnings: string[] = [];
   // Funding ruin dominates everything: if the account blew up mid-backtest, the run FAILED.
@@ -34,7 +39,7 @@ export function honestyVerdict(a: RealisticAnalytics, wf: WalkForwardResult | un
   if (!netEdge) { trust = "NO_EDGE_AFTER_COST"; reasons.push(`NET PF ${a.netPF} is at most 1 after costs (net ${a.netNetR}R)`); }
   else if (fragile) {
     trust = "FRAGILE_EDGE";
-    if (a.costFragile) reasons.push("COST_FRAGILE — does not survive base/stress costs");
+    if (a.costFragile) reasons.push("COST_FRAGILE — " + costFragilitySummary(a));
     if (a.pathFragilityStatus === "PATH_FRAGILE") reasons.push("PATH_FRAGILE — depends on intrabar M1 stop/target ordering");
     if (wf?.verdict === "OOS_FRAGILE") reasons.push("OOS_FRAGILE — the measured edge is unstable across folds");
     if (mcRisk) reasons.push(`Monte Carlo probability of a negative result ${(a.monteCarlo!.probNegative * 100).toFixed(0)}%`);
@@ -44,7 +49,7 @@ export function honestyVerdict(a: RealisticAnalytics, wf: WalkForwardResult | un
     trust = "CONDITIONAL_EDGE"; reasons.push("Positive net result with insufficient stable walk-forward evidence");
   }
 
-  if (calLevel !== "FULLY_CALIBRATED") warnings.push("Modeled measurements; costs " + (calLevel === "FULLY_PROVISIONAL" ? "PROVISIONAL" : "partially calibrated") + ", approximate M1 path. Does not establish live readiness.");
+  if (calLevel !== "FULLY_CALIBRATED") warnings.push("Modeled measurements; costs " + (calLevel === "FULLY_PROVISIONAL" ? "PROVISIONAL" : "partially calibrated") + ". Execution-path assumptions are listed in the truth surface. Does not establish live readiness.");
   warnings.push("Matched random-entry/exit controls are a separate diagnostic; a positive backtest alone does not attribute an edge to the trigger.");
   warnings.push("Research only; no automatic promotion or investment recommendation.");
 

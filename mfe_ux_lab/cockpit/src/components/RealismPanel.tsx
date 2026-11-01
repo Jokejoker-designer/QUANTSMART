@@ -4,6 +4,7 @@ import { useState } from "react";
 import { TK } from "./ui/Ui.tsx";
 import type { RealisticBacktest } from "../lib/realisticSimRun.ts";
 import { TRUTH_LABEL } from "../lib/simTruthContract.ts";
+import { costFragilitySummary } from "../lib/simHonesty.ts";
 
 const f = (v: number | undefined, d = 2) => (v == null || isNaN(v) ? "—" : v.toFixed(d));
 function Chip({ k, v, c }: { k: string; v: string; c?: string }) {
@@ -75,7 +76,7 @@ export function RealismPanel({ bt, compact }: { bt: RealisticBacktest; compact?:
           <div className="pc-h" style={{ border: "none", padding: "8px 0 4px" }}>Cost Sensitivity <span className="mut">netPF under low/base/stress</span></div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {a.scenarios.map((s) => <Chip key={s.scenario} k={s.scenario.replace("_COST", "")} v={"PF " + f(s.netPF) + " · " + (s.netR >= 0 ? "+" : "") + f(s.netR) + "R"} c={s.netPF >= 1 ? TK.green : TK.red} />)}
-            {costFragile && <span className="pflag a" style={{ margin: 0 }}> COST_FRAGILE — survives only at LOW cost</span>}
+            {costFragile && <span className="pflag a" style={{ margin: 0 }}> COST_FRAGILE — {costFragilitySummary(a)}</span>}
           </div>
         </>
       )}
@@ -149,7 +150,7 @@ export function RealismPanel({ bt, compact }: { bt: RealisticBacktest; compact?:
         )}
       </div>
 
-      <div className="pfoot" style={{ marginTop: 6 }}>MODELED NET · PROVISIONAL COST · M1 APPROX PATH · TICK REQUIRED FOR EXACT FILL · advisory/research only — not live-ready, not a profit promise.</div>
+      <div className="pfoot" style={{ marginTop: 6 }}>MODELED NET · {TRUTH_LABEL[tc.costTruth] || tc.costTruth} · {TRUTH_LABEL[tc.pathTruth] || tc.pathTruth} · advisory/research only — not live-ready, not a profit promise.</div>
     </div>
   );
 }

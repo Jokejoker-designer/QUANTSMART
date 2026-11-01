@@ -84,5 +84,5 @@ export function readCalibrationState(cfg: SimulatorRealismConfig, spec: SymbolSp
   const swapCalibrated = cfg.cost.swap.status === "CALIBRATED";
   const anyCost = specCalibrated || spreadCalibrated || swapCalibrated;
   const level: CalibrationLevel = anyCost ? "PARTIALLY_CALIBRATED" : "FULLY_PROVISIONAL";
-  return { level, specCalibrated, spreadCalibrated, commissionCalibrated, swapCalibrated, pathExact: false, timezoneVerified: false, source: "none", notes: ["No broker feed — all costs PROVISIONAL, M1 path APPROX."] };
+  return { level, specCalibrated, spreadCalibrated, commissionCalibrated, swapCalibrated, pathExact: false, timezoneVerified: false, source: "none", notes: [anyCost ? "No new broker input; saved configuration has partial cost calibration. Execution-path precision is reported separately." : "No broker feed — costs are provisional. Execution-path precision is reported separately."] };
 }

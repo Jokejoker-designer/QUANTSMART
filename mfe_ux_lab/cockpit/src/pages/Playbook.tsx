@@ -65,7 +65,7 @@ export function Playbook() {
       fetch("data/top5/instability_library.json").then((r) => (r.ok ? r.json() : null)),
       fetch("data/top5/now_instability.json").then((r) => (r.ok ? r.json() : null)),
       fetch("data/top5/instability_validation.json").then((r) => (r.ok ? r.json() : null)),
-    ]).then(([f, l, n, v]) => { if (!f && !l) { setMissing(true); return; } setFnd(f); setLib(l); setStaticNow(n); setVal(v); });
+    ]).then(([f, l, n, v]) => { if (!f && !l) { setMissing(true); return; } setFnd(f); setLib(l); setStaticNow(n); setVal(v); }).catch(() => setMissing(true));
   }, []);
   // LIVE "this moment" — poll the real advisor every 15s so the instability banner reflects the live feed
   const [liveReason, setLiveReason] = useState<string>("");
@@ -111,7 +111,7 @@ export function Playbook() {
     return { sim, strength, nearTie, gaps, clear };
   }, [nowFeat, bestMatch, matches]);
 
-  if (missing) return <div className="co-card"><div className="empty">Playbook collections not found at <span className="mono">data/top5/</span> — run the build.</div></div>;
+  if (missing) return <div className="co-card" role="status"><h2>No historical playbook loaded</h2><p>This installation does not include precomputed market episodes or a dated playbook collection. Importing price history does not automatically create one.</p><p>You can inspect your CSV and test Strategy Cards in Chart &amp; Replay.</p><button className="pbtn" onClick={() => window.dispatchEvent(new CustomEvent("mfe-nav", { detail: "microscope" }))}>Open chart &amp; CSV</button></div>;
   if (!fnd && !lib) return <div className="co-card">Loading…</div>;
   const isLive = !!liveAdv;
   const now: NowInst | null = liveAdv ? computeLiveNow(liveAdv, lib) : staticNow;

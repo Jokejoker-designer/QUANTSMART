@@ -700,7 +700,7 @@ export function StrategyCanvas() {
                     display: "flex",
                     alignItems: "center",
                     gap: 10,
-                    border: `1px solid ${ln.lv === 6 && !hasZone ? "rgba(239,68,68,.45)" : ln.lv === 5 && !hasL5Atk ? "rgba(245,158,11,.45)" : "var(--border-panel)"}`,
+                    border: "1px solid var(--border-panel)",
                     background: isL0 ? "rgba(15, 23, 42, 0.72)" : "var(--bg-card-inner)",
                     borderRadius: 6,
                     padding: isL0 ? "4px 10px" : "7px 10px",
@@ -778,19 +778,6 @@ export function StrategyCanvas() {
                       );
                     })}
 
-                    {/* Inline Required / Warning Status for L5 and L6 vs Standard Empty Hint */}
-                    {ln.lv === 5 && !hasL5Atk && (
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(245, 158, 11, 0.14)", border: "1px solid rgba(245, 158, 11, 0.45)", borderRadius: 6, padding: "4px 9px", fontSize: 11, color: "#FBBF24", fontWeight: 700 }}>
-                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#F97316", boxShadow: "0 0 6px #F97316", flexShrink: 0 }} />
-                        <span>⚠ No explicit trigger — Add ≥1 ATK logic module (otherwise falls back to default EMA crossover)</span>
-                      </div>
-                    )}
-                    {ln.lv === 6 && laneMods.length === 0 && (
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(239, 68, 68, 0.14)", border: "1px solid rgba(239, 68, 68, 0.45)", borderRadius: 6, padding: "4px 9px", fontSize: 11, color: "#FCA5A5", fontWeight: 700 }}>
-                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#F87171", boxShadow: "0 0 6px #F87171", flexShrink: 0 }} />
-                        <span>⚠ Required output — Add ≥1 Zone module (Observation, Risk, or Invalidation Zone) to complete Card</span>
-                      </div>
-                    )}
                     {ln.lv >= 1 && ln.lv <= 4 && laneMods.length === 0 && (
                       <span className="xs co-mut">Click + Add L{ln.lv} or drop an L{ln.lv} module here…</span>
                     )}
