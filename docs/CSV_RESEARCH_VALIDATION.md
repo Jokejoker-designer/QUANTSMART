@@ -1,6 +1,6 @@
 # CSV and strategy-control validation
 
-Date: 1 November 2026. Release candidate: 1.2.0-rc.1. Manual browser acceptance remains pending. Baseline: `efa8194`.
+Date: 1 November 2026. Release candidate: 1.2.0-rc.2. Manual browser acceptance remains pending. Baseline: `efa8194`.
 Research authority remains `SHADOW_ONLY / NO_DECISION / live_apply_allowed=false`.
 No broker orders were sent or broker permissions changed.
 

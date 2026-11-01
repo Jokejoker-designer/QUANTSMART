@@ -275,3 +275,5 @@ The [follow-up audit](docs/QUANT_CHRONOLOGY_AUDIT.md) reproduces and fixes next-
 ## Durable CSV research and matched controls
 
 Import historical prices in the [CSV workflow](docs/CSV_IMPORT.md), review strict validation and reopen local datasets after restart. The same stored bars feed chart aggregation and supported Card runs. The [1.2.0 validation record](docs/CSV_RESEARCH_VALIDATION.md) documents actual market-CSV checks, stop-floor/ambiguity/gap corrections and the remaining browser acceptance boundary. Matched entry/exit controls are descriptive and support an explicit native-module subset; they do not certify a profitable edge.
+
+Current downloadable preview: [1.2.0-rc.2](https://github.com/Jokejoker-designer/QUANTSMART/releases/tag/v1.2.0-rc.2). Automated checks pass; final manual browser file-chooser acceptance remains pending.

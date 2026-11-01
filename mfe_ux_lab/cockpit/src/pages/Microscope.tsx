@@ -97,11 +97,12 @@ export function Microscope() {
   useEffect(() => { loadM1Years().then((ys) => { if (ys.length) { setM1Years(ys); setM1Year(ys[ys.length - 1].year); } }); }, []);
   const [zoneOn, setZoneOn] = useState<Record<string, boolean>>({ observation: true, risk: true, demand: true, sweep: true, invalidation: true });
 
-  const [csvBars, setCsvBars] = useState<OhlcBar[] | null>(null); const [csvName, setCsvName] = useState(""); const [csvErr, setCsvErr] = useState("");
+  const [csvBars, setCsvBars] = useState<OhlcBar[] | null>(null); const [csvName, setCsvName] = useState(""); const [csvErr, setCsvErr] = useState(""); const [csvWarnings,setCsvWarnings]=useState<string[]>([]);
   const [csvMeta,setCsvMeta]=useState<CsvImportMetadata|null>(null);
   const [csvRange,setCsvRange]=useState<{from:string;to:string}|undefined>();
-  function openCsv(meta:CsvImportMetadata){setActiveSymbol(meta.symbol);setCsvMeta(meta);setCsvRange(undefined);setSource('CSV');setStage('Y10');setMaxStage(0);const keepCard=activeCard&&(activeCard.symbol||'XAUUSD')===meta.symbol;if(activeCard&&!keepCard)setActiveId(null);setTf(keepCard?designTf:meta.tf);setRunning(false);setCursor(null);setAutoCascade(false);localStorage.setItem(CSV_SELECTED_KEY,meta.id);}
-  useEffect(()=>{const selected=localStorage.getItem(CSV_SELECTED_KEY);if(!selected)return;let alive=true;listCsvImports().then(rows=>{const meta=rows.find(x=>x.id===selected);if(alive&&meta)openCsv(meta);}).catch(e=>setCsvErr(e.message));return()=>{alive=false;};},[]);
+  function openCsv(meta:CsvImportMetadata){setActiveSymbol(meta.symbol);setCsvMeta(meta);setCsvRange(undefined);setSource('CSV');setStage('Y10');setMaxStage(0);setActiveId(current=>{const selected=readStrategyCards().find((card:any)=>card.id===current);return selected&&(selected.symbol||'XAUUSD')!==meta.symbol?null:current;});setTf(meta.tf);setRunning(false);setCursor(null);setAutoCascade(false);localStorage.setItem(CSV_SELECTED_KEY,meta.id);}
+
+  useEffect(()=>{if(localStorage.getItem('mfe_microscope_preselect'))return;const selected=localStorage.getItem(CSV_SELECTED_KEY);if(!selected)return;let alive=true;listCsvImports().then(rows=>{const meta=rows.find(x=>x.id===selected);if(alive&&meta)openCsv(meta);}).catch(e=>setCsvErr(e.message));return()=>{alive=false;};},[]);
   // ── Strategy Replay Runner: bring a packaged Strategy Card here and run it (Advisory auto / Paper suggest) ──
   const [library, setLibrary] = useState<any[]>(() => readStrategyCards());
   useEffect(() => subscribeArtifactChanges(() => setLibrary(readStrategyCards())), []);
@@ -127,10 +128,10 @@ export function Microscope() {
   // strategy trades on. So when a card is active, LOCK the chart to the card's design_tf (Chart TF = view
   // only / follows the card). The TF selector is free only when no card is loaded. Fixes "entries followed
   // my Chart TF instead of the card deciding".
-  useEffect(() => { if (activeCard) setTf(designTf); }, [activeId, designTf]);   // eslint-disable-line
+  useEffect(() => { if (activeCard) setTf(designTf); }, [activeId, designTf, csvMeta?.id, source]);   // eslint-disable-line
   useEffect(()=>{
-    if(source!=='CSV'||!csvMeta)return;const controller=new AbortController();setCsvBars(null);setBars(null);setCsvErr('Loading imported data…');
-    readCsvView(csvMeta.id,activeCard?designTf:tf,csvRange,controller.signal).then(view=>{if(controller.signal.aborted)return;setCsvBars(view.bars);setBars(view.bars);setCsvName(`${csvMeta.symbol} · ${csvMeta.filename} · ${view.bars.length.toLocaleString()} bars (${activeCard?designTf:tf})`);setCsvErr(csvMeta.warnings.join(' · '));}).catch(e=>{if(!controller.signal.aborted)setCsvErr(e.message);});return()=>controller.abort();
+    if(source!=='CSV'||!csvMeta)return;const controller=new AbortController();setCsvBars(null);setBars(null);setCsvErr('');setCsvWarnings(['Loading imported data…']);
+    readCsvView(csvMeta.id,activeCard?designTf:tf,csvRange,controller.signal).then(view=>{if(controller.signal.aborted)return;setCsvBars(view.bars);setBars(view.bars);setCsvName(`${csvMeta.symbol} · ${csvMeta.filename} · ${view.bars.length.toLocaleString()} bars (${activeCard?designTf:tf})`);setCsvErr('');setCsvWarnings(csvMeta.warnings);}).catch(e=>{if(!controller.signal.aborted){setCsvWarnings([]);setCsvErr(e.message);}});return()=>controller.abort();
   },[source,csvMeta?.id,tf,designTf,activeId,csvRange?.from,csvRange?.to]);
   const [calib, setCalib] = useState<BrokerCalibrationInput | null>(null);
   useEffect(() => { loadBrokerCalibration(getActiveSymbol()).then(setCalib).catch(() => setCalib(null)); }, []);
@@ -373,6 +374,7 @@ export function Microscope() {
         <span className="pflag a">SYNTHETIC VOLUME: NOT EVIDENCE</span>
         {csvName && <span className="pmut psm" style={{ maxWidth: 230, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{csvName}</span>}
         {csvErr && <span className="pflag r" style={{ margin: 0 }}><Glyph name="warning" size={12} /> {explainResearchError(csvErr)}</span>}
+        {source==="CSV"&&csvWarnings.length>0&&<details style={{fontSize:11,color:TK.orange}}><summary>Import notes ({csvWarnings.length})</summary><ul>{csvWarnings.map(note=><li key={note}>{note}</li>)}</ul></details>}
       </div>
 
       <div style={{ marginBottom: 10 }}><Mt5ConnectPanel /></div>

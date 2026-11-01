@@ -34,8 +34,8 @@
     },
     {
       "path": "README.md",
-      "sha256": "44ed860e9e24b3877c5ef815c55844113f93aa8aec9692494569e942297f8d34",
-      "bytes": 13609
+      "sha256": "b4b96006db8d2ad7fe5715e5a42ccde8dc1565bc918a8d8b6cd0888a3f0db943",
+      "bytes": 13814
     },
     {
       "path": "SECURITY.md",
@@ -74,7 +74,7 @@
     },
     {
       "path": "docs/CSV_RESEARCH_VALIDATION.md",
-      "sha256": "01b4cce66086b3271746e336926290563b7f08577d5224c8b60a87d8d0f7d73e",
+      "sha256": "ed707459e8a914650839e11ff2b481700fd636de40c678476142acf798fa192f",
       "bytes": 5900
     },
     {
@@ -1689,8 +1689,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/pages/Microscope.tsx",
-      "sha256": "ad44ba225dfe6da3a340e2aaa8cc6195a46dd4b51b6e99efb61e521246189f0b",
-      "bytes": 62059
+      "sha256": "a0ea171a5e37f803ada1d82f508026d3a2946b37ad670ad5308f2c6aaf5b0c9d",
+      "bytes": 62503
     },
     {
       "path": "mfe_ux_lab/cockpit/src/pages/Playbook.tsx",
