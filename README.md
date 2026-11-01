@@ -217,3 +217,7 @@ credentials, and writes a separate source directory, ZIP and SHA-256 manifest in
 `release_artifacts/`. It omits node_modules, .venv-mfe, .env, workspaces, account data,
 market histories and archives. Review that directory and its manifest, then create
 your public repository from it. The command does not upload or publish anything.
+
+## Quantitative methodology audit
+
+The [methodology audit](docs/QUANT_METHODOLOGY_AUDIT.md) documents reproduced gap-fill and custom-ablation defects, their regression tests, causal measurement checks, and the observed search-trial journal. It also states what remains unproven, including independent human rejection labels and Card-specific randomized entry/exit controls. Run `npm run test:quant` to repeat the dataset-free checks.

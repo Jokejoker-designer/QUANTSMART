@@ -5,6 +5,7 @@ import { statSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createWorkspaceRepository } from './workspaceRepository.mjs';
+import { createResearchTrials } from './researchTrials.mjs';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const dataRoot = join(root, 'public', 'data', 'sim');
 const STORAGE = new Set(['mfe_coef_profile', 'mfe_custom_modules', 'mfe_custom_l1', 'mfe_custom_l2', 'mfe_custom_l3', 'mfe_custom_l4_recipe', 'mfe_custom_l5_recipe', 'mfe_custom_l6']);
@@ -23,6 +24,7 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
   }
   const engineHash = createHash('sha256').update(code).digest('hex');
   const workspace = createWorkspaceRepository(workspaceDirectory);
+  let trials;try{trials=createResearchTrials(join(workspaceDirectory,'search-trials.jsonl'));}catch(error){workspace.close();throw error;}
   workspace.setEngineHash(engineHash);
   const jobs = new Map(); let active = null, totalBytes = 0, closed = false;
   const expires = 15 * 60 * 1000;
@@ -37,8 +39,10 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
     job.worker = worker;
     const finish = () => { clearTimeout(job.deadline); if (active === job) active = null; job.worker = null; job.request = null; job.completedAt = Date.now(); pump(); };
     job.deadline = setTimeout(() => { job.error = 'RESEARCH_JOB_TIMEOUT'; job.status = 'failed'; void worker.terminate(); }, 120000);
-    worker.once('message', (message) => {
-      if (closed || job.status === 'cancelled' || job.status === 'failed') return;
+    worker.on('message', (message) => {
+      if (closed) return;
+      if(message.type==='simulation_trial'){try{trials.simulation(job,message.trial);}catch{job.error='TRIAL_PERSISTENCE_FAILED';job.status='failed';void worker.terminate();}return;}
+      if (job.status === 'cancelled' || job.status === 'failed') return;
       if (message.error) { job.status = 'failed'; job.error = message.error; }
       else {
         const bytes = Buffer.byteLength(JSON.stringify(message.result));
@@ -57,6 +61,7 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
     if (!['localhost', '127.0.0.1', '[::1]'].includes(host) || !['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remote)) return send(res, 403, { error: 'LOCAL_RESEARCH_ONLY' });
     if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`) return send(res, 403, { error: 'ORIGIN_MISMATCH' });
     prune();
+    if(url.pathname==='/api/research/trials'&&req.method==='GET')return send(res,200,{...trials.summary(),...authority});
     if(url.pathname==='/api/research/assets'&&req.method==='GET'){
       const assets=['XAUUSD','EURUSD','GBPUSD','USDJPY','BTCUSD'].map(symbol=>({symbol,files:['M1','M5','M15','M30','H1','H4','D1'].flatMap(tf=>{try{const file=statSync(join(dataRoot,`ohlc_${symbol}_${tf}.json`));return[{timeframe:tf,bytes:file.size,modified_at:file.mtime.toISOString()}];}catch{return[];}})}));
       return send(res,200,{assets,...authority});
@@ -100,10 +105,10 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
         } else if (!Array.isArray(request.bars) || request.bars.length > 750000) return send(res, 400, { error: 'INVALID_BARS' });
         const key = createHash('sha256').update(engineHash + dataVersion + JSON.stringify(request)).digest('hex');
         const existing = [...jobs.values()].find((j) => j.key === key && ['queued','running','done'].includes(j.status));
-        if (existing) return send(res, 200, view(existing));
+        if (existing) {if(existing.kind!=='market')trials.request(existing,true);return send(res, 200, view(existing));}
         if ([...jobs.values()].filter((j) => ['queued','running'].includes(j.status)).length >= 4) return send(res, 429, { error: 'RESEARCH_QUEUE_FULL' });
         while (jobs.size >= 12) { const victim = [...jobs.values()].find((j) => !['queued','running'].includes(j.status)); if (!victim) break; remove(victim); }
-        const job = { id: randomUUID(), key, status:'queued', request, engineHash, createdAt:Date.now() }; jobs.set(job.id, job); pump(); return send(res, 202, view(job));
+        const job = { id: randomUUID(), key, status:'queued', request, kind:request.kind, engineHash, createdAt:Date.now() }; if(request.kind!=='market')trials.request(job); jobs.set(job.id, job); pump(); return send(res, 202, view(job));
       } catch (error) { return send(res, 400, { error: error.code === 'ENOENT' ? 'DATASET_NOT_FOUND' : 'INVALID_RESEARCH_REQUEST' }); }
     }
     const match = url.pathname.match(/^\/api\/research\/jobs\/([a-f0-9-]+)(\/result)?$/);

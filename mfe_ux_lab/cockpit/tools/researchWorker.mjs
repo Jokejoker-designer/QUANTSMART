@@ -3,6 +3,8 @@ import { parentPort, workerData } from 'node:worker_threads';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { simulationTrialSnapshot } from './researchTrials.mjs';
+import { setSimulationTrialObserver } from '../src/lib/simTrialObserver.ts';
 
 const allowedStorage = new Set(['mfe_coef_profile', 'mfe_custom_modules', 'mfe_custom_l1', 'mfe_custom_l2', 'mfe_custom_l3', 'mfe_custom_l4_recipe', 'mfe_custom_l5_recipe', 'mfe_custom_l6']);
 const storage = workerData.request.storage || {};
@@ -31,6 +33,9 @@ async function run() { try {
   const totalBars=bars?.length;
   if(request.kind==='market')bars=bars.slice(-Math.min(5000,Math.max(61,request.count||600)));
   if (!Array.isArray(bars) || bars.length < 61 || bars.length > 750000) throw new Error('INSUFFICIENT_OR_EXCESSIVE_DATA');
+  if(request.kind!=='market')setSimulationTrialObserver(definition=>{
+    parentPort.postMessage({type:'simulation_trial',trial:simulationTrialSnapshot(definition,storage)});
+  });
   if(request.kind==='market'){
     const {emaArr,atrArr}=await import('../src/lib/blocks/stdIndicators.ts');
     const closes=bars.map(b=>b.c),last=bars[bars.length-1];

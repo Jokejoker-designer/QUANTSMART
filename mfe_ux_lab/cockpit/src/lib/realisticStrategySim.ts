@@ -17,6 +17,7 @@ import { resolveTriggerCoef, type TriggerCoefOverride } from "./coefficientCalib
 import { classicFlags, computeClassic, classicEntryVotes, classicGateBlocked, anyClassic, anyClassicTrigger, type ClassicSeries } from "./classicIndicators.ts";
 import { computeSwingLevels, structureAt, percentile, type SwingLevel } from "./structureContext.ts";
 import { pocDistAtrOf } from "./valueAreaProxy.ts";
+import { observeSimulationTrial } from "./simTrialObserver.ts";
 
 export type Scenario = "LONG_SCENARIO" | "SHORT_SCENARIO";
 export interface RealisticTradeResult {
@@ -168,6 +169,7 @@ function asiaRangeLevels(bars: OhlcBar[]): { hi: number[]; lo: number[] } {
 }
 
 export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: boolean, opts: RealisticSimOptions): RealisticSimResult {
+  observeSimulationTrial({modules: [...modules].sort(), autoRR, configuration: {cfg: opts.cfg, spec: opts.spec, designTf: opts.designTf, symbol: opts.symbol, ambiguityPolicy: opts.ambiguityPolicy, scenarioMult: opts.scenarioMult, sizingMode: opts.sizingModeOverride, exitResolution: opts.m1ByDesign ? "M1_CHILDREN" : "DESIGN_OHLC", entryResolution: opts.execByDesign ? "EXECUTION_CHILDREN" : "DESIGN_CLOSE"}, customModules: opts.customModules, coefficients: opts.coef});
   const { cfg, spec, designTf, cardId, symbol } = opts;
   const scenarioMult = opts.scenarioMult ?? 1;
   const sizingMode = opts.sizingModeOverride ?? cfg.risk.sizingMode;
@@ -339,7 +341,7 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
     }
   }
 
-  for (let i = 40; i < bars.length - 1; i++) {
+  for (let i = 40; i < bars.length; i++) {
     if (res.ruined) break;                       // account blown → stop trading
     const b = bars[i], pb = bars[i - 1];
     const regimePrev = regime;                   // regime asOf bar i-1 (BEFORE this bar's update) — for causal intrabar entry
@@ -361,7 +363,7 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
         const rr = resolveIntrabarM1(pos.dir, pos.sl, effTp, m1kids, ambiguityPolicy);
         res.m1_bars_scanned += rr.m1BarsScanned;
         if (rr.outcome !== "NO_TOUCH") {
-          m1Resolved = true; intrabarOutcome = rr.outcome; isStop = rr.outcome === "SL_FIRST" || rr.outcome === "GAP_THROUGH_SL";
+          m1Resolved = true; intrabarOutcome = rr.outcome; isStop = rr.outcome === "SL_FIRST" || rr.outcome === "GAP_THROUGH_SL" || (rr.ambiguous && ambiguityPolicy !== "OPTIMISTIC_TP_FIRST");
           if (rr.ambiguous) {
             ambiguous = true; res.ambiguous_intrabar_count++; ev(i, "AMBIGUOUS_INTRABAR", "SL&TP in one M1 candle — policy " + ambiguityPolicy);
             gStop = rOf(pos.sl); gTp = rOf(effTp);   // rOf(sl): SL nguyên gốc = −1 y hệt; SL đã DỜI (BE/LOCK_SL) = giá trị thật (fix accounting bug 2026-07-02)
@@ -370,11 +372,21 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
           } else { exit = rr.exitPrice!; grossR = rOf(exit); gStop = grossR; gTp = grossR; }
         }
       } else {
-        const slHit = pos.dir === "BUY" ? b.l <= pos.sl : b.h >= pos.sl;
-        const tpHit = pos.dir === "BUY" ? b.h >= effTp : b.l <= effTp;
-        if (slHit && tpHit) { ambiguous = true; res.ambiguous_intrabar_count++; ev(i, "AMBIGUOUS_INTRABAR", "SL & TP both in one design bar → conservative stop-first (M1/tick for exact)"); }
-        if (slHit) { exit = pos.sl; grossR = rOf(pos.sl); isStop = true; gStop = grossR; gTp = rOf(effTp); }   // rOf(sl): nguyên gốc = −1; SL đã dời (BE/LOCK) = giá trị thật
-        else if (tpHit) { exit = effTp; grossR = rOf(effTp); gStop = grossR; gTp = grossR; }
+        // The same open-before-extremes convention applies without M1 children.
+        // Gaps cannot fill at a stop/target price that was skipped by the market.
+        const rr = resolveIntrabarM1(pos.dir, pos.sl, effTp, [b], ambiguityPolicy);
+        if (rr.outcome !== "NO_TOUCH") {
+          intrabarOutcome = "DESIGN_" + rr.outcome;
+          isStop = rr.outcome === "SL_FIRST" || rr.outcome === "GAP_THROUGH_SL" || (rr.ambiguous && ambiguityPolicy !== "OPTIMISTIC_TP_FIRST");
+          if (rr.ambiguous) {
+            ambiguous = true; res.ambiguous_intrabar_count++;
+            ev(i, "AMBIGUOUS_INTRABAR", "Both levels touched in one design bar; policy " + ambiguityPolicy);
+            gStop = rOf(pos.sl); gTp = rOf(effTp);
+            exit = rr.exitPrice!; grossR = rOf(exit);
+          } else {
+            exit = rr.exitPrice!; grossR = rOf(exit); gStop = grossR; gTp = grossR;
+          }
+        }
       }
       if (exit == null) {
         // mr_exit — exit kiểu MEAN-REVERSION (owner: "TP về mid thay vì RR kiểu trend"): vào ở mép bị quét,

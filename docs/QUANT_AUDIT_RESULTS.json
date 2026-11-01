@@ -1,0 +1,318 @@
+{
+  "auditDate": "2026-11-01",
+  "checks": {
+    "status": "PASS",
+    "authority": "SHADOW_ONLY",
+    "prefixComparisons": 41280,
+    "blocks": 77,
+    "graphs": 8,
+    "astOperations": 39,
+    "macroTemplates": 3,
+    "handCraftedGeometryFixtures": 20,
+    "independentHumanLabels": false,
+    "exits": [
+      {
+        "direction": "LONG",
+        "open": 95,
+        "exit": 95,
+        "grossR": -2.5
+      },
+      {
+        "direction": "SHORT",
+        "open": 105,
+        "exit": 105,
+        "grossR": -2.5
+      },
+      {
+        "direction": "LONG",
+        "open": 110,
+        "exit": 110,
+        "grossR": 5
+      },
+      {
+        "direction": "SHORT",
+        "open": 90,
+        "exit": 90,
+        "grossR": 5
+      }
+    ],
+    "lastBarExit": 79,
+    "ablationCalls": 9,
+    "sparseWindowNetR": -3.13,
+    "ablationRemoval": {
+      "withoutA": {
+        "id": "audit_a",
+        "withoutOosR": 50.43,
+        "deltaR": -4.12,
+        "withoutPosFrac": 1,
+        "withoutTrades": 91,
+        "verdict": "HURTS",
+        "soleTrigger": false
+      },
+      "independentOnlyB": {
+        "oosR": 50.43,
+        "trades": 91
+      }
+    },
+    "tinyRangeScore": 0.6479999956514785,
+    "universalFixedHoldClaimRefutedByPathCounterexample": true
+  },
+  "localHistoryComparison": {
+    "scope": "LOCAL_HISTORY_REGRESSION_NOT_EDGE_VALIDATION",
+    "baselineCommit": "e17448af4e1f4f93414b8ee512600b9e1bc2e634",
+    "costSpec": "XAUUSD_PROVISIONAL_SPEC",
+    "sizing": "FIXED_R",
+    "windowSelection": "first/middle/last 5000 bars, fixed before comparison",
+    "sources": [
+      {
+        "timeframe": "H1",
+        "sha256": "df5bda58cfbd25c0f3a66113ad47aab1fc0fc8b8508b59d1fd98ebc908235988",
+        "bars": 64765
+      },
+      {
+        "timeframe": "M15",
+        "sha256": "4dd07780a4ecb491cd24aca1dc5853c583e5de3363fb38070468a69028de930c",
+        "bars": 259630
+      }
+    ],
+    "rows": [
+      {
+        "timeframe": "H1",
+        "window": "first",
+        "trigger": "trend_pullback",
+        "bars": 5000,
+        "from": "2015-01-02T09:00:00",
+        "to": "2015-11-09T13:00:00",
+        "before": {
+          "trades": 213,
+          "netR": 6.2271,
+          "ambiguous": 3
+        },
+        "after": {
+          "trades": 213,
+          "netR": 8.7811,
+          "ambiguous": 3
+        },
+        "newGapExits": 2
+      },
+      {
+        "timeframe": "H1",
+        "window": "first",
+        "trigger": "sweep_reclaim",
+        "bars": 5000,
+        "from": "2015-01-02T09:00:00",
+        "to": "2015-11-09T13:00:00",
+        "before": {
+          "trades": 198,
+          "netR": -16.055,
+          "ambiguous": 0
+        },
+        "after": {
+          "trades": 198,
+          "netR": -14.0381,
+          "ambiguous": 0
+        },
+        "newGapExits": 2
+      },
+      {
+        "timeframe": "H1",
+        "window": "middle",
+        "trigger": "trend_pullback",
+        "bars": 5000,
+        "from": "2020-02-05T03:00:00",
+        "to": "2020-12-09T03:00:00",
+        "before": {
+          "trades": 193,
+          "netR": 40.9286,
+          "ambiguous": 0
+        },
+        "after": {
+          "trades": 193,
+          "netR": 40.9286,
+          "ambiguous": 0
+        },
+        "newGapExits": 0
+      },
+      {
+        "timeframe": "H1",
+        "window": "middle",
+        "trigger": "sweep_reclaim",
+        "bars": 5000,
+        "from": "2020-02-05T03:00:00",
+        "to": "2020-12-09T03:00:00",
+        "before": {
+          "trades": 235,
+          "netR": -86.3681,
+          "ambiguous": 1
+        },
+        "after": {
+          "trades": 235,
+          "netR": -88.3369,
+          "ambiguous": 1
+        },
+        "newGapExits": 3
+      },
+      {
+        "timeframe": "H1",
+        "window": "last",
+        "trigger": "trend_pullback",
+        "bars": 5000,
+        "from": "2025-02-25T08:00:00",
+        "to": "2025-12-30T23:00:00",
+        "before": {
+          "trades": 179,
+          "netR": 43.9705,
+          "ambiguous": 0
+        },
+        "after": {
+          "trades": 179,
+          "netR": 42.6728,
+          "ambiguous": 0
+        },
+        "newGapExits": 2
+      },
+      {
+        "timeframe": "H1",
+        "window": "last",
+        "trigger": "sweep_reclaim",
+        "bars": 5000,
+        "from": "2025-02-25T08:00:00",
+        "to": "2025-12-30T23:00:00",
+        "before": {
+          "trades": 237,
+          "netR": 9.245,
+          "ambiguous": 1
+        },
+        "after": {
+          "trades": 237,
+          "netR": 7.0475,
+          "ambiguous": 1
+        },
+        "newGapExits": 3
+      },
+      {
+        "timeframe": "M15",
+        "window": "first",
+        "trigger": "trend_pullback",
+        "bars": 5000,
+        "from": "2015-01-01T23:00:00",
+        "to": "2015-03-19T13:45:00",
+        "before": {
+          "trades": 217,
+          "netR": -46.4529,
+          "ambiguous": 0
+        },
+        "after": {
+          "trades": 217,
+          "netR": -47.3375,
+          "ambiguous": 0
+        },
+        "newGapExits": 3
+      },
+      {
+        "timeframe": "M15",
+        "window": "first",
+        "trigger": "sweep_reclaim",
+        "bars": 5000,
+        "from": "2015-01-01T23:00:00",
+        "to": "2015-03-19T13:45:00",
+        "before": {
+          "trades": 206,
+          "netR": -43.1469,
+          "ambiguous": 0
+        },
+        "after": {
+          "trades": 206,
+          "netR": -43.1469,
+          "ambiguous": 0
+        },
+        "newGapExits": 0
+      },
+      {
+        "timeframe": "M15",
+        "window": "middle",
+        "trigger": "trend_pullback",
+        "bars": 5000,
+        "from": "2020-05-26T10:30:00",
+        "to": "2020-08-10T22:15:00",
+        "before": {
+          "trades": 179,
+          "netR": -14.7413,
+          "ambiguous": 1
+        },
+        "after": {
+          "trades": 179,
+          "netR": -15.2543,
+          "ambiguous": 1
+        },
+        "newGapExits": 2
+      },
+      {
+        "timeframe": "M15",
+        "window": "middle",
+        "trigger": "sweep_reclaim",
+        "bars": 5000,
+        "from": "2020-05-26T10:30:00",
+        "to": "2020-08-10T22:15:00",
+        "before": {
+          "trades": 221,
+          "netR": -51.5441,
+          "ambiguous": 0
+        },
+        "after": {
+          "trades": 221,
+          "netR": -51.5441,
+          "ambiguous": 0
+        },
+        "newGapExits": 0
+      },
+      {
+        "timeframe": "M15",
+        "window": "last",
+        "trigger": "trend_pullback",
+        "bars": 5000,
+        "from": "2025-10-14T08:00:00",
+        "to": "2025-12-30T23:45:00",
+        "before": {
+          "trades": 183,
+          "netR": 55.6997,
+          "ambiguous": 0
+        },
+        "after": {
+          "trades": 183,
+          "netR": 55.5676,
+          "ambiguous": 0
+        },
+        "newGapExits": 1
+      },
+      {
+        "timeframe": "M15",
+        "window": "last",
+        "trigger": "sweep_reclaim",
+        "bars": 5000,
+        "from": "2025-10-14T08:00:00",
+        "to": "2025-12-30T23:45:00",
+        "before": {
+          "trades": 224,
+          "netR": 43.0415,
+          "ambiguous": 0
+        },
+        "after": {
+          "trades": 224,
+          "netR": 43.8881,
+          "ambiguous": 0
+        },
+        "newGapExits": 1
+      }
+    ]
+  },
+  "baselineSparseAggregation": {
+    "beforeReportedR": 0,
+    "actualAllWindowR": -1.63,
+    "foldTrades": [
+      1,
+      0,
+      1
+    ]
+  }
+}
