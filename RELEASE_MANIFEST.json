@@ -9,8 +9,8 @@
   "files": [
     {
       "path": ".env.example",
-      "sha256": "8c2a98292dd1cf4bc0bc56bf0e12606f74da592b77e060a0dd5c1828c622f937",
-      "bytes": 571
+      "sha256": "2c03b725daa6e793ac7d3a50f1462b97f1e7985ab64f347eabda364896352165",
+      "bytes": 583
     },
     {
       "path": ".github/workflows/public-install.yml",
@@ -19,23 +19,23 @@
     },
     {
       "path": ".gitignore",
-      "sha256": "07150bedf9ee309bc630862554a1a36dd8555484a4ce49e9da6fa08be63074db",
-      "bytes": 1630
+      "sha256": "d6abda21cafd72ae84613fb28bff5650010cd11b138ab9564d20d1973c0df8cb",
+      "bytes": 1664
     },
     {
       "path": "LICENSE",
-      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-      "bytes": 11358
+      "sha256": "3ddf9be5c28fe27dad143a5dc76eea25222ad1dd68934a047064e56ed2fa40c5",
+      "bytes": 11560
     },
     {
       "path": "NOTICE",
-      "sha256": "7f15bb63df9ace66be6d54b37bc497eab341678e137dc5a826cf3e02a42acbab",
-      "bytes": 895
+      "sha256": "a5b082fe66c79e13775cf231afdf18dc208680566918af21e86c614b29d4d323",
+      "bytes": 913
     },
     {
       "path": "README.md",
-      "sha256": "c8eb59d4d84a8fd5c22f496acdd1a3f750b0a18f03a490326a98a2d34479e51a",
-      "bytes": 14703
+      "sha256": "a3e457a654624b7926b787c877909407640824dafb53c96fdee6f1649f583ea0",
+      "bytes": 15417
     },
     {
       "path": "SECURITY.md",
@@ -81,6 +81,11 @@
       "path": "docs/CUSTOM_MODULES.md",
       "sha256": "515d6fb3f7215325f1843dfebace96f10964a06229dac5994035800672d76f47",
       "bytes": 3908
+    },
+    {
+      "path": "docs/DRIVE_INTEGRATION_AUDIT.md",
+      "sha256": "6ce1dad7b3c773da1f3d06c704b10c8b7bb2a04dc403e35352b46f0b794c89cc",
+      "bytes": 10527
     },
     {
       "path": "docs/INSTALLATION.md",
@@ -388,6 +393,11 @@
       "bytes": 25538
     },
     {
+      "path": "mfe_ux_lab/cockpit/src/components/DecisionEvidencePanel.tsx",
+      "sha256": "da40a6bfced4e989bf039bf890a36c6f666f45bda9cb144807c49c5069621d6e",
+      "bytes": 11693
+    },
+    {
       "path": "mfe_ux_lab/cockpit/src/components/DemoTradeTicket.tsx",
       "sha256": "531f6cec9f9dcead75fb99356a49306b0c18be69fda80f2f6102b8b34d47eab0",
       "bytes": 12638
@@ -601,6 +611,11 @@
       "path": "mfe_ux_lab/cockpit/src/components/csv-import.css",
       "sha256": "cac3f269c3c6bd3da55a896fdb1f525f7b801d4fc9e235b38a8903137b559458",
       "bytes": 1791
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/components/decision-evidence.css",
+      "sha256": "b708694938ec44edc9dde59e936ecbdef4367e12df11530cacdb92e971a9b57a",
+      "bytes": 1145
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/l1-sandbox.css",
@@ -1358,6 +1373,11 @@
       "bytes": 25692
     },
     {
+      "path": "mfe_ux_lab/cockpit/src/lib/decisionJournalTypes.ts",
+      "sha256": "fa17dc9da33a01e2289b29ee8b26f0e3131f2ad8cf06cba37803de61aa9ff917",
+      "bytes": 2164
+    },
+    {
       "path": "mfe_ux_lab/cockpit/src/lib/definitionPersistence.ts",
       "sha256": "8bd889111a646fdaa728521ec312ea7960250a6d29ec3fbafb11260b1ef7dbc6",
       "bytes": 2157
@@ -1529,8 +1549,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/researchJobs.ts",
-      "sha256": "dcd84961b22fcbaa6eeb0ab24932467516952a6ff5e97f2eff3b4f47875f1ff7",
-      "bytes": 8775
+      "sha256": "b1a2a348a64e11cc6d4dad5769072514cfa3ca189d4477010b44fc672ad874df",
+      "bytes": 8809
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/sandboxDataset.ts",
@@ -1544,8 +1564,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/signatureBuild.ts",
-      "sha256": "8b6a12de3c121fe893dc64f968835e1763785b503aac5b867fbffd379f6e77e4",
-      "bytes": 2791
+      "sha256": "a92b67b817a017c8b1d22349dd8293195c2488442e2c4bbbcc18c4f4efa3ee1c",
+      "bytes": 2912
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/signatureClient.ts",
@@ -1754,8 +1774,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/pages/Microscope.tsx",
-      "sha256": "cf17e05958d37cfe4eecc767c8f088a4edd2d71418a3f7394f4141e6e8006c7b",
-      "bytes": 62706
+      "sha256": "3bf0ef7aec1cd7918144efa2108dd899236feab5bb1366c992e55abc946dbfda",
+      "bytes": 63049
     },
     {
       "path": "mfe_ux_lab/cockpit/src/pages/Playbook.tsx",
@@ -1888,6 +1908,16 @@
       "bytes": 771
     },
     {
+      "path": "mfe_ux_lab/cockpit/tools/decisionEvidenceRepository.mjs",
+      "sha256": "b30ee78cc251237f95a57def2182478c1bc67ad946e2556d0751f0c38c05d6cd",
+      "bytes": 3122
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/tools/decisionJournal.mjs",
+      "sha256": "e4c3e39a809ca12ca1c42bdcde2a135afb6bdf312b76a64666b24d696df57705",
+      "bytes": 11932
+    },
+    {
       "path": "mfe_ux_lab/cockpit/tools/importRepository.mjs",
       "sha256": "fd8d5b70a11d0080d02e6657c3152b546c8625b5ae30b87bf33344955dfe534f",
       "bytes": 2623
@@ -1904,8 +1934,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/researchBackend.mjs",
-      "sha256": "2e36991875ac626029586e59b6374e338de47cb1842e9e8a299f57eaee0d305a",
-      "bytes": 13802
+      "sha256": "906710b9afef1881835f8d00352ec7cb7ab43c0dced3c95ba95f2933388659ef",
+      "bytes": 14846
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/researchTrials.mjs",
@@ -1914,8 +1944,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/researchWorker.mjs",
-      "sha256": "059d221106f28eaa52b27384c66277794dd36913c8911efe40dfcab841763c6f",
-      "bytes": 13559
+      "sha256": "19d85b8e2369e2884c51bb6d957a61e3452e25ccc40aa224e137e8a4257324b0",
+      "bytes": 14662
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/test-built-runtime.mjs",
@@ -1999,23 +2029,23 @@
     },
     {
       "path": "scripts/package-portable.mjs",
-      "sha256": "59fc2290c8a33b4ef46ab48e04e5fe8c5c9b089ebb0ad25107a3828b6866b8b6",
-      "bytes": 6335
+      "sha256": "a4648171361d41bb22310e09a6b917d1e1731e35c9d83c376028db9b3e347ce8",
+      "bytes": 6368
     },
     {
       "path": "scripts/package-release.mjs",
-      "sha256": "c9badf35f6f3ea4d2c94fd42611105dff917cc803043da1f024a3714673308d5",
-      "bytes": 8868
+      "sha256": "689c2ccac84ded332e2ab3300c04718d0d61f8782bdfb02632987642d449b52f",
+      "bytes": 9063
     },
     {
       "path": "scripts/test.mjs",
-      "sha256": "9bfe07bd9b87796a0417c602234cd2dc6f8826681ff3f0a9076647c61f16fd84",
-      "bytes": 2815
+      "sha256": "6efdb644764226b668de8c739658fd3a766cf1056e6cdd29adf34f4f4b0ee938",
+      "bytes": 2895
     },
     {
       "path": "start.bat",
-      "sha256": "5015d4cfc363a10a1fb096685ca9ffbe13acee5e15009c00f741b5fca13d7978",
-      "bytes": 480
+      "sha256": "ee790c0b615eee8d7091e0b74bb36731c88ff24a2cf869440a5b4776a98b63f0",
+      "bytes": 497
     },
     {
       "path": "tests/beast-context.test.mjs",
@@ -2036,6 +2066,16 @@
       "path": "tests/csv-runtime.test.mjs",
       "sha256": "54bac9e03f4c095dc4af00bdb1171c123ee75cea3372bc2e68b1436663bca7c7",
       "bytes": 7479
+    },
+    {
+      "path": "tests/decision-journal.test.mjs",
+      "sha256": "5c693d5df02b9303ae5bcf1bb4ecfc96b9668fd88cdedbe88892f64fe4c2655b",
+      "bytes": 7295
+    },
+    {
+      "path": "tests/decision-runtime.test.mjs",
+      "sha256": "4c605149aea81b712237494c4e673e9f784f47b824e8f30f3acc32b11f0cb83c",
+      "bytes": 7408
     },
     {
       "path": "tests/default-port.test.mjs",
@@ -2149,8 +2189,13 @@
     },
     {
       "path": "tests/sandbox-render.test.mjs",
-      "sha256": "77b4d62eb2c84acf545c5141aa49b84659619ba37e0178f1278ee16f4fa5f63f",
-      "bytes": 3395
+      "sha256": "c476dde66c085d58f77e1da3847e8c86b5b54232b54603dcdd4bb421cd17291d",
+      "bytes": 4138
+    },
+    {
+      "path": "tests/signature-records.test.mjs",
+      "sha256": "394eb701476e333050f5f672c2bc1d5c58423e06a1ced6ea5720e0d1be32683b",
+      "bytes": 1896
     },
     {
       "path": "tests/strategy-attribution.test.mjs",

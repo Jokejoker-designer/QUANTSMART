@@ -13,7 +13,7 @@ try {
   await build({
     stdin: {
       contents:
-        "export{ModuleIntentSandbox}from'./src/components/ModuleIntentSandbox.tsx';export{L1ModuleSandbox}from'./src/components/L1ModuleSandbox.tsx';export{L2Preview}from'./src/components/L2Preview.tsx';export{QuantLab}from'./src/components/QuantLab.tsx';export{L4GateBuilder}from'./src/components/L4GateBuilder.tsx';export{L5Sandbox}from'./src/components/L5Sandbox.tsx';export{L6ZoneBuilder}from'./src/components/L6ZoneBuilder.tsx';export{FeatureTestChart}from'./src/components/FeatureTestChart.tsx';export{FEATURE_TEMPLATES}from'./src/lib/blocks/featureTemplates.ts';",
+        "export{DecisionEvidencePanel}from'./src/components/DecisionEvidencePanel.tsx';export{ModuleIntentSandbox}from'./src/components/ModuleIntentSandbox.tsx';export{L1ModuleSandbox}from'./src/components/L1ModuleSandbox.tsx';export{L2Preview}from'./src/components/L2Preview.tsx';export{QuantLab}from'./src/components/QuantLab.tsx';export{L4GateBuilder}from'./src/components/L4GateBuilder.tsx';export{L5Sandbox}from'./src/components/L5Sandbox.tsx';export{L6ZoneBuilder}from'./src/components/L6ZoneBuilder.tsx';export{FeatureTestChart}from'./src/components/FeatureTestChart.tsx';export{FEATURE_TEMPLATES}from'./src/lib/blocks/featureTemplates.ts';",
       resolveDir: app,
     },
     bundle: true,
@@ -46,6 +46,9 @@ try {
     );
     console.log("PASS " + name + " actual markup and closable data controls");
   }
+  const journalMarkup=renderToStaticMarkup(React.createElement(api.DecisionEvidencePanel,{importId:"fixture",card:{id:"fixture",modules:[],symbol:"XAUUSD",design_tf:"H1",execution_tf:"H1"},from:"2020-01-01T00:00:00",to:"2020-01-02T00:00:00",windowTf:"H1",barsCount:5000,options:{symbol:"XAUUSD"}}));
+  assert.match(journalMarkup,/Decision &amp; outcome evidence/);assert.match(journalMarkup,/Build decision journal/);assert.match(journalMarkup,/Saved evidence/);assert.match(journalMarkup,/No-entry and open observations have no return label/);
+  console.log("PASS decision evidence controls expose source limits, null-outcome semantics and saved-report access.");
   const bars = Array.from({ length: 5 }, (_, i) => ({
     i,
     t: new Date(Date.UTC(2020, 0, 1) + i * 3600000).toISOString(),

@@ -10,7 +10,7 @@ import { MeasurementEngine } from "./measurements.ts";
 export interface SnapshotShape { snapshot_id: string; symbol: string; timeframe: string; timestamp: string; measurements: Record<string, number> }
 export interface EntryRecord {
   card_id: string; entry_id: string; entry_time: string; snapshot: SnapshotShape;
-  outcome: { net_R: number; mfe_R: number; mae_R: number; result_label: "GOOD" | "BAD" };
+  outcome: { net_R: number; mfe_R: number | null; mae_R: number | null; result_label: "GOOD" | "BAD" };
   metadata: Record<string, unknown>;
 }
 
@@ -30,9 +30,9 @@ export function cardEntryRecords(cardId: string, bars: OhlcBar[], modules: strin
     card_id: cardId,
     entry_id: "e_" + t.entryI + "_" + k,
     entry_time: db[t.entryI]?.t ?? t.signal_time,
-    snapshot: eng.snapshotAt(Math.min(t.entryI, db.length - 1), symbol, tf),
-    outcome: { net_R: t.netR, mfe_R: Math.max(0, t.netR), mae_R: t.netR < 0 ? Math.abs(t.netR) : 0, result_label: t.netR > 0 ? "GOOD" : "BAD" },
-    metadata: { dir: t.dir, hour: t.hour },
+    snapshot: eng.snapshotAt(Math.max(0, Math.min(t.entryI - 1, db.length - 1)), symbol, tf),
+    outcome: { net_R: t.netR, mfe_R: null, mae_R: null, result_label: t.netR > 0 ? "GOOD" : "BAD" },
+    metadata: { dir: t.dir, hour: t.hour, measurement_as_of: "COMPLETED_SIGNAL_BAR", decision_time: t.signal_time, excursion_status: "INITIAL_RISK_AND_EXACT_PATH_NOT_EMITTED" },
   }));
 }
 

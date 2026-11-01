@@ -1,0 +1,52 @@
+.decision-evidence {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.decision-evidence .evidence-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  margin: 10px 0;
+}
+.decision-evidence label {
+  display: flex;
+  flex: 1;
+  min-width: min(100%, 220px);
+  flex-direction: column;
+  gap: 4px;
+}
+.decision-evidence select {
+  width: 100%;
+  max-width: 100%;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-panel);
+  border-radius: 4px;
+  padding: 6px;
+}
+.decision-evidence :focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+.decision-evidence [role="alert"],
+.decision-evidence .evidence-note {
+  color: var(--status-warn-text, #fbbf24);
+}
+.decision-evidence .evidence-id,
+.decision-evidence dd {
+  font-family: var(--mfe-mono, monospace);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  margin: 4px 0 10px;
+}
+.decision-evidence td {
+  vertical-align: top;
+  min-width: 90px;
+  max-width: 520px;
+}
+.decision-evidence .evidence-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--mfe-mono, monospace);
+}

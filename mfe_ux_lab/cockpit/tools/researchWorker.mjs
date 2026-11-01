@@ -25,7 +25,7 @@ async function run() { try {
     if(request.kind==='csv_view'&&(request.from||request.to))bars=bars.filter(b=>(!request.from||b.t>=request.from)&&(!request.to||b.t<=request.to));
     if(request.kind==='csv_view'||request.mode!=='m1'){
       const{aggregateCsvBars}=await import('../src/lib/csvDataset.ts');const target=request.timeframe||request.card?.design_tf||imported.metadata.tf;const aggregated=aggregateCsvBars(bars,imported.metadata.tf,target);bars=aggregated.bars;
-      if((request.kind==='backtest'||request.analysis==='attribution')&&aggregated.gapBuckets)throw new Error('CSV_INCOMPLETE_AGGREGATION: use a continuous interval');
+      if((request.kind==='backtest'||request.analysis==='attribution'||request.analysis==='decision_trace')&&aggregated.gapBuckets)throw new Error('CSV_INCOMPLETE_AGGREGATION: use a continuous interval');
     }else if(imported.metadata.tf!=='M1')throw new Error('CSV_M1_SOURCE_REQUIRED');
     if(request.kind!=='csv_view'&&(request.from||request.to)){const end=request.to?Date.parse(request.to+'Z')+(request.mode==='m1'?({M1:1,M5:5,M15:15,M30:30,H1:60,H4:240,D1:1440}[request.windowTf]||1)-1:0)*60000:Infinity;bars=bars.filter(b=>(!request.from||b.t>=request.from)&&Date.parse(b.t+'Z')<=end);}
     if(request.kind==='csv_view'){const availableBars=bars.length;if(request.count!=null){if(!Number.isInteger(request.count)||request.count<5||request.count>5000)throw new Error('CSV_INVALID_VIEW_COUNT');bars=bars.slice(-request.count);}if(!bars.length)throw new Error('CSV_NO_COMPLETE_BARS_IN_WINDOW');parentPort.postMessage({result:{metadata:imported.metadata,bars,availableBars},provenance:{dataHash,bars:bars.length}});return;}
@@ -79,7 +79,16 @@ async function run() { try {
     parentPort.postMessage({result:{bars,price:last.c,as_of:last.t,source:'HISTORICAL_OHLC',symbol:request.dataset.symbol,timeframe:request.dataset.tf,total_bars:totalBars,source_hash:dataHash,indicators:{ema10:emaArr(closes,10).at(-1),ema34:emaArr(closes,34).at(-1),atr14:atrArr(bars,14).at(-1)},indicator_lookback:bars.length},provenance:{dataHash,bars:bars.length}});
   }else if(request.kind==='diagnostic'){
     let result;
-    if(request.analysis==='attribution'){const{runStrategyAttribution}=await import('../src/lib/strategyAttribution.ts');result=runStrategyAttribution(bars,request.card,{...request.options,...request.parameters});}
+    if(request.analysis==='decision_trace'){
+      if(!imported)throw new Error('EVIDENCE_SAVED_CSV_REQUIRED');
+      if(bars.length>5000)throw new Error('EVIDENCE_WINDOW_REQUIRES_61_TO_5000_BARS');
+      const{getCardRuntimeConfig}=await import('../src/lib/simTimeframe.ts');const runtime=getCardRuntimeConfig(request.card);
+      if(runtime.design_tf!==runtime.allowed_execution_tf||request.mode==='m1'||request.timeframe&&request.timeframe!==runtime.design_tf||request.windowTf&&request.windowTf!==runtime.design_tf)throw new Error('EVIDENCE_DESIGN_BAR_MODE_ONLY');
+      const{runRealisticBacktest}=await import('../src/lib/realisticSimRun.ts');const{buildDecisionJournal}=await import('./decisionJournal.mjs');
+      const backtest=runRealisticBacktest(bars,request.card,{...request.options,withWalkForward:false});
+      result=buildDecisionJournal({bars,backtest,card:request.card,storage:request.storage,source:{id:imported.metadata.id,hash:dataHash,symbol:imported.metadata.symbol,timeframe:runtime.design_tf},engineHash:workerData.engineHash});
+    }
+    else if(request.analysis==='attribution'){const{runStrategyAttribution}=await import('../src/lib/strategyAttribution.ts');result=runStrategyAttribution(bars,request.card,{...request.options,...request.parameters});}
     else if(request.analysis==='ablation'){const {runAblation}=await import('../src/lib/simAblation.ts');result=runAblation(bars,request.card,request.parameters);}
     else if(request.analysis==='funding'){const {multiYearFunding}=await import('../src/lib/simMultiYearFunding.ts');result=multiYearFunding(bars,request.card,request.parameters);}
     else if(request.analysis==='beast_roles'){const {rolePowerReport}=await import('../src/lib/cardBeastV2/beastCompose.ts');const context=request.parameters.context;if(imported&&(!context||context.symbol!==imported.metadata.symbol||context.design_tf!==(request.timeframe||imported.metadata.tf)))throw new Error('BEAST_CSV_CONTEXT_MISMATCH');result=rolePowerReport(bars,request.parameters.members,false,context);}

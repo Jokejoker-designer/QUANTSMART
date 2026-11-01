@@ -61,7 +61,7 @@ See [verification and limits](docs/VERIFICATION.md), [LICENSE](LICENSE) and
 
 ## Quick start
 
-Windows download: [current portable preview, default port 5090](https://github.com/Jokejoker-designer/QUANTSMART/releases/download/v1.2.0-rc.4/QUANTSMART-1.2.0-rc.4-windows-x64.zip). Historical release assets retain their original behavior; use this build for the 5090 default. CSV file-chooser import, chart opening and custom L1–L6 workflows are covered in the [verification record](docs/LAYER_VALIDATION.md).
+Windows download: [current portable preview, default port 5090](https://github.com/Jokejoker-designer/QUANTSMART/releases/download/v1.2.0-rc.5/QUANTSMART-1.2.0-rc.5-windows-x64.zip). Historical release assets retain their original behavior; use this build for the 5090 default. CSV file-chooser import, chart opening and custom L1–L6 workflows are covered in the [verification record](docs/LAYER_VALIDATION.md).
 
 ### Requirements
 
@@ -280,4 +280,10 @@ The [follow-up audit](docs/QUANT_CHRONOLOGY_AUDIT.md) reproduces and fixes next-
 
 Import historical prices in the [CSV workflow](docs/CSV_IMPORT.md), review strict validation and reopen local datasets after restart. The same stored bars feed chart aggregation and supported Card runs. The [1.2.0 validation record](docs/CSV_RESEARCH_VALIDATION.md) documents actual market-CSV checks, stop-floor/ambiguity/gap corrections and the original acceptance boundary. The [layer verification update](docs/LAYER_VALIDATION.md) records the subsequent browser import and custom-module checks. Matched entry/exit controls are descriptive and support an explicit native-module subset; they do not certify a profitable edge.
 
-Current downloadable preview: [1.2.0-rc.3](https://github.com/Jokejoker-designer/QUANTSMART/releases/tag/v1.2.0-rc.4). Default URL: **http://localhost:5090/**. CSV file-chooser acceptance and custom-layer workflows were exercised on the built preview. See the [verification scope](docs/LAYER_VALIDATION.md) for remaining limits.
+Current downloadable preview: [1.2.0-rc.3](https://github.com/Jokejoker-designer/QUANTSMART/releases/tag/v1.2.0-rc.5). Default URL: **http://localhost:5090/**. CSV file-chooser acceptance and custom-layer workflows were exercised on the built preview. See the [verification scope](docs/LAYER_VALIDATION.md) for remaining limits.
+
+## Inspect decision and outcome evidence
+
+In Microscope, select a saved CSV and Strategy Card, then open **Decision & outcome evidence**. Build a local journal to link observed engine signals, policy blocks, modeled fills and completed trades. Saved reports reopen after restart and include source, definition and engine hashes. No-entry and open observations retain null outcomes.
+
+The journal covers observed canonical signals on 61–5,000 design bars. It does not invent structural-thesis identity, missing veto events, exact excursions or calibrated probabilities. See the [Drive integration assessment](docs/DRIVE_INTEGRATION_AUDIT.md) for the accepted changes, deferred algorithms and verification limits.

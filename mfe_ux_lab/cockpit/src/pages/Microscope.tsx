@@ -1,3 +1,4 @@
+import {DecisionEvidencePanel} from "../components/DecisionEvidencePanel.tsx";
 import{explainResearchError}from"../lib/researchErrors.ts";
 // Microscope — refit to the MD spec (PAGE 02). Deep diagnostic view: big zone chart + session context +
 // MTF minis + event timeline. Reuses CockpitChart. Diagnostic/advisory ONLY · order_send FORBIDDEN.
@@ -381,6 +382,7 @@ export function Microscope() {
 
       <CsvImportPanel onOpen={openCsv}/>
       {source==="CSV"&&csvMeta&&activeCard&&stageBars.length>0&&<StrategyAttributionPanel importId={csvMeta.id} card={activeCard} from={stageBars[0].t} to={stageBars[stageBars.length-1].t} windowTf={designTf} options={researchOptions}/>}
+      {source==="CSV"&&csvMeta&&activeCard&&stageBars.length>0&&<DecisionEvidencePanel importId={csvMeta.id} card={activeCard} from={stageBars[0].t} to={stageBars[stageBars.length-1].t} windowTf={designTf} barsCount={stageBars.length} options={researchOptions}/>}
       {source==='CSV'&&csvMeta&&<div className="pc" style={{padding:10}}><p>Imported interval · {csvMeta.symbol} · {csvMeta.from} → {csvMeta.to} UTC. This is a diagnostic run, not an automatic 10Y / OOS / forward holdout.</p>{csvMeta.quality.gapCount>0&&<button onClick={()=>setCsvRange({from:csvMeta.quality.longestContinuous.from,to:csvMeta.quality.longestContinuous.to})}>Use longest continuous interval ({csvMeta.quality.longestContinuous.bars.toLocaleString()} source bars)</button>}{csvRange&&<button onClick={()=>setCsvRange(undefined)}>Use full imported interval</button>}</div>}
       <div className="ms-grid">
         {/* LEFT context */}
