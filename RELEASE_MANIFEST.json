@@ -614,8 +614,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/decision-evidence.css",
-      "sha256": "b708694938ec44edc9dde59e936ecbdef4367e12df11530cacdb92e971a9b57a",
-      "bytes": 1145
+      "sha256": "2b86bd4eb10ddccb2e8e4c9db06e33006b2b29af8268c1179913fa820a73f595",
+      "bytes": 1168
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/l1-sandbox.css",
