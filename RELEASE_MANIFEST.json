@@ -1934,8 +1934,8 @@
     },
     {
       "path": "tests/portable-entry.test.mjs",
-      "sha256": "1cbb289426d1ffdaf1d308b1342957d675d5e083ca8e7cba2bcbfd3b9629ceb2",
-      "bytes": 3743
+      "sha256": "ef5efc399c527ed1e56d1e246acd322ab7c44c17fa51e98bf9f245b37298d1d6",
+      "bytes": 3715
     },
     {
       "path": "tests/public-runtime.test.mjs",
