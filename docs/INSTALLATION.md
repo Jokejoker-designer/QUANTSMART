@@ -101,6 +101,8 @@ separate static application site as part of this installer.
 Only source development needs `node_modules` and a build toolchain. The portable
 release omits source dependencies, historical archives and user workspaces. Reuse
 the installed build instead of keeping multiple unpacked releases.
+Production builds do not copy `public/data` into `dist`; the local server reads
+the original history directory directly, avoiding a second copy of large tapes.
 
 Before removing an installation, stop its launcher and export your Cards. Preserve
 your original CSV, private `.env`, any broker-clock settings and

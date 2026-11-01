@@ -26,6 +26,8 @@ actual local checks from the cross-platform CI configured in the repository.
 - Bundled Node.js v24.17.0 matched its official win-x64/node.exe SHA-256. Its full
   license and the bundled React/React DOM/Three.js licenses were included.
 - npm audit reported zero known findings at the time of this acceptance run.
+- A canary in public/data remained in its original directory and was excluded
+  from the production dist tree, preventing duplicate private history copies.
 
 ## Scope and limits
 

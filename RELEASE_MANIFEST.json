@@ -69,13 +69,13 @@
     },
     {
       "path": "docs/INSTALLATION.md",
-      "sha256": "aeb54d52d56bd34821bf4a48656e11b8090b2742b304f8139adffde1615aa007",
-      "bytes": 5164
+      "sha256": "f5c1b7e1affc79c6c2e18d8aa07fed462c19f879e5537420f4eb5d239a077245",
+      "bytes": 5324
     },
     {
       "path": "docs/INSTALLER_VALIDATION.md",
-      "sha256": "e21f0443a27a16771c303639c2dccd43dcce460f99ffbb0b880b7843c7eff9ac",
-      "bytes": 3571
+      "sha256": "73ea016ef409b23d7e623391f5a117721e1be6a30221dc682169b9844d1665e8",
+      "bytes": 3727
     },
     {
       "path": "docs/PRODUCT_TOUR.md",
@@ -1809,8 +1809,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/vite.config.ts",
-      "sha256": "a5dcb04df012f0d174645ce814c2323f2e50b4ff1b3e77e8885068b142647935",
-      "bytes": 815
+      "sha256": "95840ad84e8cd107698a555bb4b99c90c41ddd4291c94ef71f8ba1218587c082",
+      "bytes": 1007
     },
     {
       "path": "package.json",

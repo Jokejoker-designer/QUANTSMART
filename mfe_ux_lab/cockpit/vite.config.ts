@@ -10,7 +10,9 @@ import { mt5BridgePlugin } from "./tools/mt5BridgeProxy.mjs";
 export default defineConfig({
   base: "./",
   plugins: [react(), mt5BridgePlugin(), researchBackendPlugin()],
-  build: { outDir: "dist", emptyOutDir: true },
+  // Historical files stay in public/data and are served there by productServer.
+  // Copying them into dist duplicates large private archives without serving a purpose.
+  build: { outDir: "dist", emptyOutDir: true, copyPublicDir: false },
   // Local source development. The same-origin MT5 proxy never exposes terminal credentials.
   server: { port: 5190, host: "127.0.0.1", strictPort: true, cors: false },
 });
