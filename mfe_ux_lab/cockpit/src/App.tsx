@@ -3,6 +3,7 @@ import { Layout } from "./shell/Layout.tsx";
 import { pageFromHash, validPage } from "./shell/navigation.ts";
 import { ResearchCockpit } from "./pages/ResearchCockpit.tsx";
 import { WorkspaceErrorBoundary } from "./shell/WorkspaceErrorBoundary.tsx";
+import { FirstRun } from "./shell/FirstRun.tsx";
 
 // Keep only the always-visible shell and Home eager. Every navigated workspace is a real
 // loading boundary, so opening Home no longer downloads the entire research cockpit.
@@ -54,6 +55,7 @@ export function App() {
       onNavigate={navigate}
     >
       <WorkspaceErrorBoundary key={page}>
+      {page === "home" && <FirstRun navigate={navigate} />}
       {page === "home" && <ResearchCockpit />}
       <Suspense fallback={pageFallback}>
         {page === "help" && <HelpManual />}

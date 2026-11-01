@@ -1,0 +1,9 @@
+.first-run { margin: 8px 0 16px; padding: 18px; border: 1px solid var(--border-panel); border-radius: 6px; background: var(--bg-panel); color: var(--text-primary); }
+.first-run h1 { margin: 0 0 8px; font-size: 19px; }
+.first-run p { max-width: 76ch; line-height: 1.5; }
+.first-run small { display: block; max-width: 100ch; line-height: 1.5; color: var(--text-secondary); }
+.first-run-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.first-run button { padding: 8px 12px; border: 1px solid var(--border-panel); border-radius: 4px; background: var(--bg-elevated); color: var(--text-primary); cursor: pointer; }
+.first-run button:first-child { color: var(--accent-cyan); }
+.first-run button:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 3px; }
+.first-run [role=alert] { color: var(--status-danger-text); }

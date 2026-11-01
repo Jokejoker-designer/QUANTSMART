@@ -61,24 +61,27 @@ See [verification and limits](docs/VERIFICATION.md), [LICENSE](LICENSE) and
 
 ## Quick start
 
-Download this source release or clone its GitHub repository, open a terminal in
-the repository root, and run:
+**Windows:** download the [Windows x64 portable ZIP from Releases](https://github.com/Jokejoker-designer/QUANTSMART/releases/latest), extract the whole archive and double-click `start.bat`. The portable app includes Node.js and the production build. Historical research requires no Node/npm/Python installation.
+
+**Source on Windows, macOS or Linux:** install Node.js 22.12 or newer with npm, preferably a supported LTS release. Open a terminal in the repository root and run:
 
 ```sh
-npm run mfe
+npm run setup -- --historical
+npm run mfe:doctor
+npm start
 ```
 
-On Windows, double-click `start.bat` for the same launcher.
+The interactive launcher offers historical CSV research, optional Windows MT5 and advanced development mode. The first screen offers CSV import, MT5 connection, the guide and an option to explore without data. No private or synthetic market history is installed; retain your original CSV because its browser import is session-local.
 
-Prerequisites: Node.js 20.19 or newer and npm. Internet access is needed for the
+Source prerequisites: Node.js 22.12 or newer and npm. Internet access is needed for the
 first dependency install. For MT5 data on Windows, also install 64-bit Python
 3.11+ and your broker's MT5 desktop terminal.
 
-The launcher installs the frontend, creates an isolated Python environment when
+The source launcher installs the frontend and builds once, creates an isolated Python environment when
 needed, installs the optional bridge, creates a safe .env from .env.example,
 starts both local services, waits for readiness and opens http://localhost:5190.
 Ctrl+C stops the processes started by that launcher. Existing unrelated services
-are never killed. Later starts reuse the installed dependencies.
+are never killed. Later starts reuse the installed dependencies and production build, without a Vite development server or repeated compilation.
 
 The connector uses `.venv-mfe`, separate from any research `.venv`. Its interpreter
 must pass a runtime check; a leftover executable pointing to removed Python is
@@ -93,7 +96,12 @@ npm run mfe -- --production       # build and serve the bundled frontend/runtime
 npm run mfe -- --no-browser       # keep browser opening manual
 npm run mfe -- --port 5195 --bridge-port 8795
 npm run mfe:check                 # read-only setup report
+npm run mfe:doctor -- --json --offline
+npm run mfe -- --dev --historical # explicitly selected development server
+npm run test:public               # no private dataset or Python required
 ```
+
+See the [installation and troubleshooting guide](docs/INSTALLATION.md) for detailed diagnosis, test lanes, data import, portable use and safe removal. Native macOS/Linux binaries and signed Windows installers are not included in this release.
 
 ## Connect XM / another MT5 broker
 
@@ -176,8 +184,8 @@ broker authentication. Read [SECURITY.md](SECURITY.md) for the boundary and limi
 
 ## Development and verification
 
-The default launcher uses Vite locally. `--production` runs the built frontend,
-bundled research worker and durable workspace server. Python and JavaScript tests
+The default launcher runs the built frontend,
+bundled research worker and durable workspace server. Use `--dev` for Vite. Python and JavaScript tests
 use isolated fixtures; fixture prices are never shipped as market history.
 
 ```sh

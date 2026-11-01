@@ -1,0 +1,26 @@
+name: Public installation checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  public-checkout:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm run setup -- --historical --no-browser
+      - run: npm run mfe:doctor -- --historical --offline
+      - run: npm run test:public
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm run setup -- --historical --dev-deps --no-browser
+      - run: npm run test:bridge

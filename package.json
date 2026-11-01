@@ -1,16 +1,27 @@
 {
   "name": "quantsmart",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "A local workspace for testing strategies and building your own quantitative algorithms.",
   "license": "Apache-2.0",
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "mfe": "node scripts/bootstrap.mjs",
     "mfe:check": "node scripts/bootstrap.mjs --check",
     "package:mfe": "node scripts/package-release.mjs",
-    "test:mfe": "node scripts/test.mjs"
+    "test:mfe": "node scripts/test.mjs",
+    "start": "node scripts/bootstrap.mjs --interactive",
+    "setup": "node scripts/bootstrap.mjs --setup-only",
+    "mfe:doctor": "node scripts/doctor.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "test": "node scripts/test.mjs --public",
+    "test:public": "node scripts/test.mjs --public",
+    "test:unit": "node scripts/test.mjs --unit",
+    "test:bridge": "node scripts/test.mjs --bridge",
+    "test:product:with-data": "node scripts/test.mjs --with-data",
+    "package:portable": "node scripts/package-portable.mjs",
+    "test:portable": "node tests/portable-entry.test.mjs"
   }
 }

@@ -86,7 +86,7 @@ export function ResearchCockpit() {
     const controller = new AbortController();
     runResearchJob<MarketSnapshot>({ kind: "market", dataset: { symbol, tf }, count: 600, storage: {} }, controller.signal)
       .then((data) => { if (!controller.signal.aborted) setSnapshot({ key, data }); })
-      .catch((e) => { if (!controller.signal.aborted) setError(e.message.includes("ENOENT") ? "No local historical dataset. Import an OHLC CSV in Microscope" : e.message); });
+      .catch((e) => { if (!controller.signal.aborted) setError(/ENOENT|DATASET_NOT_FOUND/.test(e.message) ? "No local historical dataset. Import an OHLC CSV in Microscope" : e.message); });
     return () => controller.abort();
   }, [key]);
   // Small server-computed snapshots, loaded sequentially to respect the bounded worker queue.

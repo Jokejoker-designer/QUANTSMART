@@ -1,21 +1,17 @@
-// Use the same isolated Python environment as the launcher; never install into global Python.
+// Deterministic test lanes with actionable preflight, no automatic network install.
 import {spawnSync} from 'node:child_process';
 import {existsSync} from 'node:fs';
-import {dirname,join,resolve} from 'node:path';
+import {join,resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {npmPath} from './environment.mjs';
 import {bridgePythonPath,pythonUsable} from './bootstrap.mjs';
-const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-function run(command,args){const result=spawnSync(command,args,{cwd:root,stdio:'inherit',windowsHide:true});if(result.error){console.error(result.error.message);process.exit(1);}if(result.status!==0)process.exit(result.status||1);}
-run(process.execPath,['tests/bootstrap.test.mjs']);run(process.execPath,['tests/mt5-proxy.test.mjs']);
-run(process.execPath,['tests/live-ticks.test.mjs']);
-run(process.execPath,['tests/display-clock.test.mjs']);
-run(process.execPath,['tests/research-operations.test.mjs']);
-run(process.execPath,['tests/workspace-merge.test.mjs']);
-run(process.execPath,['tests/element-size.test.mjs']);
-run(process.execPath,['tests/language-audit.test.mjs']);
-const isolated=bridgePythonPath(root);
-const legacy=join(root,'.venv',process.platform==='win32'?'Scripts':'bin',process.platform==='win32'?'python.exe':'python');
-const python=existsSync(isolated)?isolated:existsSync(legacy)&&pythonUsable(legacy)?legacy:process.env.MFE_PYTHON||(process.platform==='win32'?'python':'python3');
-const probe=spawnSync(python,['-c','import fastapi,httpx'],{cwd:root,stdio:'ignore',windowsHide:true});
-if(probe.status!==0){console.error('Python API test dependencies are missing. Install requirements-dev.txt in your virtual environment, then run npm run test:mfe again.');process.exit(1);}
-run(python,['-m','unittest','discover','-s','bridge/tests','-p','test_*.py','-v']);
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'..'),app=join(root,'mfe_ux_lab/cockpit'),args=process.argv.slice(2);
+function fail(message){console.error(message);process.exit(2);}
+function run(argv,cwd=root,command=process.execPath){const r=spawnSync(command,argv,{cwd,stdio:'inherit',windowsHide:true});if(r.error)fail(r.error.message);if(r.status!==0)process.exit(r.status||1);}
+const bridgeOnly=args.includes('--bridge'),withData=args.includes('--with-data');
+if(!bridgeOnly&&!existsSync(join(app,'node_modules/typescript/bin/tsc')))fail('Test dependencies are not installed. Run npm run setup -- --historical, then npm run test:public.');
+if(withData){const missing=['H1','M15'].filter(tf=>!existsSync(join(app,`public/data/sim/ohlc_XAUUSD_${tf}.json`)));if(missing.length)fail(`Product tests need authorized XAUUSD ${missing.join('/')} history under mfe_ux_lab/cockpit/public/data/sim/. No files were invented. Run npm run test:public for dataset-free checks.`);for(const file of ['test-research-backend.mjs','test-workspace-product.mjs','test-card-lifecycle.mjs'])run(['tools/'+file],app);process.exit(0);}
+if(!bridgeOnly){for(const file of ['bootstrap','installer','mt5-proxy','live-ticks','display-clock','research-operations','workspace-merge','element-size','language-audit','first-run'])run(['tests/'+file+'.test.mjs']);run([npmPath(),'run','typecheck'],app);if(args.includes('--public')){if(!existsSync(join(app,'dist/index.html')))fail('Production build is missing. Run npm run setup -- --historical, then npm run test:public.');run(['tests/public-runtime.test.mjs']);process.exit(0);}if(args.includes('--unit'))process.exit(0);}
+const isolated=bridgePythonPath(root);const python=existsSync(isolated)?isolated:process.env.MFE_PYTHON||(process.platform==='win32'?'python':'python3');
+if(!pythonUsable(python)||spawnSync(python,['-c','import fastapi,httpx'],{stdio:'ignore',windowsHide:true}).status!==0)fail('Python test dependencies are missing. Run npm run setup -- --historical --dev-deps, then npm run test:bridge.');
+run(['-m','unittest','discover','-s','bridge/tests','-p','test_*.py','-v'],root,python);

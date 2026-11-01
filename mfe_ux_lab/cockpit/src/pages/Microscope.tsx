@@ -5,6 +5,7 @@ import { getActiveSymbol } from "../lib/activeSymbolStore.ts";
 import { useLiveWorkspaceQuery, freshWorkspaceBars } from "../lib/liveWorkspaceQuery.ts";
 import { MicroChart, type TradeSeg } from "../components/MicroChart.tsx";
 import { parseCsvOhlc } from "../lib/csvOhlc.ts";
+import { takeCsvImport } from "../lib/pendingCsvImport.ts";
 // (legacy gross simulateCard removed — replay now uses the SAME realistic engine of record as the result table)
 import { PreEventWarning } from "../components/PreEventWarning.tsx";
 import { Mt5ConnectPanel } from "../components/Mt5ConnectPanel.tsx";
@@ -93,6 +94,13 @@ export function Microscope() {
   const [zoneOn, setZoneOn] = useState<Record<string, boolean>>({ observation: true, risk: true, demand: true, sweep: true, invalidation: true });
   const fileRef = useRef<HTMLInputElement>(null);
   const [csvBars, setCsvBars] = useState<OhlcBar[] | null>(null); const [csvName, setCsvName] = useState(""); const [csvErr, setCsvErr] = useState("");
+  useEffect(() => {
+    const imported = takeCsvImport(); if (!imported) return;
+    setCsvBars(imported.bars); setBars(imported.bars); setSource("CSV");
+    if (TFS.some(frame => frame === imported.tf)) setTf(imported.tf);
+    setCsvName(`${imported.filename} · ${imported.bars.length.toLocaleString()} bars (${imported.tf})`);
+    setCsvErr(imported.warnings.join(" · "));
+  }, []);
   function onCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return;
     file.text().then((text) => { const res = parseCsvOhlc(text); if ("error" in res) { setCsvErr(res.error); setCsvName(""); } else { setCsvBars(res.bars); setBars(res.bars); setSource("CSV"); if (!activeCard && res.tf) setTf(res.tf); setRunning(false); setCursor(null); setCsvErr(""); setCsvName(`${file.name} · ${res.bars.length.toLocaleString()} bars (${res.tf})`); } e.target.value = ""; });

@@ -31,7 +31,7 @@ function add(relative){const absolute=path.resolve(root,relative);if(!absolute.s
    if((ts.isImportDeclaration(node)||ts.isExportDeclaration(node))&&node.moduleSpecifier&&ts.isStringLiteral(node.moduleSpecifier))dependencies.push(node.moduleSpecifier.text);
    if(ts.isCallExpression(node)&&node.expression.kind===ts.SyntaxKind.ImportKeyword&&node.arguments[0]&&ts.isStringLiteral(node.arguments[0]))dependencies.push(node.arguments[0].text);
    if(ts.isImportTypeNode(node)&&ts.isLiteralTypeNode(node.argument)&&ts.isStringLiteral(node.argument.literal))dependencies.push(node.argument.literal.text);
-   if(ts.isNewExpression(node)&&node.expression.getText(ast)==='URL'&&node.arguments?.[0]&&ts.isStringLiteral(node.arguments[0]))dependencies.push(node.arguments[0].text);
+   if(ts.isNewExpression(node)&&node.expression.getText(ast)==='URL'&&node.arguments?.[0]&&ts.isStringLiteral(node.arguments[0])){const resource=path.resolve(path.dirname(absolute),node.arguments[0].text);if(!fs.existsSync(resource)||!fs.statSync(resource).isDirectory())dependencies.push(node.arguments[0].text);}
    ts.forEachChild(node,visit);
   }visit(ast);
  }
@@ -40,6 +40,9 @@ function add(relative){const absolute=path.resolve(root,relative);if(!absolute.s
 const top=['package.json','README.md','LICENSE','NOTICE','SECURITY.md','.env.example','.gitignore','start.bat','requirements.txt','requirements-mfe.txt','requirements-dev.txt','scripts/bootstrap.mjs','scripts/package-release.mjs','scripts/test.mjs','tests/bootstrap.test.mjs','tests/mt5-proxy.test.mjs','tests/live-ticks.test.mjs','tests/display-clock.test.mjs','tests/research-operations.test.mjs','tests/workspace-merge.test.mjs','tests/element-size.test.mjs','bridge/mt5_bridge.py','bridge/demo_execution.py','bridge/tests/test_mt5_bridge.py','bridge/tests/test_demo_execution.py'];
 top.push('docs/PRODUCT_TOUR.md','docs/VERIFICATION.md','docs/CUSTOM_MODULES.md','docs/screenshots/custom-l1-feature-graph.png');
 top.push('tests/language-audit.test.mjs','docs/screenshots/cockpit-overview.png','docs/screenshots/chart-replay.png');
+top.push('docs/INSTALLATION.md','.github/workflows/public-install.yml','scripts/environment.mjs','scripts/install.mjs','scripts/doctor.mjs','scripts/package-portable.mjs','tests/installer.test.mjs','tests/public-runtime.test.mjs','tests/first-run.test.mjs');
+top.push('tests/portable-entry.test.mjs');
+top.push('docs/INSTALLER_VALIDATION.md');
 // Only reviewed public screenshots are eligible; never enumerate the private artifact tree.
 for(const page of ['home','entry-danger','microscope','kidi-events','playbook','strategy-lab','strategy-canvas','blocks-modules','beast-lab','formula-lab','weekly-audit','strategy-ranking','assets','hidden-coefficients','analysis','debugger','help'])top.push(`docs/screenshots/${page}.jpg`);
 for(const file of top)add(file);

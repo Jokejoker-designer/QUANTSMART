@@ -1,11 +1,17 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-where node >nul 2>nul
-if errorlevel 1 (
-  echo Node.js 20.19 or newer is required. Install Node.js LTS, then run this file again.
-  pause
-  exit /b 1
+if exist "%~dp0runtime\node.exe" (
+  "%~dp0runtime\node.exe" "%~dp0scripts\bootstrap.mjs" --interactive %*
+) else (
+  where node >nul 2>nul
+  if errorlevel 1 (
+    echo QUANTSMART source needs Node.js LTS 22.12 or newer.
+    echo Download: https://nodejs.org/en/download
+    echo Or download the Windows portable ZIP, which includes Node.js.
+    pause
+    exit /b 1
+  )
+  node "%~dp0scripts\bootstrap.mjs" --interactive %*
 )
-call npm run mfe -- %*
 if errorlevel 1 pause

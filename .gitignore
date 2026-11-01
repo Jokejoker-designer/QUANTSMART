@@ -12,6 +12,11 @@
 !/docs/PRODUCT_TOUR.md
 !/docs/VERIFICATION.md
 !/docs/CUSTOM_MODULES.md
+!/docs/INSTALLATION.md
+!/docs/INSTALLER_VALIDATION.md
+!/.github/
+!/.github/workflows/
+!/.github/workflows/public-install.yml
 !/docs/screenshots/
 !/docs/screenshots/*.jpg
 !/docs/screenshots/custom-l1-feature-graph.png

@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
+const require=createRequire(new URL('../mfe_ux_lab/cockpit/package.json',import.meta.url));const {build}=require('esbuild');
+const compiled=await build({stdin:{contents:"export * from './src/lib/pendingCsvImport.ts';export {parseCsvOhlc} from './src/lib/csvOhlc.ts';",resolveDir:fileURLToPath(new URL('../mfe_ux_lab/cockpit',import.meta.url)),loader:'ts'},bundle:true,platform:'node',format:'esm',write:false,logLevel:'silent'});
+const api=await import('data:text/javascript;base64,'+Buffer.from(compiled.outputFiles[0].text).toString('base64'));
+const rows=Array.from({length:130},(_,i)=>`${new Date(Date.UTC(2020,0,1)+i*3600000).toISOString()},100,102,99,101`);
+const parsed=api.parseCsvOhlc('time,open,high,low,close\n'+rows.join('\n'));assert.ok(!('error' in parsed));assert.equal(parsed.tf,'H1');
+api.stageCsvImport({...parsed,filename:'Authorized local file.csv'});const pending=api.takeCsvImport();assert.equal(pending.filename,'Authorized local file.csv');assert.equal(pending.bars.length,130);assert.equal(api.takeCsvImport(),null);
+assert.ok('error' in api.parseCsvOhlc('not an OHLC file'));
+console.log('FIRST RUN PASS: real CSV parser, inferred timeframe, one-shot in-memory transfer and invalid-file rejection. No history fixture is installed.');
