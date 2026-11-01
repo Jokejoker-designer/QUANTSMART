@@ -9,7 +9,7 @@
   "files": [
     {
       "path": ".env.example",
-      "sha256": "d1d574c1cdd1f0e042c9ad8c9b878aa23fcbe0311a21d19a1bcd2f3f6397f84c",
+      "sha256": "8c2a98292dd1cf4bc0bc56bf0e12606f74da592b77e060a0dd5c1828c622f937",
       "bytes": 571
     },
     {
@@ -34,8 +34,8 @@
     },
     {
       "path": "README.md",
-      "sha256": "b4b96006db8d2ad7fe5715e5a42ccde8dc1565bc918a8d8b6cd0888a3f0db943",
-      "bytes": 13814
+      "sha256": "4c4afe19784d042457de7e419ece242114dc9da138a06cd1825120a2ab2a48d2",
+      "bytes": 14382
     },
     {
       "path": "SECURITY.md",
@@ -84,8 +84,8 @@
     },
     {
       "path": "docs/INSTALLATION.md",
-      "sha256": "f5c1b7e1affc79c6c2e18d8aa07fed462c19f879e5537420f4eb5d239a077245",
-      "bytes": 5324
+      "sha256": "9ff648f7f9b1496a2aee69ece39157952c1e9816fb392ac3679c7792f16f1d4d",
+      "bytes": 5808
     },
     {
       "path": "docs/INSTALLER_VALIDATION.md",
@@ -1834,7 +1834,7 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/productServer.mjs",
-      "sha256": "9a80ae180a043dc01c42b8897b4be5ef2979eee129db79eafe893812378a30d9",
+      "sha256": "06460abafa2e70b5fb247b7d0027e2cfbc188fdaa473b58cdf8f19b155bf425f",
       "bytes": 2983
     },
     {
@@ -1889,7 +1889,7 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/vite.config.ts",
-      "sha256": "95840ad84e8cd107698a555bb4b99c90c41ddd4291c94ef71f8ba1218587c082",
+      "sha256": "7e1db0351c4a8539e2b642f20c5e579a5fb442ba563c512a6fd325ccd3187486",
       "bytes": 1007
     },
     {
@@ -1914,7 +1914,7 @@
     },
     {
       "path": "scripts/bootstrap.mjs",
-      "sha256": "6ee0d9bfbe8f52c09e7792397cb5fb90b58cb92baf53842480a2ca79790ca3b9",
+      "sha256": "9645377bbcdc9633998ae2089f8854179126fab44ae7912f90f26165faf480de",
       "bytes": 9884
     },
     {
@@ -1934,18 +1934,18 @@
     },
     {
       "path": "scripts/package-portable.mjs",
-      "sha256": "06309b192462c223d158f2ed5fd5b0e0587fcc2f7230538b6533e8b3f53b91ce",
-      "bytes": 6149
+      "sha256": "59fc2290c8a33b4ef46ab48e04e5fe8c5c9b089ebb0ad25107a3828b6866b8b6",
+      "bytes": 6335
     },
     {
       "path": "scripts/package-release.mjs",
-      "sha256": "1ad87a0c3f7eb9326d710486fd8841a21c34df00356a838c3d2294b541813708",
-      "bytes": 8512
+      "sha256": "05bd5941bb19128e5c229849ccc6480f2675010959569de8412eae8272f7a1f9",
+      "bytes": 8542
     },
     {
       "path": "scripts/test.mjs",
-      "sha256": "72860a564f3aa8f5d668cfc16644ba615f9c4e35fa798959840d1ef46bd9bf83",
-      "bytes": 2648
+      "sha256": "6063381b4d675207650e585b8bd57dea8dfa1e11bc03582064a7157b4fde6fce",
+      "bytes": 2663
     },
     {
       "path": "start.bat",
@@ -1966,6 +1966,11 @@
       "path": "tests/csv-runtime.test.mjs",
       "sha256": "54bac9e03f4c095dc4af00bdb1171c123ee75cea3372bc2e68b1436663bca7c7",
       "bytes": 7479
+    },
+    {
+      "path": "tests/default-port.test.mjs",
+      "sha256": "7c88425fcfc8dceee38ccbe8ebf2a0c871e5642ef6d70e3e86db43f68a100d04",
+      "bytes": 1997
     },
     {
       "path": "tests/display-clock.test.mjs",
@@ -2009,8 +2014,8 @@
     },
     {
       "path": "tests/portable-entry.test.mjs",
-      "sha256": "ef5efc399c527ed1e56d1e246acd322ab7c44c17fa51e98bf9f245b37298d1d6",
-      "bytes": 3715
+      "sha256": "40ee0ef80181aa6c472e422e3b719cb305d4d2fc695b5e98eb91a96798dbdf73",
+      "bytes": 4273
     },
     {
       "path": "tests/public-runtime.test.mjs",

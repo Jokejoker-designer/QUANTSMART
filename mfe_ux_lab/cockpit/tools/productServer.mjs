@@ -7,7 +7,7 @@ import { createResearchBackend } from './researchBackend.mjs';
 import { createMt5BridgeProxy } from './mt5BridgeProxy.mjs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const args=process.argv.slice(2),option=(name,fallback)=>{const index=args.indexOf(name);return index<0?fallback:args[index+1];};
-const port=Number(option('--port','5190')),workspaceDirectory=resolve(option('--workspace',resolve(root,'artifacts/workspace')));
+const port=Number(option('--port','5090')),workspaceDirectory=resolve(option('--workspace',resolve(root,'artifacts/workspace')));
 if(!Number.isInteger(port)||port<1024||port>65535)throw new Error('Invalid local port');
 if(!existsSync(resolve(root,'dist/index.html')))throw new Error('Build the frontend first: npm run build');
 const backend=await createResearchBackend({workspaceDirectory,runtime:'built'});

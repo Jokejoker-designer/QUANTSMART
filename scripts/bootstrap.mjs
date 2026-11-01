@@ -14,7 +14,7 @@ const APP=join(ROOT,'mfe_ux_lab','cockpit');
 export function parseEnv(text){const result={};for(const line of text.replace(/^\uFEFF/,'').split(/\r?\n/)){const m=line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*?)\s*$/);if(m)result[m[1]]=m[2].replace(/^(["'])(.*)\1$/,'$2');}return result;}
 export function plan({platform=process.platform,env={},args=[]}={}){
  const option=(name,fallback)=>{const index=args.indexOf(name);return index<0?fallback:args[index+1];};
- const port=Number(option('--port',env.MFE_PORT||5190)),bridgePort=Number(option('--bridge-port',env.MFE_BRIDGE_PORT||8791));
+ const port=Number(option('--port',env.MFE_PORT||5090)),bridgePort=Number(option('--bridge-port',env.MFE_BRIDGE_PORT||8791));
  if(![port,bridgePort].every(n=>Number.isInteger(n)&&n>=1024&&n<=65535)||port===bridgePort)throw new Error('MFE ports must be distinct integers between 1024 and 65535.');
  if(args.includes('--historical')&&args.includes('--mt5'))throw new Error('Choose either --historical or --mt5.');
  const mode=args.includes('--historical')?'historical':args.includes('--mt5')?'auto':env.MFE_MODE||'auto';if(!['auto','historical'].includes(mode))throw new Error('MFE_MODE must be auto or historical.');

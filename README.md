@@ -61,6 +61,8 @@ See [verification and limits](docs/VERIFICATION.md), [LICENSE](LICENSE) and
 
 ## Quick start
 
+Windows download: [current portable preview, default port 5090](https://github.com/Jokejoker-designer/QUANTSMART/releases/download/v1.2.0-rc.3/QUANTSMART-1.2.0-rc.3-windows-x64.zip). Historical release assets retain their original behavior; use this build for the 5090 default. CSV browser acceptance is still tracked separately.
+
 ### Requirements
 
 - Node.js 22.12 or newer and npm
@@ -92,10 +94,12 @@ npm run mfe:doctor
 npm start
 ```
 
-The app will start in local mode and open the default local URL:
+Normal source and portable startup use port **5090**. If it is occupied, startup reports the conflict and preserves the existing process. There is no automatic alternate-port search. Only an explicit `--port` or `MFE_PORT` override changes it.
+
+The app opens:
 
 ```text
-http://localhost:5190
+http://localhost:5090/
 ```
 
 Useful commands:
@@ -105,7 +109,7 @@ npm run mfe -- --historical       # historical/research mode
 npm run mfe -- --production       # production build + served runtime
 npm run mfe -- --dev --historical # explicit development mode
 npm run mfe -- --no-browser       # do not auto-open browser
-npm run mfe -- --port 5195 --bridge-port 8795
+npm run mfe -- --port 5090 --bridge-port 8791
 npm run mfe:check                 # read-only environment check
 npm run mfe:doctor -- --json --offline
 npm run test:public               # public tests without private dataset or Python
@@ -276,4 +280,4 @@ The [follow-up audit](docs/QUANT_CHRONOLOGY_AUDIT.md) reproduces and fixes next-
 
 Import historical prices in the [CSV workflow](docs/CSV_IMPORT.md), review strict validation and reopen local datasets after restart. The same stored bars feed chart aggregation and supported Card runs. The [1.2.0 validation record](docs/CSV_RESEARCH_VALIDATION.md) documents actual market-CSV checks, stop-floor/ambiguity/gap corrections and the remaining browser acceptance boundary. Matched entry/exit controls are descriptive and support an explicit native-module subset; they do not certify a profitable edge.
 
-Current downloadable preview: [1.2.0-rc.2](https://github.com/Jokejoker-designer/QUANTSMART/releases/tag/v1.2.0-rc.2). Automated checks pass; final manual browser file-chooser acceptance remains pending.
+Current downloadable preview: [1.2.0-rc.3](https://github.com/Jokejoker-designer/QUANTSMART/releases/tag/v1.2.0-rc.3). Default URL: **http://localhost:5090/**. Automated checks pass; final manual browser file-chooser acceptance remains pending.

@@ -41,7 +41,7 @@ const top=['package.json','README.md','LICENSE','NOTICE','SECURITY.md','.env.exa
 top.push('docs/PRODUCT_TOUR.md','docs/VERIFICATION.md','docs/CUSTOM_MODULES.md','docs/screenshots/custom-l1-feature-graph.png');
 top.push('tests/language-audit.test.mjs','docs/screenshots/cockpit-overview.png','docs/screenshots/chart-replay.png');
 top.push('docs/INSTALLATION.md','.github/workflows/public-install.yml','scripts/environment.mjs','scripts/install.mjs','scripts/doctor.mjs','scripts/package-portable.mjs','tests/installer.test.mjs','tests/public-runtime.test.mjs','tests/first-run.test.mjs');
-top.push('tests/portable-entry.test.mjs','tests/csv-import.test.mjs','tests/csv-runtime.test.mjs','tests/execution-contract.test.mjs','tests/strategy-attribution.test.mjs','docs/CSV_IMPORT.md','docs/CSV_RESEARCH_VALIDATION.md','docs/CSV_RESEARCH_RESULTS.json');
+top.push('tests/default-port.test.mjs','tests/portable-entry.test.mjs','tests/csv-import.test.mjs','tests/csv-runtime.test.mjs','tests/execution-contract.test.mjs','tests/strategy-attribution.test.mjs','docs/CSV_IMPORT.md','docs/CSV_RESEARCH_VALIDATION.md','docs/CSV_RESEARCH_RESULTS.json');
 top.push('docs/QUANT_CHRONOLOGY_AUDIT.md','docs/QUANT_CHRONOLOGY_RESULTS.json','tests/quant-chronology.test.mjs');
 top.push('docs/INSTALLER_VALIDATION.md','docs/QUANT_METHODOLOGY_AUDIT.md','docs/QUANT_AUDIT_RESULTS.json','tests/quant-methodology.test.mjs','tests/research-trials.test.mjs','tests/quant-history-impact.mjs');
 // Only reviewed public screenshots are eligible; never enumerate the private artifact tree.

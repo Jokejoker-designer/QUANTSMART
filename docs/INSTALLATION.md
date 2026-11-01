@@ -2,7 +2,7 @@
 
 ## Windows portable: no Node or npm installation
 
-Download the **Windows x64 portable ZIP** from the repository's Releases page.
+Download the [current Windows x64 portable ZIP](https://github.com/Jokejoker-designer/QUANTSMART/releases/download/v1.2.0-rc.3/QUANTSMART-1.2.0-rc.3-windows-x64.zip), which defaults to **5090**. Older release assets keep their historical defaults.
 Extract the entire ZIP to a writable folder, for example your Documents folder,
 then double-click `start.bat`. Do not run it from inside the ZIP.
 
@@ -13,8 +13,7 @@ per-start build, global install or administrator requirement. Historical mode ca
 run offline without Python. It is a portable app, not a signed `.exe` installer.
 
 The graph/CSV tools inspect the observations you supply. No market history or
-fabricated performance is bundled. Keep the original CSV: the browser import is
-session-local, not a durable server-side market-data archive.
+fabricated performance is bundled. Imports are stored in the local workspace and can be reopened after restart. Keep the original CSV as a separate source copy; see [CSV_IMPORT.md](CSV_IMPORT.md).
 
 For diagnostics from the extracted folder:
 
@@ -46,11 +45,11 @@ npm run mfe -- --historical --no-browser
 npm run setup -- --mt5
 npm run mfe -- --mt5
 npm run mfe -- --dev --historical
-npm run mfe -- --port 5195 --bridge-port 8795
+npm run mfe -- --port 5090 --bridge-port 8791
 npm run mfe:doctor -- --json --offline
 ```
 
-The local URL defaults to `http://localhost:5190`. Keep the launcher terminal open;
+Fresh source and portable downloads default to **`http://localhost:5090/`**. Startup stops if 5090 is occupied; it never scans for another port. Only an explicit `--port` or `MFE_PORT` override changes the app port. On an existing installation, update an old `.env` to `MFE_PORT=5090` to adopt the new default. Keep the launcher terminal open;
 Ctrl+C stops only its own services. Occupied ports never cause unrelated processes
 to be killed. Missing optional connector dependencies degrade to historical mode
 with a reason. Read `WARN` diagnostics before assuming a feature is available.
