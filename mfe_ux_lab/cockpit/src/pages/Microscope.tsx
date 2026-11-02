@@ -1,3 +1,4 @@
+import { useBrokerDeals } from "../lib/useBrokerDeals.ts";
 import {DecisionEvidencePanel} from "../components/DecisionEvidencePanel.tsx";
 import{explainResearchError}from"../lib/researchErrors.ts";
 // Microscope — refit to the MD spec (PAGE 02). Deep diagnostic view: big zone chart + session context +
@@ -281,6 +282,7 @@ export function Microscope() {
   const kidi = useMemo(() => (bars && bars.length > 5 ? kidiSummary(kidiScan(bars)) : null), [bars]);   // KIDI on the (live) tape
   const adv: TradeAdvice = (source === "Live" && liveAdv) ? liveAdv : {};
   const hasAssessment = source === "Live" && !!liveAdv;
+  const brokerEvidence = useBrokerDeals(getActiveSymbol(), source === "Live");
   const isLive = source === "Live" && !!liveQuery.data?.account?.connected && freshWorkspaceBars(liveQuery.data.bars, tf);
   if (missing && !adv) return <div className="pc">
       <ResearchJobStatus pending={primaryJob.pending || compareJob.pending} error={primaryJob.error || compareJob.error} /><div className="mfe-empty"><div className="ic">◫</div><div className="msg">Co-Trade payload not found — NO_DATA honesty.</div></div></div>;
@@ -419,7 +421,7 @@ export function Microscope() {
         {/* CENTER chart */}
         <div className="ms-chart">
           {replayBars.length >= 2
-            ? <MicroChart bars={replayBars} zones={visZones} lines={visLines} symbol={isLive ? liveSymbol(getActiveSymbol()) : getActiveSymbol()} tf={tf} live={isLive} cursor={cursor} markers={replay.markers} trades={revealed} episodes={msEpisodes?.bands} formingEpisode={msEpisodes?.forming} />
+            ? <MicroChart bars={replayBars} zones={visZones} lines={[...visLines,...brokerEvidence.lines]} symbol={isLive ? liveSymbol(getActiveSymbol()) : getActiveSymbol()} tf={tf} live={isLive} cursor={cursor} markers={replay.markers} trades={revealed} brokerDeals={brokerEvidence.deals} brokerSymbol={getActiveSymbol()} episodes={msEpisodes?.bands} formingEpisode={msEpisodes?.forming} />
             : <div className="mfe-empty" style={{ flex: 1 }}><div className="ic">◫</div><div className="msg">Loading {tf} candles…</div></div>}
         </div>
 

@@ -26,6 +26,17 @@ Check MT5 before creating another request. A pending request ID may be retained 
 sessionStorage only for result lookup; credentials are never stored there. This
 adapter does not change MT5 Algo Trading or external-API protection settings.
 
+The Card Demo runner has its own default-off flag, `MFE_ENABLE_CARD_DEMO=false`.
+Starting it binds a frozen saved Card, account identity, terminal generation and
+fixed volume. The browser cannot forward `/mt5/demo/auto/execute` through the
+market-data gateway. Only the backend runner calls that private bridge route.
+The runner uses newly closed candles, claims each candle once, and writes an
+intent to the local journal before sending. Unknown results halt the session and
+require reconciliation on the original account, with no open positions or pending
+orders. Restart never resumes a session. The separate runner does not give
+research jobs execution authority. New UI and live automatic-runner acceptance
+are pending; see [the execution contract](docs/DEMO_AUTOMATION.md).
+
 Never publish .env, .venv, .mfe-state, node_modules, account configuration, public
 data histories, artifacts, browser exports, backups or workspace receipts. Build
 an allowlisted release with npm run package:mfe, inspect RELEASE_MANIFEST.json,

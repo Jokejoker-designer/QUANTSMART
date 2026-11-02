@@ -64,7 +64,7 @@ export async function bootstrap(args=process.argv.slice(2)){
   let {bridgeEnabled,venvPython,disabledReason}=prepared;
   if(args.includes('--setup-only')){console.log('Setup complete. Start with npm start (or start.bat). Use npm run mfe:doctor for optional capability details.');return;}
   if(bridgeEnabled&&await listening(config.bridgePort)){bridgeEnabled=false;disabledReason='BRIDGE_PORT_IN_USE';console.warn(`Bridge port ${config.bridgePort} is occupied. Existing service preserved; historical mode remains available. Choose --bridge-port to enable MT5.`);}
-  const runtimeEnv={...process.env,MFE_ENABLE_MANUAL_DEMO:settings.MFE_ENABLE_MANUAL_DEMO||'false',MFE_MT5_SERVER_TIMEZONE:settings.MFE_MT5_SERVER_TIMEZONE||'UTC',MFE_BRIDGE_PORT:String(config.bridgePort),MFE_BRIDGE_DISABLED_REASON:disabledReason,MFE_BRIDGE_TOKEN:bridgeEnabled?randomBytes(32).toString('hex'):''};
+  const runtimeEnv={...process.env,MFE_ENABLE_MANUAL_DEMO:settings.MFE_ENABLE_MANUAL_DEMO||'false',MFE_ENABLE_CARD_DEMO:settings.MFE_ENABLE_CARD_DEMO||'false',MFE_MT5_SERVER_TIMEZONE:settings.MFE_MT5_SERVER_TIMEZONE||'UTC',MFE_BRIDGE_PORT:String(config.bridgePort),MFE_BRIDGE_DISABLED_REASON:disabledReason,MFE_BRIDGE_TOKEN:bridgeEnabled?randomBytes(32).toString('hex'):''};
   if(bridgeEnabled){const bridge=run(venvPython,[join(ROOT,'bridge','mt5_bridge.py')],{env:runtimeEnv,long:true});await ready(`http://127.0.0.1:${config.bridgePort}/health`,d=>d.service==='mfe-mt5-readonly',bridge);console.log('Read-only MT5 bridge ready. Open MT5, then choose Auto-Attach in QUANTSMART.');}
   let frontend;
   if(config.production){frontend=run(process.execPath,[join(APP,'tools','productServer.mjs'),'--port',String(config.port)],{cwd:APP,env:runtimeEnv,long:true});}

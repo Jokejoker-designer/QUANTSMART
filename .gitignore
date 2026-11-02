@@ -75,3 +75,4 @@
 **/*account*.json
 **/workspace*.json
 !/.env.example
+!/docs/DEMO_AUTOMATION.md

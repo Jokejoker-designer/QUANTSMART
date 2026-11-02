@@ -71,6 +71,12 @@ and preserved. The research `.venv` is never used as a repair target. Real accou
 may provide read-only data; optional manual execution remains Demo-only and off
 by default. Research runs never place orders.
 
+The separate Card Demo runner preview is also off by default. Set
+`MFE_ENABLE_CARD_DEMO=true` in your local `.env`, restart, choose a saved Card and
+use **Check Card support**. Enabling the flag does not Start a session. Read
+[supported behavior and verification limits](DEMO_AUTOMATION.md) before using
+**Start Card on Demo**. Existing manual tickets still need their own opt-in flag.
+
 ## Tests without private data
 
 ```sh

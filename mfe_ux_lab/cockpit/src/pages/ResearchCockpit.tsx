@@ -24,6 +24,7 @@ import type { TradeAdvice } from "../adapters/loadCotrade.ts";
 import type { CChartZone } from "../components/CockpitChart.tsx";
 import "./product.css";
 import "./quant-cockpit.css";
+import { useBrokerDeals } from "../lib/useBrokerDeals.ts";
 
 const go = (id: string) => window.dispatchEvent(new CustomEvent("mfe-nav", { detail: id }));
 const TFS = ["M15", "H1", "H4", "D1", "W1"];
@@ -148,6 +149,7 @@ export function ResearchCockpit() {
   const liveBar = liveReady && live.data?.live_bar && "spread" in live.data.live_bar ? live.data.live_bar : null;
   const reasons = entry?.no_trade_codes || advice?.no_trade?.codes || [];
   const sourceLabel = source === "history" ? "Historical OHLC" : liveReady ? "MT5 connected" : "Feed unavailable";
+  const brokerEvidence = useBrokerDeals(symbol,source === "live");
 
   async function createExample() {
     setBusy(true); setError(null);
@@ -212,7 +214,8 @@ export function ResearchCockpit() {
         <section className="quant-chart" aria-label="Market chart">
           <div className="quant-chart-heading"><strong>{symbol} <span>{tf}</span></strong><span>{last?.t || "Waiting for OHLC"}</span><label><input type="checkbox" checked={zones} onChange={(e) => setZones(e.target.checked)} />Zones</label></div>
           <div className="quant-zone-legend">{showZones.map((z, i) => <span key={i} style={{ color: z.color }}><i />{z.label}</span>)}<small>{card ? "Card structural model" : "Market structural model · no Card selected"} · as of last bar</small></div>
-          <div className="quant-chart-canvas">{bars.length > 1 ? <MicroChart bars={bars} zones={showZones} zoneLayout="wide" symbol={symbol} tf={tf} live={liveReady} /> : <div className="product-empty"><h2>{source === "live" ? "Live feed unavailable" : error ? "History unavailable" : "Loading market history"}</h2><p>{source === "live" ? "Connect the data service to inspect current market observations." : "The research service reads the local OHLC dataset."}</p><button className="product-button" onClick={() => go(source === "live" ? "microscope" : "assets")}>{source === "live" ? "Open Microscope" : "Open Assets"}</button></div>}</div>
+          {source === "live" && <div className="quant-zone-legend" role="status"><small>{brokerEvidence.error ? "Demo broker fill history unavailable: " + brokerEvidence.error.replace(/_/g," ") : `${brokerEvidence.deals.length} broker Demo fills loaded · diamonds mark actual executions; CLOSE is not a new opposing entry`}</small></div>}
+          <div className="quant-chart-canvas">{bars.length > 1 ? <MicroChart bars={bars} zones={showZones} zoneLayout="wide" symbol={symbol} tf={tf} live={liveReady} brokerDeals={brokerEvidence.deals} lines={brokerEvidence.lines} /> : <div className="product-empty"><h2>{source === "live" ? "Live feed unavailable" : error ? "History unavailable" : "Loading market history"}</h2><p>{source === "live" ? "Connect the data service to inspect current market observations." : "The research service reads the local OHLC dataset."}</p><button className="product-button" onClick={() => go(source === "live" ? "microscope" : "assets")}>{source === "live" ? "Open Microscope" : "Open Assets"}</button></div>}</div>
         </section>
         <div className="quant-market-widgets">
           <Panel title="Sweep map / liquidity" note="Liquidity levels come from the advisory source. The rolling 20-bar high and low are observed price extremes, not confirmed stop pools."><dl><Row label="Above liquidity">{number(above)}</Row><Row label="Below liquidity">{number(below)}</Row><Row label="20-bar high">{number(rangeHigh)}</Row><Row label="20-bar low">{number(rangeLow)}</Row></dl><button className="quant-link" onClick={() => go("microscope")}>Inspect structure</button></Panel>
@@ -237,4 +240,3 @@ export function ResearchCockpit() {
     </div>
   </div>;
 }
-

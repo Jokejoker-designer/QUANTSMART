@@ -56,12 +56,18 @@ market-history files; your local installation supplies those inputs.
 QUANTSMART is open source under **Apache-2.0**. Research jobs never place broker
 orders. An optional, separately enabled manual ticket workflow supports MT5 **Demo**
 accounts with review and confirmation. Real accounts cannot use that execution path.
+The separate, opt-in [Card Demo runner preview](docs/DEMO_AUTOMATION.md) can evaluate
+newly closed candles and execute supported Card rules on Demo after an explicit Start.
 See [verification and limits](docs/VERIFICATION.md), [LICENSE](LICENSE) and
 [SECURITY.md](SECURITY.md).
 
 ## Quick start
 
-Windows download: [current portable preview, default port 5090](https://github.com/Jokejoker-designer/QUANTSMART/releases/download/v1.2.0-rc.6/QUANTSMART-1.2.0-rc.6-windows-x64.zip). Historical release assets retain their original behavior; use this build for the 5090 default. CSV file-chooser import, chart opening and custom L1–L6 workflows are covered in the [verification record](docs/LAYER_VALIDATION.md).
+Windows download: [current portable preview, default port 5090](https://github.com/Jokejoker-designer/QUANTSMART/releases/download/v1.2.0-rc.7/QUANTSMART-1.2.0-rc.7-windows-x64.zip). Historical release assets retain their original behavior; use this build for the 5090 default. CSV file-chooser import, chart opening and custom L1–L6 workflows are covered in the [verification record](docs/LAYER_VALIDATION.md).
+
+### Demo Card execution preview
+
+The opt-in Card runner evaluates newly closed candles, binds a frozen Card definition to the connected Demo account, and never resumes automatically. Broker deal markers distinguish entries from closes. This adapter has passed code/API and SDK-fixture checks; live automatic-runner and new UI acceptance are still pending. Read the [execution contract and verification limits](docs/DEMO_AUTOMATION.md) before enabling it.
 
 ### Requirements
 
@@ -197,7 +203,7 @@ closed candles. Hidden tabs suspend their subscription, and disconnected feeds
 show a waiting/reconnecting state. Catch-up reads are bounded at 8,192 rows per
 batch; an unprogressable backlog reports an error rather than a false live state.
 
-## Card controls and optional manual Demo tickets
+## Card controls and optional Demo execution
 
 In Cockpit or Strategy Lab, select a saved Card and choose **Card backtest**.
 Choose local history or a frozen sample of MT5 closed candles, then **Run backtest**.
@@ -205,12 +211,18 @@ Progress, cancellation and saved evidence stay beside that Card. **Open chart**
 opens its market view. Full multi-window validation remains under Advanced validation.
 
 Manual Demo execution is opt-in. Set `MFE_ENABLE_MANUAL_DEMO=true` in the local
-`.env` and restart the launcher. Choose **MT5 Demo**, verify the account, enter
+`.env` and restart the launcher. Choose **MT5 Demo → Manual Demo ticket & positions**, verify the account, enter
 volume/direction, and review the broker-checked ticket. Only **Confirm Demo BUY/SELL**
 submits it. Each position has **Review close**, followed by a separate confirmation.
 Real/contest/unknown accounts are rejected. Research runs never call execution.
 QUANTSMART does not change the terminal's Algo Trading or external Python API settings.
 If a response is unknown, check MT5 before creating another request.
+
+For the opt-in automatic preview, set `MFE_ENABLE_CARD_DEMO=true`, select a Card,
+then use **Check Card support** before **Start Card on Demo**. This is a separate
+process-local session with fixed lots, a maximum entry count and a frozen definition.
+Stop prevents future requests; it does not liquidate an existing broker position.
+See the [supported behavior and pending acceptance](docs/DEMO_AUTOMATION.md).
 
 ## Historical research without MT5
 
@@ -280,7 +292,7 @@ The [follow-up audit](docs/QUANT_CHRONOLOGY_AUDIT.md) reproduces and fixes next-
 
 Import historical prices in the [CSV workflow](docs/CSV_IMPORT.md), review strict validation and reopen local datasets after restart. The same stored bars feed chart aggregation and supported Card runs. The [1.2.0 validation record](docs/CSV_RESEARCH_VALIDATION.md) documents actual market-CSV checks, stop-floor/ambiguity/gap corrections and the original acceptance boundary. The [layer verification update](docs/LAYER_VALIDATION.md) records the subsequent browser import and custom-module checks. Matched entry/exit controls are descriptive and support an explicit native-module subset; they do not certify a profitable edge.
 
-Current downloadable preview: [1.2.0-rc.6](https://github.com/Jokejoker-designer/QUANTSMART/releases/tag/v1.2.0-rc.6). Default URL: **http://localhost:5090/**. CSV file-chooser acceptance and custom-layer workflows were exercised on the built preview. See the [verification scope](docs/LAYER_VALIDATION.md) for remaining limits.
+Current downloadable preview: [1.2.0-rc.7](https://github.com/Jokejoker-designer/QUANTSMART/releases/tag/v1.2.0-rc.7). Default URL: **http://localhost:5090/**. CSV file-chooser acceptance and custom-layer workflows were exercised on the built preview. See the [verification scope](docs/LAYER_VALIDATION.md) for remaining limits.
 
 ## Inspect decision and outcome evidence
 

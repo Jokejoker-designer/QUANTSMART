@@ -9,8 +9,8 @@
   "files": [
     {
       "path": ".env.example",
-      "sha256": "2c03b725daa6e793ac7d3a50f1462b97f1e7985ab64f347eabda364896352165",
-      "bytes": 583
+      "sha256": "5fb3e4cdea7d2ed542c41718bbcb9abfd0b75a977554db79e2b923352050fbd0",
+      "bytes": 700
     },
     {
       "path": ".github/workflows/public-install.yml",
@@ -19,8 +19,8 @@
     },
     {
       "path": ".gitignore",
-      "sha256": "bbb8f0d7b49d5823e61f35e5514b4c64a036556d5c90d9fb268a179e79109b69",
-      "bytes": 1741
+      "sha256": "df022b52fbff9ed857b1f4fc5080e838de313ab3f7ccc6d68a5eecd5df9d8632",
+      "bytes": 1768
     },
     {
       "path": "LICENSE",
@@ -34,23 +34,43 @@
     },
     {
       "path": "README.md",
-      "sha256": "711149fccd25a85a83b7c1ebcc4c98bca554f4937ab7d29688e9cfdc290a9484",
-      "bytes": 15706
+      "sha256": "92fc4a5fd0c730121052aef50b3aeea7db2e92c39448563663d2a72c9d702392",
+      "bytes": 16783
     },
     {
       "path": "SECURITY.md",
-      "sha256": "2f77fd5156b9c66bb62127417a093d97c1c401b2e81149687ed7562f9c6dbda6",
-      "bytes": 2399
+      "sha256": "587c2b522bbce9fd24c4aec8faf7e971daf6b316b938d7f849c597ceea485903",
+      "bytes": 3191
+    },
+    {
+      "path": "bridge/broker_deals.py",
+      "sha256": "e8f3ae64d2c83e396bfc2fd2a810a1a292ab0f9c8859886ff7261078f6dac580",
+      "bytes": 5138
+    },
+    {
+      "path": "bridge/demo_automation.py",
+      "sha256": "2f7c614c8950a168141c646ec3f22ac28df2152d963e4a8a087d96eeb2478821",
+      "bytes": 13313
     },
     {
       "path": "bridge/demo_execution.py",
-      "sha256": "2366f53974c5dd62bbd39332bfed2c71ebca499c3992171816ce157d1c2331bc",
-      "bytes": 13916
+      "sha256": "bfead839008ed190b320ec0fa4850074986a3d6294fffa44f1a49a6f18df857a",
+      "bytes": 13956
     },
     {
       "path": "bridge/mt5_bridge.py",
-      "sha256": "1993837cf9a6e2203b6a689294787588429069382e87d858b494b165bdb6e5da",
-      "bytes": 30190
+      "sha256": "2f1336e0628370b6d968e6516525969d7b94be6906cf9ad956294a7536e53679",
+      "bytes": 31574
+    },
+    {
+      "path": "bridge/tests/test_broker_deals.py",
+      "sha256": "5d1bbe678c6567856618c7b9f2d5a5feec062da788c21bf292192c530956122f",
+      "bytes": 3656
+    },
+    {
+      "path": "bridge/tests/test_demo_automation.py",
+      "sha256": "982f2aeb8e144be99c4553fa565a75ba4e005860326b753d3ec700b88a7d5d2a",
+      "bytes": 6548
     },
     {
       "path": "bridge/tests/test_demo_execution.py",
@@ -83,14 +103,19 @@
       "bytes": 3978
     },
     {
+      "path": "docs/DEMO_AUTOMATION.md",
+      "sha256": "e0d4eef63fb3ea5c2d377977c15f509d284ffecaa7c03962e381da8495d0e7bb",
+      "bytes": 6537
+    },
+    {
       "path": "docs/DRIVE_INTEGRATION_AUDIT.md",
       "sha256": "a1578e73309bf4cddb5b7bfa2d18e895d2a328538d88ca36ed40fe68dc4ab2cb",
       "bytes": 10591
     },
     {
       "path": "docs/INSTALLATION.md",
-      "sha256": "c77f9111c0430980ae25153cd385bea38fa2a9d42b1677930a5dcd0ea4c170fe",
-      "bytes": 5922
+      "sha256": "0fb0719910736f4a9ae30d429adea7fbfc1ee73021936bad3949ef8d30b3d2cb",
+      "bytes": 6315
     },
     {
       "path": "docs/INSTALLER_VALIDATION.md",
@@ -398,6 +423,11 @@
       "bytes": 12042
     },
     {
+      "path": "mfe_ux_lab/cockpit/src/components/DemoCardRunner.tsx",
+      "sha256": "19c6457a48197ed08e35a06e646afd25956b9e12e247d004e841cd348e582cc9",
+      "bytes": 8602
+    },
+    {
       "path": "mfe_ux_lab/cockpit/src/components/DemoTradeTicket.tsx",
       "sha256": "701710ec466838d36c4b097b9c3cf7c3b330f1e0740536e7a3863cb2ac61b225",
       "bytes": 12720
@@ -469,8 +499,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/MicroChart.tsx",
-      "sha256": "53b3c79f0bd006abffdd6a564f537982fe56ed8cecd10659ae874d987e1f3f93",
-      "bytes": 49646
+      "sha256": "d29cf8b1a93eadd4891e91a59a34f60f672b74276a7d6bc7f15ccad4e9bf09da",
+      "bytes": 50683
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/ModuleIntentSandbox.tsx",
@@ -579,8 +609,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/StrategyControls.tsx",
-      "sha256": "f0dfd14292786e4631ce4f60be1699b295bc5974b08605ebfb33b8f1c9b427db",
-      "bytes": 5822
+      "sha256": "ebe8594c264c461d679e19a227dd42035efa1d199e06011607ed7776aca1f436",
+      "bytes": 6009
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/StrategyIntelligencePanel.tsx",
@@ -629,8 +659,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/strategy-controls.css",
-      "sha256": "5ddef727107a0fe34c8416d427f9fa630e463e21b4d6fa2f0b1ae7a5f5db5dd8",
-      "bytes": 5532
+      "sha256": "eacb01512173365f7180450085843840e780d440e38168be800505f1c4f4e8cc",
+      "bytes": 6290
     },
     {
       "path": "mfe_ux_lab/cockpit/src/components/ui/Glyph.tsx",
@@ -1133,6 +1163,11 @@
       "bytes": 1386
     },
     {
+      "path": "mfe_ux_lab/cockpit/src/lib/brokerDealMarkers.ts",
+      "sha256": "0a9fc68e99b882f642345181a524a4f6538f0bdfc8de3b63419265ed327d712d",
+      "bytes": 3204
+    },
+    {
       "path": "mfe_ux_lab/cockpit/src/lib/cardBeastV2/affinityObserved.ts",
       "sha256": "1eb6c488754b08e2cb228e430b3317e9daf343025c5242482af4ad27cac728d0",
       "bytes": 5325
@@ -1383,6 +1418,11 @@
       "bytes": 2234
     },
     {
+      "path": "mfe_ux_lab/cockpit/src/lib/demoCardDecision.ts",
+      "sha256": "fdffc248033346d46eb3842bcfc6c00b73d1aec436c2481907b79c063c8757fa",
+      "bytes": 9048
+    },
+    {
       "path": "mfe_ux_lab/cockpit/src/lib/displayClock.ts",
       "sha256": "103ff3d0cb71a245561c1dfcf1b5fe0ee5e7b0b66ca3314b77666c06ddc2681b",
       "bytes": 1139
@@ -1534,8 +1574,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/realisticStrategySim.ts",
-      "sha256": "47451147cbead3fad78c149f5d284bcb4669399832b316916259f9f18f408653",
-      "bytes": 64473
+      "sha256": "1af8fe4e962e6da6c432fcf6f4432cbc115927f585dbc0257fc3205606aa7254",
+      "bytes": 64744
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/resampleM1.ts",
@@ -1668,6 +1708,11 @@
       "bytes": 6502
     },
     {
+      "path": "mfe_ux_lab/cockpit/src/lib/strategyCloseRule.ts",
+      "sha256": "2901b5ea597f267867dfebe94c4783b294b656412f3dc2313d5fb339cf09f264",
+      "bytes": 812
+    },
+    {
       "path": "mfe_ux_lab/cockpit/src/lib/strategyIdentity.ts",
       "sha256": "5261ad56f4429c8c33d3034f599927066b73b14901ecf23f7ddfb78488d71db1",
       "bytes": 1649
@@ -1706,6 +1751,11 @@
       "path": "mfe_ux_lab/cockpit/src/lib/tfFitScan.ts",
       "sha256": "22945586ea5d4b62b3689642549ba1365473cffd65337fa4b057762dbf183090",
       "bytes": 4559
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/src/lib/useBrokerDeals.ts",
+      "sha256": "7f4c44390aa5b1cbbf621ee61a278eb5d1569815a8429a98485ab7ed4c112859",
+      "bytes": 2822
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/valueAreaProxy.ts",
@@ -1774,8 +1824,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/pages/Microscope.tsx",
-      "sha256": "1a1dc4a6d0e1f916dd6a1fda5310c91c4877e4bc5dede979506e19f893b7dbbe",
-      "bytes": 63719
+      "sha256": "a9e4ffb7b04ac1eb1e8fbdb4f2cc111f5d960c6823fc7985f02dc609adfbb567",
+      "bytes": 63953
     },
     {
       "path": "mfe_ux_lab/cockpit/src/pages/Playbook.tsx",
@@ -1784,8 +1834,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/pages/ResearchCockpit.tsx",
-      "sha256": "227fcd30a98aae9dec0c969560135a3b84d222bf2e18f259df0944e2e87ae225",
-      "bytes": 27402
+      "sha256": "d232608d37f82175723818fe8bf95c7f00c0914e211dfe2e59e97fd3e9f84fe9",
+      "bytes": 27932
     },
     {
       "path": "mfe_ux_lab/cockpit/src/pages/StrategyCanvas.tsx",
@@ -1904,8 +1954,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/build-research-runtime.mjs",
-      "sha256": "0a42623171acd84c1a76ddeaa175eedfb1e3ec430fdff062132e98e9fefb4b62",
-      "bytes": 780
+      "sha256": "c50660038af78866b416fef516a1ba591f9cb9a437f8572afc66c892b498cfb3",
+      "bytes": 1032
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/decisionEvidenceRepository.mjs",
@@ -1918,24 +1968,34 @@
       "bytes": 12312
     },
     {
+      "path": "mfe_ux_lab/cockpit/tools/demoDecisionWorker.mjs",
+      "sha256": "7b47d004992a59884f0483beb2f3c82eb78aa4f57afc8003debc7d40ceef692f",
+      "bytes": 502
+    },
+    {
+      "path": "mfe_ux_lab/cockpit/tools/demoRunner.mjs",
+      "sha256": "94349c005b8fa08bda39356d68b5e4bb4570ac46b59f1a80b8c1ac67a5c6f2b6",
+      "bytes": 16446
+    },
+    {
       "path": "mfe_ux_lab/cockpit/tools/importRepository.mjs",
       "sha256": "86052a6363c4081f2427ebc8df6487939f1c4c7c6d59faa6afc7f327856d3cb6",
       "bytes": 2702
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/mt5BridgeProxy.mjs",
-      "sha256": "e4d0bdf5b5ab47f4563d300dc0b9c40e45601e3a3cb05efda0a37605340c1d82",
-      "bytes": 4927
+      "sha256": "22b6c5a1e4da4e8fbc74db2a9909c0202a9fd38d64fa38c5697738f59ed47f72",
+      "bytes": 4939
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/productServer.mjs",
-      "sha256": "3808107bd0a99d0e5b3dda5560c038769a1abeed534baf4a367293e2e6d6d0f6",
-      "bytes": 3016
+      "sha256": "c43bd43ebbdc1bc663972d81e3fdefac42938e7da0eab38e4eefd70345b51d7e",
+      "bytes": 3318
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/researchBackend.mjs",
-      "sha256": "2b678ebd50daaffb5fd9e2ae4c94d16006c5c82de99ef8760d4f1aa911c0f320",
-      "bytes": 14993
+      "sha256": "93e34d916c3f67cc9a20a82861e4eb244365f156be77b15e90104fb61e299e04",
+      "bytes": 15028
     },
     {
       "path": "mfe_ux_lab/cockpit/tools/researchTrials.mjs",
@@ -2009,8 +2069,8 @@
     },
     {
       "path": "scripts/bootstrap.mjs",
-      "sha256": "4ef86c6b298efe5488fcefa7e7d3fcb645f4478a1892f12ac51e5a521de3b311",
-      "bytes": 9966
+      "sha256": "b16e9b2f804887e2ea61823ac8aa2ab8b6b9b86e1d69b4bdb256d93bdfb00c17",
+      "bytes": 10025
     },
     {
       "path": "scripts/doctor.mjs",
@@ -2029,18 +2089,18 @@
     },
     {
       "path": "scripts/package-portable.mjs",
-      "sha256": "2a720b97e88e06460ef7e0d48a40d3be8ea1f8e5bb662c7a10ea81cc1a86835a",
-      "bytes": 6404
+      "sha256": "52f4be791d5425efc4091f307895e98eb3229d658b172d42488d187d2b4bf710",
+      "bytes": 6473
     },
     {
       "path": "scripts/package-release.mjs",
-      "sha256": "e1b626f75d3eae8726f2a2f1f3b69ef41e4a9a5a318fb0c5a21d25c7761e13bc",
-      "bytes": 9177
+      "sha256": "f9d5395c29094e219a189b81238d3664d143f48935d840afca1ba35494bcb4a9",
+      "bytes": 9477
     },
     {
       "path": "scripts/test.mjs",
-      "sha256": "714e2956b6bbd5a8c4c889be354797b2cdf5321faf293c3cab8ef97505f63d65",
-      "bytes": 2928
+      "sha256": "8d24241c65c9b3d402d3d310819a3d3caf78e524708cf58a2e6bccb4d6c4cd2e",
+      "bytes": 2979
     },
     {
       "path": "start.bat",
@@ -2056,6 +2116,11 @@
       "path": "tests/bootstrap.test.mjs",
       "sha256": "8e245ada09fc3dcef506d61940be9cb9b9f36992fe618eb448c5997ffedc755c",
       "bytes": 2706
+    },
+    {
+      "path": "tests/broker-markers.test.mjs",
+      "sha256": "1ecce747526b61dd4d79564a0d3d36750f7aa5230fe9731f0d1454128c487517",
+      "bytes": 2525
     },
     {
       "path": "tests/csv-import.test.mjs",
@@ -2081,6 +2146,16 @@
       "path": "tests/default-port.test.mjs",
       "sha256": "11cdbd83a67ab87c3c535388fcef1d23303292d50660cdbccf8773db1cef65c5",
       "bytes": 2083
+    },
+    {
+      "path": "tests/demo-card-decision.test.mjs",
+      "sha256": "024176c2a9f7ce37e3c98f07b87a3a161b9844f7305af9c1f10dcd1a55b3199f",
+      "bytes": 5462
+    },
+    {
+      "path": "tests/demo-runner.test.mjs",
+      "sha256": "667e8cc96c7b6efda41b601cdb97da443c83642ce78455a8a9ea42d1622c22e3",
+      "bytes": 5750
     },
     {
       "path": "tests/display-clock.test.mjs",
@@ -2179,8 +2254,8 @@
     },
     {
       "path": "tests/report-labels.test.mjs",
-      "sha256": "5357f65d5bd7707df4570205cbe42a4b0d6679688e73ee2c1597c894b6a9a781",
-      "bytes": 2958
+      "sha256": "9b9e3c05fb38f5329c94d4eb0360a49e995ea15c168fcdc390a6f98e38540b7e",
+      "bytes": 2983
     },
     {
       "path": "tests/research-operations.test.mjs",

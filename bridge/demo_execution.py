@@ -83,7 +83,7 @@ class DemoExecution:
             rows = [{"ticket": str(p.ticket), "symbol": p.symbol, "side": "BUY" if int(p.type) == 0 else "SELL",
                      "volume": float(p.volume), "open_price": float(p.price_open), "current_price": float(p.price_current),
                      "profit": float(p.profit), "sl": float(p.sl), "tp": float(p.tp)} for p in data[:100]]
-            return {"ok": True, "positions": rows, "total": len(data), **SCOPE}
+            return {"ok": True, "positions": rows, "total": len(data), "generation": self.terminal.generation, **SCOPE}
 
     def _quote(self, name):
         tick = self.terminal.sdk.symbol_info_tick(name)

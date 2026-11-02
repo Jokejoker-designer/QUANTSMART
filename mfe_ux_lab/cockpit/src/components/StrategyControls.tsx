@@ -6,6 +6,7 @@ import { isTerminalAttached, useTerminalGeneration } from "../lib/mt5Connection.
 import { getCardRuntimeConfig } from "../lib/simTimeframe.ts";
 import { flushWorkspace } from "../lib/workspaceClient.ts";
 import { DemoTradeTicket } from "./DemoTradeTicket.tsx";
+import { DemoCardRunner } from "./DemoCardRunner.tsx";
 import { readCardEvidence } from "./CardEvidencePanel.tsx";
 import "./strategy-controls.css";
 
@@ -28,7 +29,7 @@ export function StrategyControls({ card, onAdvanced }: { card: StrategyCardArtif
     finally { controller.current = null; }
   }
   return <div className="strategy-controls"><div className="strategy-mode" role="group" aria-label="Strategy control mode"><button aria-pressed={mode === "research"} disabled={busy} onClick={() => setMode("research")}>Card backtest</button><button aria-pressed={mode === "demo"} disabled={busy} onClick={() => setMode("demo")}>MT5 Demo</button></div>
-    {mode === "demo" ? <DemoTradeTicket symbol={card?.symbol || getActiveSymbol()} /> : <>
+    {mode === "demo" ? <><DemoCardRunner card={card}/><details className="strategy-advanced"><summary>Manual Demo ticket & positions</summary><DemoTradeTicket symbol={card?.symbol || getActiveSymbol()} /></details></> : <>
       <div className="strategy-context"><strong>{card?.name || "Select a Strategy Card"}</strong><span>{card ? `${card.symbol || getActiveSymbol()} · design ${config?.design_tf} · execution ${config?.allowed_execution_tf}` : "Choose a Card above to run a measured test."}</span></div>
       <label className="strategy-field">Price history<select aria-label="Backtest price history" value={source} disabled={busy} onChange={e => setSource(e.target.value === "mt5" ? "mt5" : "history")}><option value="mt5" disabled={!isTerminalAttached()}>MT5 closed candles</option><option value="history">Local historical dataset</option></select></label>
       <p className="strategy-help">{source === "mt5" ? "Freezes recent closed candles for this test. The sample does not follow incoming ticks." : "Uses the local dataset and chronological walk-forward validation."} Costs use the existing HARD test settings.</p>

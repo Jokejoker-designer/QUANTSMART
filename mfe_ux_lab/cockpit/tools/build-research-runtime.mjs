@@ -7,3 +7,5 @@ const code=result.outputFiles[0].text,engineHash=createHash('sha256').update(cod
 const directory=resolve('release_artifacts/research-runtime');mkdirSync(directory,{recursive:true});
 writeFileSync(resolve(directory,'worker.cjs'),code);writeFileSync(resolve(directory,'manifest.json'),JSON.stringify({schema:1,engine_hash:engineHash,built_at:new Date().toISOString()},null,2));
 console.log(`Research runtime built: ${engineHash}`);
+const demo=await build({absWorkingDir:process.cwd(),entryPoints:['tools/demoDecisionWorker.mjs'],bundle:true,platform:'node',format:'cjs',write:false,logLevel:'silent'});
+writeFileSync(resolve(directory,'demo-decision.cjs'),demo.outputFiles[0].text);

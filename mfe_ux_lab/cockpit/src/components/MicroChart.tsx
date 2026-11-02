@@ -10,6 +10,7 @@ import { arrangeZoneLabels } from "../lib/chartZoneLabels.ts";
 import { useLiveTickFeed } from "../lib/liveTickFeed.ts";
 import { withFormingBar } from "../lib/liveTickModel.ts";
 import { useElementSize } from "../core/useElementSize.ts";
+import { brokerDealMarkers, type BrokerDeal } from "../lib/brokerDealMarkers.ts";
 
 const ZONE_PAINT: Record<string, string> = {
   observation: "var(--accent-cyan)", confirmation: "var(--bull-green)",
@@ -63,15 +64,17 @@ export interface SignalMarker {
 
 export interface TradeSeg { entryI: number; entry: number; exitI: number; exit: number; dir: "BUY" | "SELL"; outcome: "TP" | "SL"; R: number; why?: string[]; t?: string }
 
-export function MicroChart({ bars: closedBars, zones = [], lines = [], symbol, tf, live = false, cursor = null, markers = [], signals = [], trades = [], episodes = [], formingEpisode = null, zoneLayout = "recent" }: {
+export function MicroChart({ bars: closedBars, zones = [], lines = [], symbol, tf, live = false, cursor = null, markers = [], signals = [], trades = [], episodes = [], formingEpisode = null, zoneLayout = "recent", brokerDeals = [], brokerSymbol = symbol }: {
   bars: OhlcBar[]; zones?: CChartZone[]; lines?: CChartLine[]; symbol: string; tf: string; live?: boolean;
   cursor?: number | null; markers?: { i: number; price: number; kind: string }[]; signals?: SignalMarker[]; trades?: TradeSeg[];
   episodes?: EpisodeBand[]; formingEpisode?: EpisodeBand | null;   // CH Episode Lens (observer) — coloured leg ribbon below the price plot
   zoneLayout?: "recent" | "wide";
+  brokerDeals?: BrokerDeal[]; brokerSymbol?: string;
 }) {
   const tickFeed = useLiveTickFeed(symbol, tf, live);
   const frame = tickFeed.status === "live" || tickFeed.status === "stale" ? tickFeed.frame : null;
   const bars = useMemo(() => withFormingBar(closedBars, frame), [closedBars, frame]);
+  const brokerMarks = useMemo(() => brokerDealMarkers(bars,brokerDeals,brokerSymbol,({M1:1,M5:5,M15:15,M30:30,H1:60,H4:240,D1:1440,W1:10080} as Record<string,number>)[tf] || 60),[bars,brokerDeals,brokerSymbol,tf]);
   const quote = frame?.ticks[frame.ticks.length - 1];
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const { ref: measureChart, size: chartSize } = useElementSize<HTMLDivElement>();
@@ -128,7 +131,7 @@ export function MicroChart({ bars: closedBars, zones = [], lines = [], symbol, t
   // candles never squish to nothing on an extreme TF mismatch.
   const lo0c = Math.min(...vis.map((b) => b.l)), hi0c = Math.max(...vis.map((b) => b.h));
   const rng0 = (hi0c - lo0c) || 1, K = 3;
-  const zvals = [...zones.flatMap((z) => [z.lo, z.hi]), ...lines.map((l) => l.price)]
+  const zvals = [...zones.flatMap((z) => [z.lo, z.hi]), ...lines.map((l) => l.price), ...brokerMarks.filter(m=>m.i>=start&&m.i<=end).map(m=>m.price)]
     .filter((v) => typeof v === "number" && isFinite(v))
     .map((v) => Math.max(lo0c - K * rng0, Math.min(hi0c + K * rng0, v)));
   const lo0 = Math.min(lo0c, ...(zvals.length ? zvals : [lo0c])), hi0 = Math.max(hi0c, ...(zvals.length ? zvals : [hi0c]));
@@ -268,6 +271,7 @@ export function MicroChart({ bars: closedBars, zones = [], lines = [], symbol, t
               const col = m.kind === "tp" ? "var(--bull-green)" : "var(--bear-red)";
               return <g key={`mk${k}`}><circle cx={x} cy={y} r="2.6" fill={col} stroke="var(--chart-canvas)" strokeWidth="0.8" />{lab && <text x={x + 5} y={y + 3} fill={col} fontSize="7.5" fontWeight="700" fontFamily={MONO}>{m.kind.toUpperCase()}</text>}</g>;
             })}
+            {brokerMarks.filter(m => m.i >= start && m.i <= end).map((m,k) => { const x=xFor(m.i),y=yFor(m.price),offset=(k%3)*16;return <g key={`broker-${m.id}`} role="img" aria-label={`${m.label} ${m.detail}`}><title>{m.detail}</title><path d={`M ${x} ${y-5} l 5 5 l -5 5 l -5 -5 z`} fill={m.color} stroke="#fff" strokeWidth="1"/><line x1={x} y1={y} x2={x+12} y2={y-18-offset} stroke={m.color}/><text x={x+14} y={y-18-offset} fill={m.color} stroke="var(--chart-canvas)" strokeWidth="3" paintOrder="stroke" fontSize="10" fontWeight="800">{m.label} {fp(m.price)}</text></g>; })}
             {/* DECLARED projection zones — the up/down band the system states it expects, over the pending window */}
             {(signals || []).filter((s) => s.projection && s.i >= start && (s.outcome === "pending" || sigHover === s.i)).map((s, k) => {
               const pr = s.projection!;

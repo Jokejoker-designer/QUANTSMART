@@ -26,8 +26,12 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, SecretStr, ConfigDict
 if __package__:
     from .demo_execution import DemoExecution, DemoPreviewInput, DemoSubmitInput
+    from .broker_deals import read_demo_deals
+    from .demo_automation import DemoAutomation, AutoStart, AutoAction
 else:
     from demo_execution import DemoExecution, DemoPreviewInput, DemoSubmitInput
+    from broker_deals import read_demo_deals
+    from demo_automation import DemoAutomation, AutoStart, AutoAction
 
 AUTHORITY = {"authority": "SHADOW_ONLY", "decision": "NO_DECISION", "live_apply_allowed": False, "read_only": True}
 TF_MINUTES = {"M1": 1, "M5": 5, "M15": 15, "M30": 30, "H1": 60, "H4": 240, "D1": 1440, "W1": 10080}
@@ -396,6 +400,7 @@ def create_app(service: TerminalService | None = None, token: str | None = None)
     app = FastAPI(title="MFE Read-only MT5 Bridge", docs_url=None, redoc_url=None, openapi_url=None)
     active_streams = 0
     demo = DemoExecution(terminal, enabled=os.environ.get("MFE_ENABLE_MANUAL_DEMO", "false").lower() == "true")
+    automation = DemoAutomation(terminal, enabled=os.environ.get("MFE_ENABLE_CARD_DEMO", "false").lower() == "true")
 
     @app.middleware("http")
     async def local_only(request: Request, call_next):
@@ -436,9 +441,37 @@ def create_app(service: TerminalService | None = None, token: str | None = None)
     def demo_status():
         return demo.status()
 
+    @app.post("/mt5/demo/auto/start")
+    def auto_start(body: AutoStart):
+        return automation.start(body)
+
+    @app.get("/mt5/demo/auto/market")
+    def auto_market(symbol: str = "XAUUSD", tf: str = "H1"):
+        return automation.market(symbol, tf)
+
+    @app.post("/mt5/demo/auto/heartbeat")
+    def auto_heartbeat(body: dict):
+        return automation.heartbeat(body.get("session_id", ""))
+
+    @app.post("/mt5/demo/auto/execute")
+    def auto_execute(body: AutoAction):
+        return automation.execute(body)
+
+    @app.post("/mt5/demo/auto/stop")
+    def auto_stop():
+        return automation.stop()
+
+    @app.post("/mt5/demo/auto/reconcile")
+    def auto_reconcile():
+        return automation.reconcile()
+
     @app.get("/mt5/demo/positions")
     def demo_positions():
         return demo.positions()
+
+    @app.get("/mt5/demo/deals")
+    def demo_deals(symbol: str = "XAUUSD", start: str = Query(default="", alias="from"), end: str = Query(default="", alias="to"), limit: int = Query(default=500, ge=1, le=2000)):
+        return read_demo_deals(terminal, symbol, start, end, limit)
 
     @app.post("/mt5/demo/preview")
     def demo_preview(body: DemoPreviewInput):

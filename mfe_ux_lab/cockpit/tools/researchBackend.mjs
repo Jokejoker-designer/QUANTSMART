@@ -131,7 +131,7 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
     if (match[2]) return job.status === 'done' ? send(res, 200, { ...view(job), result: job.result, provenance: job.provenance }) : send(res, 409, view(job));
     return send(res, 200, view(job));
   };
-  return { middleware, watchedFiles, close: () => { closed = true; for (const job of jobs.values()) { clearTimeout(job.deadline); if (job.worker) void job.worker.terminate(); } workspace.close(); } };
+  return { middleware, watchedFiles, readWorkspace:()=>workspace.read(), close: () => { closed = true; for (const job of jobs.values()) { clearTimeout(job.deadline); if (job.worker) void job.worker.terminate(); } workspace.close(); } };
 }
 export function researchBackendPlugin() {
   let backend;

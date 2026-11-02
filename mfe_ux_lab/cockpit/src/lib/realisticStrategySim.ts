@@ -18,6 +18,7 @@ import { classicFlags, computeClassic, classicEntryVotes, classicGateBlocked, an
 import { computeSwingLevels, structureAt, percentile, type SwingLevel } from "./structureContext.ts";
 import { pocDistAtrOf } from "./valueAreaProxy.ts";
 import { observeSimulationTrial } from "./simTrialObserver.ts";
+import { strategyCloseRule } from "./strategyCloseRule.ts";
 
 export type Scenario = "LONG_SCENARIO" | "SHORT_SCENARIO";
 export interface RealisticTradeResult {
@@ -84,6 +85,7 @@ export interface RealisticSimResult {
 }
 
 export interface RealisticSimOptions {
+  closedBarProbe?: { price: number; onCandidate: (candidate: {dir:"BUY"|"SELL";sl:number;tp:number;risk:number;signalTime:string;why:string[]}) => void };
   cfg: SimulatorRealismConfig;
   spec: SymbolSpec;
   designTf: Timeframe;
@@ -424,18 +426,12 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
       exitTime = new Date(_ms(b.t) + TF_MINUTES[designTf] * 60000).toISOString();
       // mr_exit — exit kiểu MEAN-REVERSION (owner: "TP về mid thay vì RR kiểu trend"): vào ở mép bị quét,
       // chốt khi giá HỒI VỀ TRUNG BÌNH (close chạm lại EMA10) và đang có lãi. Additive, opt-in.
-      if (has("mr_exit") && held >= 1) {
-        const backAtMean = pos.dir === "BUY" ? b.c >= e10[i] : b.c <= e10[i];
-        if (backAtMean && rOf(b.c) > 0) { exit = b.c; grossR = rOf(b.c); gStop = grossR; gTp = grossR; }
-      }
-      const weak = exit == null && has("exit_weak") && (pos.dir === "BUY" ? (e10[i] < e34[i] || rsi[i] < 42) : (e10[i] > e34[i] || rsi[i] > 58));
-      if (weak && held >= 2) { exit = b.c; grossR = rOf(b.c); gStop = grossR; gTp = grossR; }
-      else if (held >= MAXHOLD) { exit = b.c; grossR = rOf(b.c); gStop = grossR; gTp = grossR; }
+      if (strategyCloseRule({modules:mods,held,side:pos.dir,price:b.c,entry:pos.entry,ema10:e10[i],ema34:e34[i],rsi:rsi[i],customClose:false})) { exit = b.c; grossR = rOf(b.c); gStop = grossR; gTp = grossR; }
     }
     if (exit == null && customMods.length) {   // custom user EXIT modules (close / break-even / LOCK_SL protective)
       const a = atr[i] || 1; const curR = (pos.dir === "BUY" ? b.c - pos.entry : pos.entry - b.c) / pos.risk;
       const rngX = b.h - b.l; const bodyX = Math.abs(b.c - b.o);
-      const ce = evalExitCustom({ heldBars: held, rMultiple: curR, maxR: pos.maxR, rsi: rsi[i], regime, priceEmaAtr: (b.c - e10[i]) / a, atrPct: a / b.c * 100, atrRatio: a / (atrSlow[i] || a), wickRatio: rngX > 0 ? (rngX - bodyX) / rngX : 0, bodyRatio: rngX > 0 ? bodyX / rngX : 0, price: b.c, ...cmAt(i) }, customMods);
+      const ce = evalExitCustom({ heldBars: held, rMultiple: curR, maxR: pos.maxR, rsi: rsi[i], regime, priceEmaAtr: (b.c - e10[i]) / a, emaGapAtr: (e10[i] - e34[i]) / a, atrPct: a / b.c * 100, atrRatio: a / (atrSlow[i] || a), wickRatio: rngX > 0 ? (rngX - bodyX) / rngX : 0, bodyRatio: rngX > 0 ? bodyX / rngX : 0, price: b.c, ...cmAt(i) }, customMods);
       if (ce.breakeven) pos.sl = pos.entry;
       // LOCK_SL — PROTECTIVE-ONLY: SL chỉ được siết về phía lãi (BUY: nâng lên, SELL: hạ xuống), không bao giờ nới.
       if (ce.lockR != null) {
@@ -663,7 +659,7 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
       if (i <= cooldownUntil) { res.signals_blocked_by_cooldown++; decisionEvent("SIGNAL_BLOCKED_COOLDOWN", `cooldown until bar ${cooldownUntil}`); continue; }
       if (tradesToday >= dayCap) { res.signals_blocked_by_daily_cap++; res.max_trades_per_day_breaches++; decisionEvent("SIGNAL_BLOCKED_DAILY_CAP", `daily cap ${dayCap} reached`); continue; }
 
-      const fill = getNextOpenFill(i, bars);
+      const fill = opts.closedBarProbe && i === bars.length - 1 ? {fillIndex:i+1,fillOpen:opts.closedBarProbe.price,fillTime:decisionTime} : getNextOpenFill(i, bars);
       if (!fill) { decisionEvent("DATA_WARNING", "no next bar for next-open fill — entry skipped"); continue; }
       const a = atr[i] || 1; const entry = fill.fillOpen; // signal-time ATR; fill H/L/C is not yet known
       let sl: number, tp: number | null, risk: number;
@@ -686,6 +682,10 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
       const stopFloor = (cfg.minStopAtrK ?? 0) * a;
       if (stopFloor > 0 && risk < stopFloor) { risk = stopFloor; sl = dir === "BUY" ? entry - stopFloor : entry + stopFloor; }
       if (tp != null && (dir === "BUY" ? tp - entry : entry - tp) / risk < MINRR) continue;
+      if (opts.closedBarProbe && i === bars.length - 1) {
+        opts.closedBarProbe.onCandidate({dir,sl,tp:tp ?? entry + (dir === "BUY" ? 4 : -4) * risk,risk,signalTime:decisionTime,why:votes.filter(v=>v.dir===ds).map(v=>v.why)});
+        continue;
+      }
       opts.onResearchCandidate?.({signalI:i,dir,entryI:fill.fillIndex,risk,regime});
       if(opts.researchIntervention?.collectOnly)continue;
       decisionEvent("ORDER_INTENT_MODELED", `${dir} @ next-open ${entry}`);
@@ -726,3 +726,4 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
   ev(bars.length - 1, "RUN_COMPLETED", `${res.actual_trades_taken} trades · ${res.signals_seen} signals seen`, bars.length ? new Date(_ms(bars[bars.length - 1].t) + TF_MINUTES[designTf] * 60000).toISOString() : "");
   return res;
 }
+
