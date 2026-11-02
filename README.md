@@ -19,12 +19,12 @@ full-resolution image](docs/screenshots/cockpit-overview.png).*
 
 [Get started](#quick-start) · [Explore the 17 workspaces](docs/PRODUCT_TOUR.md) ·
 [Build custom modules](docs/CUSTOM_MODULES.md) · [Video tutorials](docs/TUTORIALS.md) ·
-[Video hướng dẫn (Google Drive)](https://drive.google.com/drive/folders/1QuFV7GtY4ttnVvgeeI0HlnZDH2hOpVAu?usp=sharing) · [Connect MT5](#connect-xm--another-mt5-broker)
+[Watch the tutorial video](https://drive.google.com/drive/folders/1QuFV7GtY4ttnVvgeeI0HlnZDH2hOpVAu?usp=sharing) · [Connect MT5](#connect-xm--another-mt5-broker)
 
-## Video hướng dẫn
+## Tutorial video
 
-📹 Xem video hướng dẫn chi tiết và các demo thực tế tại đây:
-[Video hướng dẫn QUANTSMART trên Google Drive](https://drive.google.com/drive/folders/1QuFV7GtY4ttnVvgeeI0HlnZDH2hOpVAu?usp=sharing)
+📹 Watch the step-by-step walkthrough and demo videos here:
+[QUANTSMART tutorial videos on Google Drive](https://drive.google.com/drive/folders/1QuFV7GtY4ttnVvgeeI0HlnZDH2hOpVAu?usp=sharing)
 
 ## Make the rules your own
 
