@@ -128,6 +128,10 @@ try {
   assert.equal(report.source.hash, meta.normalizedHash);
   assert.equal(report.summary.closed, ordinary.sim.trades.length);
   assert.equal(report.summary.unjoinedTrades, 0);
+  assert.equal(report.entryEvaluation.coverage, "CAPTURED_DESIGN_BAR_BRANCHES");
+  assert.equal(report.entryEvaluation.summary.recordedBars, bars.length - 40);
+  assert.equal(report.entryEvaluation.summary.modeledEntries, ordinary.sim.actual_trades_taken);
+  assert.ok(report.entryEvaluation.records.some(row => row.outcome === "ABSTAIN"));
   assert.equal(
     report.records
       .filter((r) => r.outcome)
@@ -228,6 +232,7 @@ try {
       integrityChecks: true,
       elapsedMs: Math.round(elapsed),
       reportBytes: Buffer.byteLength(JSON.stringify(report)),
+      capturedEntryBranches: report.entryEvaluation.summary.recordedBars,
     }),
   );
 } finally {

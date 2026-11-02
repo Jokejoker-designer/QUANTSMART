@@ -3,6 +3,7 @@ export type ObservationStatus =
   | "POLICY_BLOCKED"
   | "OPEN_AT_END"
   | "UNFILLED_END_OF_DATA"
+  | "PLAN_REJECTED"
   | "NO_FILL_RECORDED";
 export interface MissingEvidence {
   field: string;
@@ -54,6 +55,24 @@ export type DecisionObservation = ObservationBase &
   );
 
 export interface DecisionJournal {
+  entryEvaluation?: {
+    coverage: "CAPTURED_DESIGN_BAR_BRANCHES" | "NOT_CAPTURED";
+    policy: "FIRST_REACHED_TERMINAL_BRANCH_PER_DESIGN_BAR";
+    summary: {
+      warmupBars: number;
+      recordedBars: number;
+      unobservedBars: number;
+      abstentions: number;
+      vetoes: number;
+      planRejections: number;
+      modeledEntries: number;
+    } | null;
+    reasons: { code: string; outcome: string; count: number }[];
+    records: (import("./realisticStrategySim.ts").EntryEvaluation & {
+      evaluationId: string;
+    })[];
+    limitations: string[];
+  };
   schema: "quantsmart.decision-journal/1";
   authority: "SHADOW_ONLY";
   decision: "NO_DECISION";

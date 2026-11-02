@@ -1,5 +1,7 @@
 # Drive integration assessment
 
+Follow-up: [direct-source reassessment and entry-branch evidence](DRIVE_REASSESSMENT.md) extends this original assessment. New decision journals capture the first reached entry branch; older archived reports retain their original coverage limitations.
+
 Assessment date: 2026-11-02, Asia/Bangkok. Repository baseline: 90e4ef46020c5ba4ef95cd543dc6af7b3e8d9a86, release 1.2.0-rc.4. The supplied handoff used the older 8d13f9a baseline. This review inspected the 28 specific Drive objects linked by the owner, not an assumed latest version of every file in Drive. Their source code was read, not executed or copied into the public package.
 
 ## Conclusion

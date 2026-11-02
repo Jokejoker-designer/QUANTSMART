@@ -7,6 +7,116 @@ import type {
 import type { RealisticBacktestOptions } from "../lib/realisticSimRun.ts";
 import "./decision-evidence.css";
 
+function EntryEvaluationEvidence({
+  evidence,
+}: {
+  evidence: DecisionJournal["entryEvaluation"];
+}) {
+  const [filter, setFilter] = useState("ALL"),
+    [page, setPage] = useState(0);
+  if (!evidence || evidence.coverage === "NOT_CAPTURED" || !evidence.summary)
+    return (
+      <p>
+        Entry evaluation was not captured in this archived run. Missing evidence
+        does not mean the system explicitly chose to abstain.
+      </p>
+    );
+  const rows = evidence.records.filter(
+    (row) => filter === "ALL" || row.outcome === filter,
+  );
+  return (
+    <details>
+      <summary>Why entries did or did not proceed</summary>
+      <p>
+        {evidence.summary.recordedBars.toLocaleString()} recorded bars ·{" "}
+        {evidence.summary.abstentions} abstentions · {evidence.summary.vetoes}{" "}
+        gate vetoes · {evidence.summary.planRejections} rejected plans ·{" "}
+        {evidence.summary.modeledEntries} modeled entries.
+      </p>
+      <p>
+        {evidence.summary.warmupBars} warmup bars excluded ·{" "}
+        {evidence.summary.unobservedBars} later bars unobserved. Only the first
+        reached terminal branch is recorded. Subsequent gates were not
+        evaluated.
+      </p>
+      <label>
+        Entry evaluation outcome
+        <select
+          value={filter}
+          onChange={(event) => {
+            setFilter(event.target.value);
+            setPage(0);
+          }}
+        >
+          <option value="ALL">All recorded branches</option>
+          <option value="ABSTAIN">No candidate or combination abstained</option>
+          <option value="VETO">Gate veto</option>
+          <option value="POLICY_BLOCKED">Discipline block</option>
+          <option value="PLAN_REJECTED">Plan rejected</option>
+          <option value="UNFILLED">No next bar</option>
+          <option value="MODELED_ENTRY">Modeled entry</option>
+          <option value="POSITION_HELD">
+            Existing position; entry not evaluated
+          </option>
+          <option value="RUN_HALTED">Simulation halted</option>
+        </select>
+      </label>
+      <div className="csv-import-preview">
+        <table>
+          <caption>
+            Recorded entry branches · {rows.length.toLocaleString()} matching
+            bars
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Design close, UTC</th>
+              <th scope="col">Branch</th>
+              <th scope="col">Observed reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.slice(page * 25, (page + 1) * 25).map((row) => (
+              <tr key={row.evaluationId}>
+                <td>{row.at}</td>
+                <td>{row.outcome}</td>
+                <td>
+                  <strong>{row.code}</strong>
+                  <br />
+                  {row.reason}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="evidence-controls">
+        <button
+          type="button"
+          disabled={page === 0}
+          onClick={() => setPage((value) => value - 1)}
+        >
+          Previous entry branches
+        </button>
+        <span>
+          Page {page + 1} / {Math.max(1, Math.ceil(rows.length / 25))}
+        </span>
+        <button
+          type="button"
+          disabled={(page + 1) * 25 >= rows.length}
+          onClick={() => setPage((value) => value + 1)}
+        >
+          Next entry branches
+        </button>
+      </div>
+      <ul>
+        {evidence.limitations.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 export function DecisionEvidencePanel({
   importId,
   card,
@@ -154,9 +264,9 @@ export function DecisionEvidencePanel({
         return label.
       </p>
       <p>
-        Structural setup lineage and silent pre-signal veto/abstain branches are
-        not emitted by the current engine. This report does not invent them or
-        issue a performance receipt.
+        New reports capture the first reached entry branch on each processed
+        design bar, including abstentions and gate vetoes. Structural setup
+        lineage remains unavailable. This report is not a performance receipt.
       </p>
       <div className="evidence-controls">
         <button
@@ -221,6 +331,10 @@ export function DecisionEvidencePanel({
           <p>
             {shown.report.source.from} → {shown.report.source.to} UTC
           </p>
+          <EntryEvaluationEvidence
+            key={shown.report.runId}
+            evidence={shown.report.entryEvaluation}
+          />
           <details>
             <summary>Source identity and coverage limits</summary>
             <dl>

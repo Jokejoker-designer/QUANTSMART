@@ -61,7 +61,20 @@ export type SimEventType =
 export interface SimEvent { timestamp: string; bar_index: number; design_tf: Timeframe; symbol: string; card_id: string; event_type: SimEventType; reason: string }
 export interface SimMarker { i: number; price: number; kind: "buy" | "sell" | "tp" | "sl" }
 
+// Optional branch facts, separate from the canonical execution event ledger.
+// One first terminal branch per design bar; never an inferred market decision.
+export interface EntryEvaluation {
+  barIndex: number;
+  barTime: string;
+  at: string;
+  outcome: "ABSTAIN" | "VETO" | "POLICY_BLOCKED" | "PLAN_REJECTED" | "UNFILLED" | "MODELED_ENTRY" | "POSITION_HELD" | "RUN_HALTED";
+  code: string;
+  reason: string;
+  direction: "BUY" | "SELL" | null;
+}
+
 export interface RealisticSimResult {
+  entryTrace?: EntryEvaluation[];
   trades: RealisticTradeResult[];
   markers: SimMarker[];
   events: SimEvent[];
@@ -85,6 +98,7 @@ export interface RealisticSimResult {
 }
 
 export interface RealisticSimOptions {
+  captureEntryTrace?: boolean; // research diagnostics only; design-close mode
   closedBarProbe?: { price: number; onCandidate: (candidate: {dir:"BUY"|"SELL";sl:number;tp:number;risk:number;signalTime:string;why:string[]}) => void };
   cfg: SimulatorRealismConfig;
   spec: SymbolSpec;
@@ -186,8 +200,11 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
   const m1ByDesign = opts.m1ByDesign;
   const execByDesign = opts.execByDesign;
   const intrabarEntry = !!execByDesign && (TF_MINUTES[cfg.executionTf] ?? 60) < (TF_MINUTES[designTf] ?? 60);   // P1 entry: ON only when an execution_tf finer than design_tf is provided → else design-close (P0) UNCHANGED
+  if (opts.captureEntryTrace && (intrabarEntry || m1ByDesign || opts.closedBarProbe || opts.researchIntervention)) throw new Error("ENTRY_TRACE_DESIGN_BAR_MODE_ONLY");
+  if (opts.captureEntryTrace && bars.length > 5000) throw new Error("ENTRY_TRACE_WINDOW_EXCEEDS_5000_BARS");
   const ambiguityPolicy: AmbiguityPolicy = opts.ambiguityPolicy ?? "MARK_AMBIGUOUS";
   const empty: RealisticSimResult = { trades: [], markers: [], events: [], signals_seen: 0, signals_blocked_by_cooldown: 0, signals_blocked_by_daily_cap: 0, signals_blocked_by_existing_position: 0, signals_blocked_by_drift_guard: 0, actual_trades_taken: 0, max_trades_per_day_breaches: 0, ambiguous_intrabar_count: 0, ambiguous_policy: ambiguityPolicy, m1_resolution: !!m1ByDesign, m1_bars_scanned: 0, final_equity: cfg.risk.initialEquity, ruined: false, ruin_time: "", ruin_trade_index: -1, equity_at_ruin: 0 };
+  if (opts.captureEntryTrace) empty.entryTrace = [];
   if (!bars || bars.length < 60) return empty;
   const equityFloor = 0;   // account blown when equity ≤ 0 (cannot cover the next loss)
 
@@ -492,12 +509,16 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
 
     const decisionTime = new Date(_ms(b.t) + TF_MINUTES[designTf] * 60000).toISOString();
     const decisionEvent = (type: SimEventType, reason: string) => ev(i, type, reason, decisionTime);
+    const entryFact = (outcome: EntryEvaluation["outcome"], code: string, reason: string, direction: EntryEvaluation["direction"] = null) => {
+      res.entryTrace?.push({barIndex:i,barTime:b.t,at:decisionTime,outcome,code,reason,direction});
+    };
     const occupiedAtOpen = !!pos;
     processExit(i);
+    if (pos) entryFact("POSITION_HELD", "POSITION_HELD", "An existing modeled position remains open; entry evaluation is not reached.");
 
     // ── entry: decide at close i, fill at open i+1 ──
     if (!pos) {
-      if (res.ruined) continue;                  // no capital left → no new trades
+      if (res.ruined) { entryFact("RUN_HALTED", "CAPITAL_EXHAUSTED", "The simulation halted after capital exhaustion."); continue; }
       if (intrabarEntry && !occupiedAtOpen) {
         const entryPath = tryIntrabarEntry(i, regimePrev);
         if (entryPath) { processExit(i, entryPath); continue; }
@@ -606,7 +627,7 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
         }
       }
       if(forcedEntries){votes.length=0;const direction=schedule.get(i);if(direction)votes.push({dir:direction==="BUY"?1:-1,w:1,rel:.55,why:"Research matched-entry intervention"});}
-      if (!votes.length) continue;
+      if (!votes.length) { entryFact("ABSTAIN", "NO_TRIGGER_VOTE", "No trigger vote was emitted on this design bar."); continue; }
       // F3 custom CONFIRM — weight authority only (like mtf_confirm): scales EXISTING vote weights, never votes.
       if (customConfirmBoost !== 1) for (const v of votes) { v.w = +(v.w * customConfirmBoost).toFixed(4); v.why += " · Confirm ×" + customConfirmBoost; }
       // F1 mtf_confirm — CONFIRMATION authority only: boosts/attenuates EXISTING vote weights when the EMA10/34
@@ -621,59 +642,60 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
       if (useFusion) { const score = votes.reduce((a, v) => a + v.dir * v.w, 0); if (Math.abs(score) >= TC.fusionThreshold) dir = score > 0 ? "BUY" : "SELL"; }
       else if (useBayes) { const lo = votes.reduce((a, v) => a + v.dir * lnLR(v.rel), 0); const p = 1 / (1 + Math.exp(-lo)); if (p >= TC.bayesUp) dir = "BUY"; else if (p <= TC.bayesDown) dir = "SELL"; }
       else { const sum = votes.reduce((a, v) => a + v.dir, 0); dir = sum > 0 ? "BUY" : sum < 0 ? "SELL" : null; }
-      if (!dir) continue;
+      if (!dir) { entryFact("ABSTAIN", "COMBINATION_ABSTAIN", "Trigger votes did not pass the active combination rule."); continue; }
       const ds = dir === "BUY" ? 1 : -1;
       const hour = pt.h;
-      if (has("regime_ctx") && regime !== ds) continue;
-      if (has("markov")) { if (hasRange) { if (persist > 5) continue; } else if (persist < 4) continue; }
-      if (has("state_machine") && !armed) continue;
-      if (has("session_ctx") && (hour < 7 || hour >= 21)) continue;
-      if (has("dead_hour") && (hour >= 22 || hour < 2)) continue;
-      if (has("news_ctx") && newsWindow(b.t)) continue;
-      if (has("no_trade_chop") && Math.abs(e10[i] - e34[i]) < 0.15 * atr[i]) continue;
-      if ((has("atr_vol") || has("atr_pct")) && atr[i] < 0.65 * (atrSlow[i] || atr[i])) continue;
-      if (cSeries && classicGateBlocked(i, cSeries, cFlags)) continue;   // ADX gate: veto when no trend strength
-      if (hasDrift && driftWin.length >= DRIFT_K) { const w = driftWin.filter((x) => x > 0).reduce((s2, x) => s2 + x, 0), l = -driftWin.filter((x) => x < 0).reduce((s2, x) => s2 + x, 0); if ((l ? w / l : (w > 0 ? 9 : 0)) < 0.6) { res.signals_blocked_by_drift_guard++; continue; } }   // drift_guard: stop a degrading card
+      const veto = (code:string, reason:string) => entryFact("VETO",code,reason,dir);
+      if (has("regime_ctx") && regime !== ds) { veto("REGIME_MISMATCH", "Candidate direction does not match the causal EMA regime."); continue; }
+      if (has("markov")) { if (hasRange) { if (persist > 5) { veto("MARKOV_RANGE_PERSISTENCE", "Range-fade regime persistence exceeds five bars."); continue; } } else if (persist < 4) { veto("MARKOV_TREND_PERSISTENCE", "Trend regime persistence is below four bars."); continue; } }
+      if (has("state_machine") && !armed) { veto("STATE_MACHINE_UNARMED", "The pullback state machine is not armed."); continue; }
+      if (has("session_ctx") && (hour < 7 || hour >= 21)) { veto("SESSION_OUTSIDE_WINDOW", "Design-bar UTC start hour is outside the configured 07–21 window."); continue; }
+      if (has("dead_hour") && (hour >= 22 || hour < 2)) { veto("DEAD_HOUR", "Design-bar UTC start hour is in the excluded 22–02 window."); continue; }
+      if (has("news_ctx") && newsWindow(b.t)) { veto("NEWS_WINDOW_HEURISTIC", "The configured calendar heuristic excludes this design bar; this is not a verified news feed."); continue; }
+      if (has("no_trade_chop") && Math.abs(e10[i] - e34[i]) < 0.15 * atr[i]) { veto("EMA_SEPARATION_LOW", "EMA10/34 separation is below 0.15 ATR."); continue; }
+      if ((has("atr_vol") || has("atr_pct")) && atr[i] < 0.65 * (atrSlow[i] || atr[i])) { veto("ATR_BELOW_THRESHOLD", "ATR is below 0.65 of its causal slow reference."); continue; }
+      if (cSeries && classicGateBlocked(i, cSeries, cFlags)) { veto("ADX_BELOW_THRESHOLD", "ADX is below the configured trend-strength threshold."); continue; }
+      if (hasDrift && driftWin.length >= DRIFT_K) { const w = driftWin.filter((x) => x > 0).reduce((s2, x) => s2 + x, 0), l = -driftWin.filter((x) => x < 0).reduce((s2, x) => s2 + x, 0); if ((l ? w / l : (w > 0 ? 9 : 0)) < 0.6) { res.signals_blocked_by_drift_guard++; veto("DRIFT_GUARD", "Rolling completed-trade profit factor is below 0.6."); continue; } }
       if ((hasSr || hasLvlMem) && swingLevels) { const si = structureAt(i, b.c, atr[i], swingLevels, bars);
-        if (hasSr && ((dir === "BUY" && si.state === "AT_RESISTANCE") || (dir === "SELL" && si.state === "AT_SUPPORT"))) continue;   // veto counter-structure
-        if (hasLvlMem && (dir === "BUY" ? si.supTouches : si.resTouches) >= 3) continue; }   // level weakening
-      if (has("calib_trust") && votes.filter((v) => v.dir === ds).length < 2) continue;
-      if (has("range_size")) { const rng2 = b.h - b.l; if (rng2 > 0) { const advc = dir === "BUY" ? b.h - Math.max(b.o, b.c) : Math.min(b.o, b.c) - b.l; if (advc / rng2 > 0.55) continue; if (rng2 > 3.0 * (atr[i] || rng2)) continue; } }
-      if (has("topk_fit")) { const conv = Math.abs(votes.reduce((a, v) => a + v.dir * v.w, 0)); const recent = convBuf.slice(-50); convBuf.push(conv); if (recent.length >= 12) { const sorted = [...recent].sort((x, y) => x - y); if (conv < sorted[Math.floor(sorted.length * 0.6)]) continue; } }
-      if (useEV && evWins + evLoss >= 10) { const p = evWins / (evWins + evLoss); const aw = evWins ? evSumWin / evWins : 1, al = evLoss ? evSumLoss / evLoss : 1; if (p * aw - (1 - p) * al <= 0) continue; }
+        if (hasSr && ((dir === "BUY" && si.state === "AT_RESISTANCE") || (dir === "SELL" && si.state === "AT_SUPPORT"))) { veto("COUNTER_STRUCTURE", "Candidate opposes the detected support/resistance context."); continue; }
+        if (hasLvlMem && (dir === "BUY" ? si.supTouches : si.resTouches) >= 3) { veto("LEVEL_TOUCH_LIMIT", "The relevant structural level has at least three touches."); continue; } }
+      if (has("calib_trust") && votes.filter((v) => v.dir === ds).length < 2) { veto("ALIGNED_VOTES_INSUFFICIENT", "Fewer than two trigger votes agree with the candidate."); continue; }
+      if (has("range_size")) { const rng2 = b.h - b.l; if (rng2 > 0) { const advc = dir === "BUY" ? b.h - Math.max(b.o, b.c) : Math.min(b.o, b.c) - b.l; if (advc / rng2 > 0.55) { veto("OPPOSING_WICK", "Opposing wick exceeds 55% of the bar range."); continue; } if (rng2 > 3.0 * (atr[i] || rng2)) { veto("BAR_RANGE_EXCESSIVE", "Bar range exceeds three ATR."); continue; } } }
+      if (has("topk_fit")) { const conv = Math.abs(votes.reduce((a, v) => a + v.dir * v.w, 0)); const recent = convBuf.slice(-50); convBuf.push(conv); if (recent.length >= 12) { const sorted = [...recent].sort((x, y) => x - y); if (conv < sorted[Math.floor(sorted.length * 0.6)]) { veto("CONVICTION_BELOW_QUANTILE", "Conviction is below the configured historical quantile."); continue; } } }
+      if (useEV && evWins + evLoss >= 10) { const p = evWins / (evWins + evLoss); const aw = evWins ? evSumWin / evWins : 1, al = evLoss ? evSumLoss / evLoss : 1; if (p * aw - (1 - p) * al <= 0) { veto("COMPLETED_TRADE_EV_NONPOSITIVE", "Completed-trade expected R is nonpositive."); continue; } }
       // ev_rolling — EV trên 20 lệnh GẦN NHẤT; khoá quá 400 nến → reset (thoát deadlock, thử lại từ đầu)
       if (useEvRolling && evRoll.length >= 10) {
         const mean = evRoll.reduce((s, x) => s + x, 0) / evRoll.length;
         if (mean <= 0) {
           if (evBlockedSince < 0) evBlockedSince = i;
-          if (i - evBlockedSince < 400) continue;
+          if (i - evBlockedSince < 400) { veto("ROLLING_EV_PROBATION", "Rolling completed-trade mean R is nonpositive and probation has not elapsed."); continue; }
           evRoll.length = 0; evBlockedSince = -1;   // probation reset — cho cơ hội chứng minh lại
         } else evBlockedSince = -1;
       }
-      if (cBlocked) continue;                    // custom user gate/veto rejected this setup
+      if (cBlocked) { veto("CUSTOM_GATE_OR_VETO", "The custom entry evaluator reported a block; individual module attribution is not emitted."); continue; }
 
       // a real signal exists → now apply DISCIPLINE before allowing an entry
       res.signals_seen++;
       decisionEvent("SIGNAL_SEEN", `${dir} candidate`);
-      if (cfg.discipline.onePositionAtATime && pos) { res.signals_blocked_by_existing_position++; decisionEvent("SIGNAL_BLOCKED_POSITION_OPEN", "position already open"); continue; }
-      if (i <= cooldownUntil) { res.signals_blocked_by_cooldown++; decisionEvent("SIGNAL_BLOCKED_COOLDOWN", `cooldown until bar ${cooldownUntil}`); continue; }
-      if (tradesToday >= dayCap) { res.signals_blocked_by_daily_cap++; res.max_trades_per_day_breaches++; decisionEvent("SIGNAL_BLOCKED_DAILY_CAP", `daily cap ${dayCap} reached`); continue; }
+      if (cfg.discipline.onePositionAtATime && pos) { res.signals_blocked_by_existing_position++; decisionEvent("SIGNAL_BLOCKED_POSITION_OPEN", "position already open"); entryFact("POLICY_BLOCKED", "POSITION_LIMIT", "Position limit reached.", dir); continue; }
+      if (i <= cooldownUntil) { res.signals_blocked_by_cooldown++; decisionEvent("SIGNAL_BLOCKED_COOLDOWN", `cooldown until bar ${cooldownUntil}`); entryFact("POLICY_BLOCKED", "COOLDOWN", `Cooldown until bar ${cooldownUntil}.`, dir); continue; }
+      if (tradesToday >= dayCap) { res.signals_blocked_by_daily_cap++; res.max_trades_per_day_breaches++; decisionEvent("SIGNAL_BLOCKED_DAILY_CAP", `daily cap ${dayCap} reached`); entryFact("POLICY_BLOCKED", "DAILY_CAP", `Daily cap ${dayCap} reached.`, dir); continue; }
 
       const fill = opts.closedBarProbe && i === bars.length - 1 ? {fillIndex:i+1,fillOpen:opts.closedBarProbe.price,fillTime:decisionTime} : getNextOpenFill(i, bars);
-      if (!fill) { decisionEvent("DATA_WARNING", "no next bar for next-open fill — entry skipped"); continue; }
+      if (!fill) { decisionEvent("DATA_WARNING", "no next bar for next-open fill — entry skipped"); entryFact("UNFILLED", "NO_NEXT_BAR", "No next bar exists for the modeled next-open fill.", dir); continue; }
       const a = atr[i] || 1; const entry = fill.fillOpen; // signal-time ATR; fill H/L/C is not yet known
       let sl: number, tp: number | null, risk: number;
       if (hasDistRR && favHistATR.length >= 20) {   // SL≈p90 of own past MAE, TP≈p75 of own past MFE (ATR units, causal)
         const slATR = Math.max(0.5, percentile(advHistATR, 0.9)), tpATR = Math.max(slATR * MINRR, percentile(favHistATR, 0.75));
         sl = dir === "BUY" ? entry - slATR * a : entry + slATR * a;
         tp = dir === "BUY" ? entry + tpATR * a : entry - tpATR * a;
-        risk = Math.abs(entry - sl); if (risk <= 0) continue;
+        risk = Math.abs(entry - sl); if (risk <= 0) { entryFact("PLAN_REJECTED", "NONPOSITIVE_RISK", "Distribution-based plan has nonpositive modeled risk.", dir); continue; }
       } else if (useAutoRR) {
         const w5 = bars.slice(Math.max(0, i - 4), i + 1), w20 = bars.slice(Math.max(0, i - 19), i + 1);
         sl = dir === "BUY" ? Math.min(...w5.map((x) => x.l)) - 0.1 * a : Math.max(...w5.map((x) => x.h)) + 0.1 * a;
         tp = dir === "BUY" ? Math.max(...w20.map((x) => x.h)) : Math.min(...w20.map((x) => x.l));
         risk = Math.abs(entry - sl); const reward = dir === "BUY" ? tp - entry : entry - tp;
-        if ((dir === "BUY" ? sl >= entry : sl <= entry) || risk <= 0 || reward / risk < MINRR) continue;
+        if ((dir === "BUY" ? sl >= entry : sl <= entry) || risk <= 0 || reward / risk < MINRR) { entryFact("PLAN_REJECTED", "AUTO_RR_INVALID_PLAN", "Auto R:R plan has an invalid stop side, nonpositive risk or reward/risk below the minimum.", dir); continue; }
       } else {
         sl = dir === "BUY" ? entry - a : entry + a; tp = null; risk = a;
       }
@@ -681,13 +703,14 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
       // a REALISTIC stop → kills the "$1 structure-stop → +37R" artifact (affects GROSS R, not just cost/NET).
       const stopFloor = (cfg.minStopAtrK ?? 0) * a;
       if (stopFloor > 0 && risk < stopFloor) { risk = stopFloor; sl = dir === "BUY" ? entry - stopFloor : entry + stopFloor; }
-      if (tp != null && (dir === "BUY" ? tp - entry : entry - tp) / risk < MINRR) continue;
+      if (tp != null && (dir === "BUY" ? tp - entry : entry - tp) / risk < MINRR) { entryFact("PLAN_REJECTED", "FINAL_RR_BELOW_MINIMUM", "Reward/risk is below the minimum after the final stop floor.", dir); continue; }
       if (opts.closedBarProbe && i === bars.length - 1) {
         opts.closedBarProbe.onCandidate({dir,sl,tp:tp ?? entry + (dir === "BUY" ? 4 : -4) * risk,risk,signalTime:decisionTime,why:votes.filter(v=>v.dir===ds).map(v=>v.why)});
         continue;
       }
       opts.onResearchCandidate?.({signalI:i,dir,entryI:fill.fillIndex,risk,regime});
       if(opts.researchIntervention?.collectOnly)continue;
+      entryFact("MODELED_ENTRY", "MODELED_ENTRY", "The plan reaches the modeled next-open fill path; this is not a broker fill.", dir);
       decisionEvent("ORDER_INTENT_MODELED", `${dir} @ next-open ${entry}`);
       ev(fill.fillIndex, "FILL_MODELED", `${dir} filled ${entry} (open of bar i+1)`, fill.fillTime);
       ev(fill.fillIndex, "POSITION_OPENED_MODELED", `risk=${risk.toFixed(2)} sl=${sl.toFixed(2)} tp=${tp == null ? "cap" : tp.toFixed(2)}`, fill.fillTime);

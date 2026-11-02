@@ -85,7 +85,7 @@ async function run() { try {
       const{getCardRuntimeConfig}=await import('../src/lib/simTimeframe.ts');const runtime=getCardRuntimeConfig(request.card);
       if(runtime.design_tf!==runtime.allowed_execution_tf||request.mode==='m1'||request.timeframe&&request.timeframe!==runtime.design_tf||request.windowTf&&request.windowTf!==runtime.design_tf)throw new Error('EVIDENCE_DESIGN_BAR_MODE_ONLY');
       const{runRealisticBacktest}=await import('../src/lib/realisticSimRun.ts');const{buildDecisionJournal}=await import('./decisionJournal.mjs');
-      const backtest=runRealisticBacktest(bars,request.card,{...request.options,withWalkForward:false});
+      const backtest=runRealisticBacktest(bars,request.card,{...request.options,withWalkForward:false,captureEntryTrace:true});
       result=buildDecisionJournal({bars,backtest,card:request.card,storage:request.storage,source:{id:imported.metadata.id,hash:dataHash,symbol:imported.metadata.symbol,timeframe:runtime.design_tf},engineHash:workerData.engineHash});
     }
     else if(request.analysis==='attribution'){const{runStrategyAttribution}=await import('../src/lib/strategyAttribution.ts');result=runStrategyAttribution(bars,request.card,{...request.options,...request.parameters});}

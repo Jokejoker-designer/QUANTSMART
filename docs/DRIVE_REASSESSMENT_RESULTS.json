@@ -1,0 +1,131 @@
+{
+  "schema": "quantsmart.drive-reassessment/1",
+  "date": "2026-11-02",
+  "baselineCommit": "d7b366b2111e26ce1171375aec508a6c95c6a7a9",
+  "coverage": "Selected MFE identity, journaling, MAM, QI, MTF adaptive and exit-architecture sources; not every Drive object",
+  "authority": "SHADOW_ONLY",
+  "decision": "NO_DECISION",
+  "live_apply_allowed": false,
+  "canonicalTradeBehaviorChanged": false,
+  "mt5OrderPathTouched": false,
+  "integrated": "Opt-in first-reached entry branch evidence in the existing immutable decision journal",
+  "sourceFiles": [
+    {
+      "name": "adaptive_filter_impact_demo_report.md",
+      "bytes": 2242,
+      "sha256": "08f8381dc1da60893b90040391dac4a58e9366bb3b96ddb0071e9b2ced829ec2"
+    },
+    {
+      "name": "adaptive_probability.py",
+      "bytes": 8674,
+      "sha256": "22f5ce297ea034d2441f6d97c84dc5ea3dbab6f274555fcf5f887e528cb97fa0"
+    },
+    {
+      "name": "identity_collision_audit.md",
+      "bytes": 4151,
+      "sha256": "daf0be949b23be5bbb03d80eae2cb39082018df0768809aa8a58a25af7111a5f"
+    },
+    {
+      "name": "mam_convergence_engine.py",
+      "bytes": 50191,
+      "sha256": "04a76b5d223e63712fe14821c7eed2324d101133ff7a76bf7ff16109ccb5fa77"
+    },
+    {
+      "name": "MFE_EVOLUTIONARY_EXIT_ORGANISM_ARCHITECTURE_V1.md",
+      "bytes": 6265,
+      "sha256": "dcd4ddd3be8575b29c83eb76806f55100b945729774b83ca440dfbceaf23f4b3"
+    },
+    {
+      "name": "pivots.py",
+      "bytes": 1920,
+      "sha256": "377a9a19dfb8433668989f22a8167f2cffb3de835910698aa8807bc3d13abedd"
+    },
+    {
+      "name": "stage_legality_audit.md",
+      "bytes": 3518,
+      "sha256": "75f320ce6cfa162ad1cc831130bb00974185c5c580acd1303f07849a65b52dc2"
+    },
+    {
+      "name": "strategy_identity_schema.md",
+      "bytes": 8308,
+      "sha256": "7e34827e5536bc8af24da96f4a6e02fe9657ff9dd4b369cb27f1dd93ee1f583f"
+    },
+    {
+      "name": "strategy_setup_fingerprint_contract.md",
+      "bytes": 4838,
+      "sha256": "27ad4273b3969926e467183c74a482a17beee32d28e63b34a256cd8656283b07"
+    },
+    {
+      "name": "strategy_setup_lineage.md",
+      "bytes": 6363,
+      "sha256": "2814cb41831f6ec9cfc1db0445da6b0bb5c9dae696e86f6ee9f99874d004abb2"
+    },
+    {
+      "name": "thesis_lifecycle_superposition_engine.py",
+      "bytes": 20971,
+      "sha256": "8e14719d1560924dc1e5a4220737cf643e1c8488422658b93c09ccaadf439ab0"
+    }
+  ],
+  "reproducedSourceDefects": {
+    "source_cost_zero_defect_reproduced": true,
+    "cost_cases": [
+      {
+        "cost_price": 0,
+        "computed_cost_r": 0.0
+      },
+      {
+        "cost_price": 1,
+        "computed_cost_r": 0.0
+      },
+      {
+        "cost_price": 10,
+        "computed_cost_r": 0.0
+      },
+      {
+        "cost_price": 100,
+        "computed_cost_r": 0.0
+      }
+    ],
+    "pivot_asymmetric_future_dependence": {
+      "left": 4,
+      "right": 1,
+      "observation_index": 5,
+      "future_mutated_index": 6,
+      "whole_series": true,
+      "prefix": false,
+      "future_changed": false
+    },
+    "default_symmetric_mismatches_on_fixture": 0
+  },
+  "tests": {
+    "publicRegression": "PASS",
+    "bridge": {
+      "passed": 45,
+      "failed": 0
+    },
+    "typecheck": "PASS",
+    "productionBuild": "PASS",
+    "traceOnOffParityCardConfigurations": 11,
+    "extraFixtures": [
+      "combination abstention",
+      "aggregate custom gate rejection",
+      "unsupported modes",
+      "5000-bar capture limit"
+    ],
+    "httpFixture": {
+      "syntheticBars": 1500,
+      "recordedEntryBranches": 1460,
+      "signals": 41,
+      "closedModeledTrades": 36,
+      "canonicalCallsPerReport": 1,
+      "saveReopenRestartIntegrity": "PASS"
+    }
+  },
+  "limitations": [
+    "No independently verified strategy-performance improvement",
+    "No structural setup lifecycle implementation",
+    "No grouped-convergence or QI probability calibration",
+    "Historical exit-architecture measured-status claims not independently reproduced",
+    "Trace records the first reached branch, not every module's pass/fail result"
+  ]
+}

@@ -187,6 +187,87 @@ export function buildDecisionJournal({
   const definitionHash = definitionIdentity(card, storage),
     events = backtest.sim.events,
     trades = backtest.sim.trades;
+  const captured = Array.isArray(backtest.sim.entryTrace);
+  const evaluations = backtest.sim.entryTrace || [];
+  const evaluatedBars = new Set();
+  const entryRecords = evaluations.map((row) => {
+    if (
+      !Number.isInteger(row.barIndex) ||
+      row.barIndex < 40 ||
+      row.barIndex >= bars.length ||
+      evaluatedBars.has(row.barIndex) ||
+      row.barTime !== bars[row.barIndex].t ||
+      ![
+        "ABSTAIN",
+        "VETO",
+        "POLICY_BLOCKED",
+        "PLAN_REJECTED",
+        "UNFILLED",
+        "MODELED_ENTRY",
+        "POSITION_HELD",
+        "RUN_HALTED",
+      ].includes(row.outcome) ||
+      !row.code ||
+      !row.reason ||
+      ![null, "BUY", "SELL"].includes(row.direction)
+    )
+      throw new Error("EVIDENCE_INVALID_ENTRY_TRACE");
+    evaluatedBars.add(row.barIndex);
+    return {
+      ...row,
+      at: utc(row.at),
+      evaluationId:
+        "eval_" +
+        canonicalHash({
+          policy: "ENTRY_EVALUATION_V1",
+          definitionHash,
+          symbol: source.symbol,
+          timeframe: source.timeframe,
+          barTime: utc(row.barTime),
+        }),
+    };
+  });
+  const entryByBar = new Map(entryRecords.map((row) => [row.barIndex, row]));
+  const reasonCounts = new Map();
+  for (const row of entryRecords) {
+    const item = reasonCounts.get(row.code) || {
+      code: row.code,
+      outcome: row.outcome,
+      count: 0,
+    };
+    item.count++;
+    reasonCounts.set(row.code, item);
+  }
+  const entryEvaluation = {
+    coverage: captured ? "CAPTURED_DESIGN_BAR_BRANCHES" : "NOT_CAPTURED",
+    policy: "FIRST_REACHED_TERMINAL_BRANCH_PER_DESIGN_BAR",
+    summary: captured
+      ? {
+          warmupBars: Math.min(40, bars.length),
+          recordedBars: entryRecords.length,
+          unobservedBars: Math.max(0, bars.length - 40 - entryRecords.length),
+          abstentions: entryRecords.filter((row) => row.outcome === "ABSTAIN")
+            .length,
+          vetoes: entryRecords.filter((row) => row.outcome === "VETO").length,
+          planRejections: entryRecords.filter(
+            (row) => row.outcome === "PLAN_REJECTED",
+          ).length,
+          modeledEntries: entryRecords.filter(
+            (row) => row.outcome === "MODELED_ENTRY",
+          ).length,
+        }
+      : null,
+    reasons: [...reasonCounts.values()].sort((a, b) =>
+      a.code.localeCompare(b.code),
+    ),
+    records: entryRecords,
+    limitations: [
+      "Only the first reached terminal branch is recorded. Later gates were not evaluated; no complete per-module pass/fail matrix is claimed.",
+      "POSITION_HELD means the entry evaluator was not reached; it is not a new candidate veto.",
+      "Branch timestamps describe design-close evaluation. Plan rejections and modeled fills also consume the next observed open; they are not predictions known before that price is observed.",
+      "No structural lineage, calibrated probability, performance significance or broker instruction is inferred.",
+    ],
+  };
   const byBar = new Map();
   for (const event of events) {
     const list = byBar.get(event.bar_index) || [];
@@ -232,6 +313,9 @@ export function buildDecisionJournal({
         event.event_type === "DATA_WARNING" &&
         event.reason.includes("no next bar"),
     );
+    const evaluation = entryByBar.get(signal.bar_index);
+    const planRejected =
+      evaluation?.outcome === "PLAN_REJECTED" ? evaluation : null;
     if (trade && block) throw new Error("EVIDENCE_BLOCKED_TRADE_CONFLICT");
     if (trade && !fill) throw new Error("EVIDENCE_TRADE_WITHOUT_FILL");
     const status = trade
@@ -242,7 +326,9 @@ export function buildDecisionJournal({
           ? "OPEN_AT_END"
           : skipped
             ? "UNFILLED_END_OF_DATA"
-            : "NO_FILL_RECORDED";
+            : planRejected
+              ? "PLAN_REJECTED"
+              : "NO_FILL_RECORDED";
     const trace = [
       signal,
       ...(block ? [block] : []),
@@ -262,14 +348,24 @@ export function buildDecisionJournal({
       barIndex: event.bar_index,
       reason: event.reason,
     }));
+    if (planRejected)
+      trace.push({
+        id: planRejected.evaluationId,
+        type: "ENTRY_PLAN_REJECTED",
+        at: planRejected.at,
+        barIndex: planRejected.barIndex,
+        reason: planRejected.code + ": " + planRejected.reason,
+      });
     const absent = [
       missing(
         "structuralSetupIdentity",
         "The simulator does not emit a canonical anchor, breakout origin and terminal thesis lineage. Signal observations are not structural setups.",
       ),
       missing(
-        "preGateDecisionTrace",
-        "Native pre-signal veto/abstain branches are not emitted by this event ledger.",
+        captured ? "completeGateMatrix" : "preGateDecisionTrace",
+        captured
+          ? "Only the first reached terminal branch is recorded. Custom gate/veto attribution is aggregate; later gates are not evaluated."
+          : "This archived run did not capture native pre-signal veto/abstain branches.",
       ),
     ];
     let outcome = null;
@@ -338,13 +434,16 @@ export function buildDecisionJournal({
       definitionHash,
       configHash: backtest.manifest.config_hash,
       engineHash,
-      policy: "DECISION_JOURNAL_V1",
+      policy: captured
+        ? "DECISION_JOURNAL_V2_ENTRY_TRACE"
+        : "DECISION_JOURNAL_V1",
     });
   return {
     schema: "quantsmart.decision-journal/1",
     ...flags,
     scope: "OBSERVED_CANONICAL_SIGNALS_ONLY",
     structuralSetupLifecycle: "NOT_IMPLEMENTED",
+    entryEvaluation,
     runId,
     definitionHash,
     engineHash,
@@ -364,6 +463,7 @@ export function buildDecisionJournal({
       noFill: records.filter(
         (r) =>
           r.status === "NO_FILL_RECORDED" ||
+          r.status === "PLAN_REJECTED" ||
           r.status === "UNFILLED_END_OF_DATA",
       ).length,
       unjoinedTrades: trades.length - joined.size,
@@ -371,7 +471,9 @@ export function buildDecisionJournal({
     records,
     limitations: [
       "Observation IDs are stable signal identities, not canonical persistent structural-thesis IDs.",
-      "Silent pre-gate vetoes and abstentions remain unobserved. Missing events are not reconstructed as facts.",
+      captured
+        ? "Entry evaluation records the first reached branch per processed design bar. Later gates and unprocessed bars remain unobserved."
+        : "Pre-gate vetoes and abstentions were not captured in this run. Missing events are not reconstructed as facts.",
       "No-entry and open observations have null outcomes, not zero returns.",
       "Excursions exclude the exit bar and are lower bounds in price units. Exact MFE/MAE and normalized MFE/MAE R are unavailable.",
       "No convergence score, probability, adaptive confidence, promotion, risk adjustment or broker instruction is produced.",

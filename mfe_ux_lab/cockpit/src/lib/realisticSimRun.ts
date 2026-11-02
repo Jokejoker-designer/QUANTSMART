@@ -18,6 +18,7 @@ import { applyBrokerCalibration, readCalibrationState, type BrokerCalibrationInp
 import type { CustomModule } from "./customModule.ts";
 
 export interface RealisticBacktestOptions {
+  captureEntryTrace?: boolean;
   symbol?: string;
   chartTf?: string;                 // what the user is LOOKING at (display only)
   sizingMode?: SizingMode;
@@ -86,7 +87,7 @@ export function runRealisticBacktest(designBars: OhlcBar[], card: any, opts: Rea
   const cmods = (opts.customModules || []).filter((m) => Array.isArray(card?.modules) && card.modules.includes(m.id));
   const coef = opts.coef ?? getCoefProfile();
   const sim = runRealisticSim(designBars, Array.isArray(card?.modules) ? card.modules : [], autoRR, {
-    cfg: cfgBase, spec, designTf, cardId: card?.id || "card", symbol, customModules: cmods, coef,
+    cfg: cfgBase, spec, designTf, cardId: card?.id || "card", symbol, customModules: cmods, coef, captureEntryTrace: opts.captureEntryTrace,
   });
   const analytics = analyzeRealistic(sim, cfgBase.risk.initialEquity);
   const manifest = buildRunManifest({ cfg: cfgBase, symbol, designTf, dataReality, truth, spec });
@@ -104,6 +105,7 @@ export function runRealisticBacktest(designBars: OhlcBar[], card: any, opts: Rea
 // design_tf, resolve SL/TP order on the underlying M1 path. M1 path is APPROX, not tick-exact. ──
 export interface RealisticBacktestM1Options extends RealisticBacktestOptions { ambiguityPolicy?: AmbiguityPolicy }
 export function runRealisticBacktestM1(m1Bars: OhlcBar[], card: any, opts: RealisticBacktestM1Options = {}): RealisticBacktest {
+  if (opts.captureEntryTrace) throw new Error("ENTRY_TRACE_DESIGN_BAR_MODE_ONLY");
   for(let i=0;i<m1Bars.length;i++){
     const ms=Date.parse(m1Bars[i].t.replace(' ','T')+(/Z$|[+-]\d\d:?\d\d$/.test(m1Bars[i].t)?'':'Z'));
     const previous=i?Date.parse(m1Bars[i-1].t.replace(' ','T')+(/Z$|[+-]\d\d:?\d\d$/.test(m1Bars[i-1].t)?'':'Z')):ms-60000;
