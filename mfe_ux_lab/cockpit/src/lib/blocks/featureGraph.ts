@@ -5,6 +5,7 @@
 import type { OhlcBar } from "../../adapters/loadOhlcReplayChart.ts";
 import { BLOCKS_BY_ID } from "./blockLibrary.ts";
 import { canConnect, numericArity, type L1PrimitiveBlockSpec } from "./blockTypes.ts";
+import { blockParameterErrors, MAX_FEATURE_NODES, MAX_FEATURE_DEPTH } from "./blockJsonContract.ts";
 
 export interface FeatureNode { id: string; blockId: string; params?: Record<string, number>; inputs: (string | null)[]; x?: number; y?: number }
 export interface FeatureGraph { id: string; name: string; description?: string; nodes: FeatureNode[]; output: string }
@@ -15,7 +16,7 @@ const object = (value: unknown): value is Record<string, unknown> => !!value && 
 const safeNodeId = (value: unknown): value is string => typeof value === "string" && /^[A-Za-z0-9_.:-]{1,128}$/.test(value) && !["__proto__", "prototype", "constructor"].includes(value);
 function graphShapeErrors(value: unknown): string[] {
   if (!object(value) || !Array.isArray(value.nodes) || !safeNodeId(value.output)) return ["Expected a graph with a node array and a valid output ID."];
-  if (!value.nodes.length || value.nodes.length > 256) return ["An L1 graph must contain 1 to 256 nodes."];
+  if (!value.nodes.length || value.nodes.length > MAX_FEATURE_NODES) return ["An L1 graph must contain 1 to 256 nodes."];
   const errors: string[] = [], ids = new Set<string>();
   for (const node of value.nodes) {
     if (!object(node) || !safeNodeId(node.id) || typeof node.blockId !== "string" || !Array.isArray(node.inputs) || node.inputs.some(input => input !== null && !safeNodeId(input))) { errors.push("Each node requires an ID, blockId and an array of input IDs or null."); continue; }
@@ -25,10 +26,7 @@ function graphShapeErrors(value: unknown): string[] {
     const block = BLOCKS_BY_ID[node.blockId];
     if (node.params !== undefined) {
       if (!object(node.params)) errors.push(`Node ${node.id}: params must be a numeric object.`);
-      else for (const [key, number] of Object.entries(node.params)) {
-        const parameter = block.parameters.find(p => p.name === key);
-        if (!parameter || typeof number !== "number" || !Number.isFinite(number) || parameter.min != null && number < parameter.min || parameter.max != null && number > parameter.max) errors.push(`Node ${node.id}: invalid parameter ${key}.`);
-      }
+      else errors.push(...blockParameterErrors(block,node.params).map(message=>`Node ${node.id}: ${message}`));
     }
     for (const coordinate of ["x", "y"]) if (node[coordinate] !== undefined && (typeof node[coordinate] !== "number" || !Number.isFinite(node[coordinate]) || Number(node[coordinate]) < 0 || Number(node[coordinate]) > 100000)) errors.push(`Node ${node.id}: invalid layout coordinate ${coordinate}.`);
   }
@@ -60,7 +58,8 @@ export function validateGraph(g: FeatureGraph): GraphValidation {
   const outBlock = BLOCKS_BY_ID[byId.get(g.output)?.blockId ?? ""];
   if (outBlock && !outBlock.authority.canEmitFeature) errors.push(`The output node must use an emit block (Emit Feature / Map-Label); received ${outBlock.blockId}`);
   // a node with no compute on the evaluable path is a runtime gap (pure FSM control not yet executable).
-  for (const n of g.nodes) { const b = BLOCKS_BY_ID[n.blockId]; if (b && !b.compute && b.group === "FSM_STATE") warnings.push(`node ${n.id} (${b.blockId}) is an FSM control without a runtime implementation; its preview is zero`); }
+  const reachable=new Set<string>();const mark=(id:string)=>{if(reachable.has(id))return;reachable.add(id);for(const up of byId.get(id)?.inputs||[])if(up)mark(up);};mark(g.output);
+  for (const n of g.nodes) { const b = BLOCKS_BY_ID[n.blockId]; if (b && !b.compute) {const message=`node ${n.id} (${b.blockId}) has no numeric runtime implementation; zero is not measured evidence`;if(reachable.has(n.id))errors.push(message);else warnings.push(message+" (unused node)");} }
   // cycle check
   try { topoOrder(g); } catch (e) { errors.push((e as Error).message); }
   return { ok: errors.length === 0, errors, warnings };
@@ -68,14 +67,18 @@ export function validateGraph(g: FeatureGraph): GraphValidation {
 
 function topoOrder(g: FeatureGraph): FeatureNode[] {
   const byId = new Map(g.nodes.map((n) => [n.id, n]));
-  const order: FeatureNode[] = [], seen = new Set<string>(), inProg = new Set<string>();
-  const visit = (id: string) => {
-    if (seen.has(id)) return;
+  const order: FeatureNode[] = [], seen = new Set<string>(), inProg = new Set<string>(), depths=new Map<string,number>();
+  const visit = (id: string):number => {
+    if (seen.has(id)) return depths.get(id)||1;
     if (inProg.has(id)) throw new Error(`Graph contains a cycle at node "${id}". L1 must be a directed acyclic graph.`);
-    const n = byId.get(id); if (!n) return;
+    const n = byId.get(id); if (!n) return 0;
     inProg.add(id);
-    for (const up of n.inputs) if (up) visit(up);
+    let depth=1;
+    for (const up of n.inputs) if (up) depth=Math.max(depth,1+visit(up));
+    if(depth>MAX_FEATURE_DEPTH)throw new Error(`Feature dependency depth exceeds ${MAX_FEATURE_DEPTH}.`);
+    depths.set(id,depth);
     inProg.delete(id); seen.add(id); order.push(n);
+    return depth;
   };
   for (const n of g.nodes) visit(n.id);
   return order;

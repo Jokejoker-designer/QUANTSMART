@@ -31,6 +31,7 @@ import { validateCardForPublication } from "../lib/cardPublication.ts";
 import { flushWorkspace } from "../lib/workspaceClient.ts";
 import { CardEvidencePanel } from "../components/CardEvidencePanel.tsx";
 import { exportStrategyBundle, importStrategyBundle } from "../lib/strategyBundle.ts";
+import {parseModuleJson} from "../lib/moduleJsonText.ts";
 import { loadCustomModules, deleteCustomModule, EXECUTABLE_ROLES, type CustomModule } from "../lib/customModule.ts";
 import { loadCustomL1, reloadCustomL1, deleteCustomL1, type CustomL1Module } from "../lib/blocks/customL1.ts";
 import { loadCustomL2, reloadCustomL2, deleteCustomL2, type CustomL2Module } from "../lib/blocks/customL2.ts";
@@ -360,7 +361,7 @@ export function StrategyCanvas() {
   async function importCards(file: File) {
     try {
       if(file.size>4*1024*1024)throw new Error("Strategy JSON must be at most 4 MB.");
-      const text=(await file.text()).replace(/^\uFEFF/,"");const parsed=JSON.parse(text);
+      const text=await file.text();const parsed=parseModuleJson(text) as Record<string,unknown>|unknown[]|null;
       if(!Array.isArray(parsed)&&parsed&&typeof parsed==='object'&&!parsed.cards&&!parsed.modules&&!parsed.card){const result=await importModuleDefinition(text);if(!result.ok)throw new Error(result.errors.join('; '));setCustomMods(loadCustomModules());setCustomL1Mods(reloadCustomL1());setCustomL2Mods(reloadCustomL2());setCustomL3Mods(reloadCustomL3());setCustomL6Zones(reloadCustomL6());setPackageStatus({ok:true,text:`Imported ${result.layer} ${result.name} as Shadow. Inspect the selected CSV before research use.`});return;}
       const result=await importStrategyBundle(parsed);
       // Rebuild the layer caches from the imported definitions, without changing compiler semantics.

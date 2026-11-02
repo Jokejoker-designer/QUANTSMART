@@ -16,7 +16,7 @@ import { loadSimOhlc } from "../adapters/loadSimOhlc.ts";
 import type { OhlcBar } from "../adapters/loadOhlcReplayChart.ts";
 import { moduleToFormulaLab } from "../formulaLab/adapters/tierToFormulaLab.ts";
 import { setFormulaLabInput } from "../formulaLab/formulaLabStore.ts";
-import { compileL5, type L5Recipe, type L5Cond } from "../lib/blocks/l5Compile.ts";
+import { compileL5, l5RecipeFromModule, type L5Recipe, type L5Cond } from "../lib/blocks/l5Compile.ts";
 import { L5_BLOCKS } from "../lib/blocks/l5BlockLibrary.ts";
 import { metricsForScope, validateModule, loadCustomModules, saveCustomModules, type Op } from "../lib/customModule.ts";
 import { listCustomMetrics, customMetricKeys, customMetricSeries } from "../lib/customMetricBridge.ts";
@@ -176,6 +176,7 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
   const metricOpts = useMemo(() => metricsForScope("entry"), []);
   const [terminal, setTerminal] = useState<"TRIGGER" | "VETO" | "EXIT">("TRIGGER");
   const [direction, setDirection] = useState<"LONG" | "SHORT" | "REGIME">("REGIME");
+  const [ruleOptions,setRuleOptions]=useState<Pick<L5Recipe,"logic"|"weight"|"reliability"|"exitAction"|"lockR">>({logic:"ALL"});
   const [name, setName] = useState("L5_ATK_PULLBACK_01");
   const [explain, setExplain] = useState("Trigger in regime direction when trend pullback aligns with momentum confirmation");
   const [why, setWhy] = useState("Capture continuation waves after controlled retracements");
@@ -204,6 +205,7 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
       explain,
       why,
       terminal,
+      ...ruleOptions,
       direction: terminal === "TRIGGER" ? direction : undefined,
       setup,
       confirm,
@@ -220,6 +222,7 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
     setExplain(r.explain);
     setWhy(r.why);
     setTerminal(r.terminal);
+    setRuleOptions({logic:r.logic??"ALL",weight:r.weight,reliability:r.reliability,exitAction:r.exitAction,lockR:r.lockR});
     if (r.direction) setDirection(r.direction);
     setSetup(r.setup);
     setConfirm(r.confirm);
@@ -236,14 +239,15 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
       explain,
       why,
       terminal,
+      ...ruleOptions,
       direction: terminal === "TRIGGER" ? direction : undefined,
       setup: terminal === "TRIGGER" ? setup : [],
       confirm: terminal === "TRIGGER" ? confirm : undefined,
       veto: terminal === "VETO" ? setup : undefined,
       exit: terminal === "EXIT" ? setup : undefined,
-      exitAction: terminal === "EXIT" ? "CLOSE" : undefined,
+      exitAction: terminal === "EXIT" ? ruleOptions.exitAction??"CLOSE" : undefined,
     }),
-    [name, explain, why, terminal, direction, setup, confirm]
+    [name, explain, why, terminal, direction, setup, confirm,ruleOptions]
   );
   const compiled = useMemo(() => compileL5(recipe), [recipe]);
   const valid = useMemo(() => validateModule(compiled.module, customMetricKeys()), [compiled]);
@@ -273,6 +277,7 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
         states[i] = marginRes.series[i] >= 0 ? "EXIT" : "WATCH";
         continue;
       }
+      if(compiled.module.logic==="ANY"){states[i]=marginRes.series[i]>=0?"READY":"WATCH";continue;}
       const setupM = setupN ? Math.min(...per.slice(0, setupN).map((c) => c.series[i])) : Infinity;
       const confirmM = per.length > setupN ? Math.min(...per.slice(setupN).map((c) => c.series[i])) : Infinity;
       states[i] = setupM < 0 ? "WATCH" : confirmM < 0 ? "SETUP" : "READY";
@@ -307,6 +312,7 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
                   {b.label}
                 </option>
               ))}
+              {c.blockId==="imported_condition"&&<option value="imported_condition">Imported condition</option>}
             </select>
           </div>
           <button
@@ -378,15 +384,9 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
     }
     const m = r.module;
     if(m.level!==5||!["TRIGGER","VETO","EXIT"].includes(m.role)){setAiMsg({ok:false,text:"This recipe editor supports L5 TRIGGER, VETO or EXIT. Use the generic module importer for other roles."});return;}
-    const term = m.role === "VETO" ? "VETO" : m.role === "EXIT" ? "EXIT" : "TRIGGER";
-    const blocks = term === "VETO" ? VETO_BLOCKS : term === "EXIT" ? EXIT_BLOCKS : SETUP_BLOCKS;
-    const mapped: L5Cond[] = (m.conditions || []).map((c) => ({
-      blockId: blocks[0].blockId,
-      metric: c.metric,
-      op: c.op,
-      value: c.value,
-      ...(c.value2 != null ? { value2: c.value2 } : {}),
-    }));
+    const imported=l5RecipeFromModule(m),term=imported.terminal;
+    const mapped=imported.setup?.length?imported.setup:imported.veto??imported.exit??[];
+    setRuleOptions({logic:imported.logic,weight:imported.weight,reliability:imported.reliability,exitAction:imported.exitAction,lockR:imported.lockR});
     if (term === "TRIGGER" && mapped.length === 0) {
       setAiMsg({ ok: false, text: "A trigger needs at least one condition." });
       return;
@@ -498,6 +498,20 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
               })}
             </div>
 
+            <details style={{marginBottom:8}}>
+              <summary>Condition logic and parameters · {ruleOptions.logic??"ALL"}</summary>
+              <div style={{display:"flex",flexWrap:"wrap",gap:8,padding:"8px 0"}}>
+                <label>Condition logic <select aria-label="L5 condition logic" value={ruleOptions.logic??"ALL"} style={inp} onChange={e=>{setRuleOptions({...ruleOptions,logic:e.target.value as "ALL"|"ANY"});setSaved(false);}}><option value="ALL">ALL conditions</option><option value="ANY">ANY condition</option></select></label>
+                {terminal==="TRIGGER"&&<>
+                  <label>Vote weight <input aria-label="L5 vote weight" type="number" min={0} max={100} step={.01} value={ruleOptions.weight??.9} style={{...inp,width:90}} onChange={e=>{setRuleOptions({...ruleOptions,weight:e.target.valueAsNumber});setSaved(false);}}/></label>
+                  <label>Reliability coefficient <input aria-label="L5 reliability coefficient" type="number" min={.001} max={.999} step={.01} value={ruleOptions.reliability??.53} style={{...inp,width:90}} onChange={e=>{setRuleOptions({...ruleOptions,reliability:e.target.valueAsNumber});setSaved(false);}}/></label>
+                </>}
+                {terminal==="EXIT"&&<>
+                  <label>Simulated exit action <select aria-label="L5 exit action" value={ruleOptions.exitAction??"CLOSE"} style={inp} onChange={e=>{setRuleOptions({...ruleOptions,exitAction:e.target.value as L5Recipe["exitAction"]});setSaved(false);}}><option value="CLOSE">CLOSE</option><option value="BREAKEVEN">BREAKEVEN</option><option value="LOCK_SL">LOCK_SL</option></select></label>
+                  {ruleOptions.exitAction==="LOCK_SL"&&<label>Protective lock R <input aria-label="L5 protective lock R" type="number" min={0} step={.1} value={ruleOptions.lockR??.5} style={{...inp,width:90}} onChange={e=>{setRuleOptions({...ruleOptions,lockR:e.target.valueAsNumber});setSaved(false);}}/></label>}
+                </>}
+              </div>
+            </details>
             {terminal === "TRIGGER" && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(7,11,20,0.55)", padding: "5px 8px", borderRadius: 6, marginBottom: 8 }}>
                 <span style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 700 }}>Strike Direction:</span>
@@ -536,6 +550,7 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
                     key={pr.name}
                     onClick={() => {
                       setTerminal(pr.terminal);
+                      setRuleOptions({logic:"ALL"});
                       if (pr.direction) setDirection(pr.direction);
                       setName(pr.name);
                       setExplain(pr.explain);
@@ -717,7 +732,7 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
               const isEmit = n.id === "emit";
               return (
                 <span key={n.id} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  {k > 0 && <span style={{ color: "#64748b", fontWeight: 900 }}>➔</span>}
+                  {k > 0 && <span style={{ color: "#64748b", fontWeight: 900 }}>{isEmit?"➔":compiled.module.logic==="ANY"?"OR":"AND"}</span>}
                   <span
                     style={{
                       fontSize: 11,
@@ -781,7 +796,7 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
                       </div>
                     );
                   })}
-                  {bindTop && (
+                  {bindTop && compiled.module.logic!=="ANY" && (
                     <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 6 }}>
                       Tightest filter: <b style={{ color: "#e2e8f0" }}>{bindTop.label}</b>
                     </div>
@@ -789,7 +804,7 @@ export function L5Sandbox({ onClose, onSaved }: { onClose: () => void; onSaved?:
                 </div>
 
                 <div style={{ ...cardBox, marginBottom: 0 }}>
-                  <ContribBarsKit rows={l5Env.sig.contributions} title="Condition Selectivity (Which rule filters the most bars)" />
+                  {compiled.module.logic==="ANY"?<p style={{fontSize:11,color:"#94a3b8"}}>ANY becomes eligible when at least one condition passes. An ALL-style bottleneck ranking is not reported.</p>:<ContribBarsKit rows={l5Env.sig.contributions} title="Condition Selectivity (Which rule filters the most bars)" />}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
                     <span style={{ fontSize: 10, color: "#94a3b8" }}>Transition triangles on the chart mark bars entering READY state.</span>
                     <button

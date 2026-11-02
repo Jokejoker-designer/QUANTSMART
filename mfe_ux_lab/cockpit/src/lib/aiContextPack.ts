@@ -1,4 +1,9 @@
 import{normalizeOverlayDefinition}from"./overlayDefinition.ts";
+import {parseModuleJson} from "./moduleJsonText.ts";
+import {l1BlockContracts} from "./blocks/blockJsonContract.ts";
+import {MAX_QUANT_NODES,MAX_QUANT_DEPTH,quantParameterErrors} from "./blocks/quantImportContract.ts";
+import {moduleImportSchemas,conditionModuleJsonSchema} from "./moduleJsonSchemas.ts";
+export {l1BlockContracts} from "./blocks/blockJsonContract.ts";
 // aiContextPack — WO INTENT_SANDBOX. Context Pack cho AI của USER — **PER-TẦNG**, không phải một pack khổng lồ.
 //
 // VÌ SAO per-tầng (cứng trong code, không phải sở thích):
@@ -28,7 +33,8 @@ import { type FeatureGraph } from "./blocks/featureGraph.ts";
 import { saveCustomL2, loadCustomL2, type CustomL2Module, type L2Kind } from "./blocks/customL2.ts";
 import { saveCustomL6, loadCustomL6, validateL6Zone, ZONE_ROLES, ZONE_ANCHORS, type CustomL6Zone, type ZoneRole, type ZoneAnchor } from "./blocks/customL6.ts";
 import { upsertCustomL3, astHash, L3_AUTHORITY, type CustomL3Module } from "./blocks/customL3.ts";
-import { L1_PICKABLE } from "./blocks/l2Eval.ts";
+import { L1_PICKABLE,availableInputs } from "./blocks/l2Eval.ts";
+import {STD_INDICATORS} from "./blocks/stdIndicators.ts";
 import { loadCustomModules, saveCustomModules } from "./customModule.ts";
 import { astToText } from "./blocks/quantFormulaText.ts";
 import { customMetricKeys, listCustomMetrics } from "./customMetricBridge.ts";
@@ -113,10 +119,11 @@ function l3FormulaVocab(): string {
 - \`CLIP\`: one expression plus \`params:{"min":0,"max":1}\`.
 - Window operations (\`ROLL_MEAN\`, \`ROLL_STD\`, \`ROLL_SUM\`, \`ROLL_MAX\`, \`ROLL_MIN\`, \`PERCENTILE_RANK\`, \`EMA\`, \`MEDIAN\`, \`MAD\`, \`IQR\`, \`ROBUSTZ\`, \`OUTLIER\`): one expression plus \`params:{"window":N}\`.
 - \`LAG\`/\`DELTA\`: one expression plus \`params:{"lag":k}\`.
-- \`QUANTILE\`/\`WINSOR\`: one expression plus \`params:{"q":0.9,"window":N}\`.
+- \`QUANTILE\`/\`WINSOR\`: one expression plus explicit params. QUANTILE uses q in [0,1] (default 0.5); WINSOR uses a tail fraction q in [0,0.5] (default 0.05). Windows are integers 2..10000 (default 20); lag is an integer 1..10000 (default 1).
 - \`MACRO_REF\`: \`{"op":"MACRO_REF","args":["zscore",<expression>],"params":{"window":50}}\`. The first argument is the macro ID.
 Trailing constant arguments in function syntax are also normalized to parameters, but explicit \`params\` is preferred.
 **Valid input series**: ${KNOWN_L3_INPUTS.map((i) => `\`${i}\``).join(" · ")} plus existing L1/L2 feature IDs and constants. \`volume\` is not in the default input set because the source may not provide suitable measured volume. Never invent an unresolved input.
+Numeric L1/L2 input IDs currently resolvable in this workspace (use IDs, never display names): ${availableInputs().map(input=>`\`${input.key}\` (${input.label})`).join(" · ")}
 ${availableL1ForPrompt().replace("`featureKeys`", "input L3")}
 **Guardrails**: causalOnly, numeric output, advisoryOnly, noEntry, noZone, noOrderSend, noAutoLot. Safe-math operations guard NaN and infinity.
 **Example**: \`zscore((close − ema20) / atr)\`.
@@ -130,12 +137,18 @@ export function layerSection(layer: PackLayer): string {
   const auth = `### ${m.title}\n- **Authority**: ${m.authority}\n- **Output type**: ${m.output}
 - **Position in the chain**: ${m.place}`;
   if (layer === "L1") return `${auth}
-- **Available components**: ${L1_BLOCKS.length} feature block / ${L1_GROUPS.length} groups:
-${blockTable(L1_BLOCKS, L1_GROUPS)}`;
+- **Available components**: ${L1_BLOCKS.length} feature blocks. Exact parameter names are case-sensitive; omitted values use the declared defaults. STREAM_OHLC inputs are supplied by the runtime and are excluded from the JSON inputs array.
+Each line is a block contract with ordered input ports, output types and its params JSON Schema:
+${l1BlockContracts().map(contract=>JSON.stringify(contract)).join("\n")}
+Confirmed pivot timing: swing_high/swing_low use **params:{"W":3}**, integer W from 1 to 20. At observation bar i, the candidate at k=i-W is confirmed only after its W right-hand bars have closed, using [k-W,k+W]. Emit at i, never backdate to k. Carry the latest confirmed pivot forward. Before the first confirmation, the legacy implementation uses the current bar high/low; this fallback is not a confirmed pivot. At M15, W=2 adds two completed bars (30 minutes on a continuous tape).
+Blocks marked NOT_IMPLEMENTED cannot supply a measured output. Do not use them on the output path.`;
   if (layer === "L2") return `${auth}\n${availableL1ForPrompt()}
+The executable numeric JSON is a normalized weighted composite of existing L1 IDs, not an arbitrary L2 block graph. Weights must be finite in [0,100], with at least one positive weight; each selected key needs exactly one weight. Inputs are normalized causally over the expanding observed history, then weighted and divided by total weight; bias uses [-1,1], other numeric kinds use [0,1]. These are descriptive scores, not calibrated confidence. The palette below is conceptual builder vocabulary; its higher-timeframe or self-calibrating labels do not create an implemented JSON data feed or calibration job.
+For kind overlay, use one overlayKey recipe with exact overlayParams OR overlayLines, never both. Available recipe parameters (def/min/max/step are enforced on import): ${JSON.stringify(STD_INDICATORS.map(({key,params})=>({overlayKey:key,params})))}
 - **Available components**: ${L2_BLOCKS.length} indicator block / ${L2_GROUPS.length} groups:
 ${blockTable(L2_BLOCKS, L2_GROUPS)}`;
   if (layer === "L5") return `${auth}
+The executable JSON uses conditions with their exact metrics, operator, threshold and ALL/ANY logic. Palette labels do not automatically implement a full named strategy. TRIGGER weight defaults to 0.8 in generic JSON, reliability to 0.53; these are coefficients, not measured win probabilities. CONFIRM scales existing votes (default 1.25) and creates no candidate. EXIT supports CLOSE/BREAKEVEN/LOCK_SL in simulation. The L5 recipe editor preserves imported logic, weights and exit actions; use the generic importer for CONFIRM.
 - **Available components**: ${L5_BLOCKS.length} decision block / ${L5_GROUPS.length} groups; executable L5 conditions use the declared metric catalog:
 ${blockTable(L5_BLOCKS, L5_GROUPS)}`;
   if (layer === "L3") return `${auth}
@@ -146,7 +159,7 @@ ${l3FormulaVocab()}`;
 ${metricList()}`;
   // L6
   return `${auth}
-- **Output**: one reference price band for chart display; not an entry instruction.`;
+- **Output**: one reference price band for chart display; not an entry instruction. L6 swing_high/low are extrema of the current bar plus prior 20 bars, not the confirmed L1 pivot blocks. poc is the midpoint of that range, not volume-based point of control. evidence anchor = close + evidence*ATR; center = anchor + offsetAtr*ATR; widthAtr is the half-width. l5_state is unsupported.`;
 }
 
 export const FEW_SHOT_PRESETS: { name: string; module: Partial<CustomModule> }[] = [
@@ -161,7 +174,16 @@ const RULES = `## Layer rules
 3. No lookahead: read only observations available at or before the current completed candle.
 4. Respect the selected layer's authority and output type.
 5. Use only the listed blocks, metrics and operations. Unknown inputs are rejected.
-For example, \`order_book_delta\` is invalid unless it exists in the supplied metric catalog.`;
+For example, \`order_book_delta\` is invalid unless it exists in the supplied metric catalog.
+
+## Data, timing and complexity limits
+Tick-by-time input is unavailable to this module JSON pipeline: it consumes completed OHLC bars, not a tick/trade/order-book stream. A connected tick chart does not add tick inputs to these modules. Use bar-level volatility wording. m1_subbar has no implemented numeric evaluator here; never substitute it for measured ticks. Missing volume is not measured zero-volume evidence.
+Imported L1/L3 graphs support at most 256 nodes and dependency depth 64. The L4/L5 condition limit is 100. L2 numeric composites allow at most 128 distinct features. Node limits constrain execution cost; they do not prevent overfitting.
+There is no general multi-timeframe merge/resample JSON block. References use the selected design-bar series; do not invent an H1 feed inside an M15 feature. Session effects require explicit, causal testing; they are not normalized automatically.
+KIDI here describes numeric domain/finite-value guards. Near-zero denominators can return zero as a documented fallback; a clean numeric result does not certify market-data quality or predictive edge. Numeric thresholds/if_else are allowed descriptive measurements in L1; their presence alone is not a layer violation.
+
+## Validation protocol
+Inspect node previews and finite values; compare prefix-only computation against whole-series values. Choose thresholds on a training interval and freeze definitions before chronological held-out and walk-forward checks. Declare sessions, source gaps, costs and OHLC ambiguity. Record every tried variant in the observed trial history. Multiple-testing correction, independent human labels and calibrated probabilities are not supplied by JSON validity; do not claim Deflated Sharpe/PBO or significance from this pack.`;
 
 // Ví dụ HỎI-ĐÁP (làm rõ ý mơ hồ) + luật output "chỉ JSON" + cấu trúc explanation — chỉ vào MASTER (user mơ hồ).
 const ASK_AND_OUTPUT = `## Clarify the idea before building
@@ -181,18 +203,8 @@ Use only keys present in the catalog.
 // SCHEMA JSON — level/role ĐÚNG THEO TẦNG (không cứng level:4). Master (mọi tầng) dùng bản neutral; pack L4/L5 dùng
 // bản cố-định level của tầng đó (chống lỗi doc-conflict "pack L5 mà schema ghi level:4/CONTEXT_GATE").
 function conditionSchema(layer?: "L4" | "L5"): string {
-  const levelLine = layer === "L5" ? `"level": 5` : layer === "L4" ? `"level": 4` : `"level": <4 or 5>`;
-  const roleLine = layer === "L5" ? `"role": "<TRIGGER | VETO | CONFIRM | EXIT>"` : layer === "L4" ? `"role": "CONTEXT_GATE"` : `"role": "<CONTEXT_GATE (L4) | TRIGGER/VETO/CONFIRM/EXIT (L5)>"`;
-  const l5note = layer === "L5" ? `
-- **L5**: conditions feed the builder setup. A TRIGGER with no conditions is rejected.` : "";
-  return `## JSON condition-module schema
-\`\`\`json
-{ ${levelLine}, ${roleLine}, "name": "Name with at least 3 characters",
-  "explain": "What it does; at least 12 characters", "why": "Rationale; at least 12 characters",
-  "conditions": [{"metric":"<catalog key or existing L1/L2/L3 evidence ID>","op":"<operator>","value":0,"value2":0}],
-  "logic":"ALL","direction":"LONG","exitAction":"CLOSE","lockR":0.5 }
-\`\`\`
-\`direction\` applies to TRIGGER only (LONG/SHORT/REGIME); \`exitAction\` and \`lockR\` apply to EXIT only; \`between\` and \`outside\` require \`value2\`.${l5note}`;
+  const schema=layer?conditionModuleJsonSchema(layer==="L4"?4:5):{anyOf:[conditionModuleJsonSchema(0),conditionModuleJsonSchema(4),conditionModuleJsonSchema(5)]};
+  return `## JSON Schema (contract, not a module to import)\n\`\`\`json\n${JSON.stringify(schema)}\n\`\`\`\nUse only role-appropriate fields. TRIGGER requires direction; EXIT LOCK_SL requires lockR. Conditions are capped at 100. A valid example follows.`;
 }
 const CONDITION_SCHEMA = conditionSchema();
 
@@ -209,7 +221,7 @@ function outputLock(layer: PackLayer): string {
   if (layer === "L3") return `${L}
 > L3 output: one formula AST JSON object with \`name\`, \`ast\`, \`outputType:"SCORE"\` and \`explanation\`. Nested \`{op,args}\` expressions are normalized on import. Do not return an L4/L5 condition module.`;
   if (layer === "L1") return `${L}
-> L1 output: a FeatureGraph JSON object with \`name\`, \`explain\`, \`why\`, \`graph:{nodes:[{id,blockId,params?,inputs}],output:<emit-node ID>}\` and \`explanation\`. Use the listed block IDs. Inputs reference node IDs; STREAM_OHLC ports do not count toward the inputs array. Output must be \`emit_feature\`. Import JSON runs graph validation.`;
+> L1 output: a FeatureGraph JSON object with \`name\`, \`explain\`, \`why\`, \`graph:{nodes:[{id,blockId,params?,inputs}],output:<emit-node ID>}\` and \`explanation\`. Use the listed block IDs. Inputs reference node IDs; STREAM_OHLC ports do not count toward the inputs array. Prefer \`emit_feature\`; \`map_label\` is also an allowed numeric display terminal. Import JSON runs graph validation.`;
   if (layer === "L2") return `${L}
 > L2 output: weighted-sum JSON with \`name\`, \`explain\`, \`kind\` (indicator/regime/bias/confidence), \`featureKeys\`, numeric \`weights\` and \`explanation\`. Feature keys must already exist in the supplied L1 list. Build missing L1 features first. Do not return L4/L5 module JSON.`;
   return `${L}
@@ -225,7 +237,8 @@ Help the user turn one idea for **${m.title}** into a QUANTSMART module using th
 ${CHAIN}\n\n${RULES}
 
 ## Available layer components
-${layerSection(layer)}`;
+${layerSection(layer)}
+${layer!=="L1"&&layer!=="L4"&&layer!=="L5"&&layer!=="CONDITIONS"?"\n## JSON Schema (canonical output; semantic checks also apply)\n```json\n"+JSON.stringify(moduleImportSchemas()[layer])+"\n```":""}`;
   if (layer === "L5" || layer === "L4" || layer === "CONDITIONS") {
     const shots = FEW_SHOT_PRESETS.filter((p) => (layer === "L4" ? p.module.level === 4 : layer === "L5" ? p.module.level === 5 : true)).map((p) => `\`\`\`json\n${JSON.stringify(p.module, null, 2)}\n\`\`\``).join("\n\n");
     return `${head}\n\n## ④ ${conditionSchema(layer === "L4" ? "L4" : layer === "L5" ? "L5" : undefined)}
@@ -299,7 +312,7 @@ export function buildMasterPrompt(userIdea = ""): string {
 
 Help build one module. If requirements are unclear, ask specific questions about timeframe, setup, confirmation, exits and exclusions. Once clear, return one schema-compliant JSON object, with the rationale in its \`explanation\` field.
 ${idea}
-The user may describe a strategy without knowing the layer model. Clarify the idea, separate setup, confirmation, veto and exit behavior, then choose the appropriate layer. Use only the supplied component and metric catalogs. Return an L4/L5 condition module, or an L3 numeric AST when the idea is a measurement. Write the explanation in plain English: what it does, what activates it, and why it matches the stated hypothesis.
+The user may describe a strategy without knowing the layer model. Clarify the idea, separate setup, confirmation, veto and exit behavior, then choose the appropriate layer. Use only the supplied component and metric catalogs. Return exactly one layer's canonical module JSON: an L1 graph, L2 composite/overlay, L3 numeric AST, L4/L5 conditions or L6 reference zone. Never combine graph, ast and conditions in one object. Build upstream dependencies first and use their exact saved IDs. Write the explanation in plain English: what it does, what activates it, and why it matches the stated hypothesis.
 
 Layer chain: ${CHAIN}
 
@@ -314,7 +327,9 @@ ${METRIC_HINTS}
 
 ${CONDITION_SCHEMA.replace('## SCHEMA JSON', "## L4/L5 module JSON schema with explanation").replace('"lockR": 0.5 }', "\"lockR\":0.5,\"explanation\":\"Explain the module in plain English\" }")}
 
-## Example module
+## Layer-format examples
+Each example is a separate module, not a combined payload. Choose only the format required by the idea.
+${[L1_EXAMPLE,L2_EXAMPLE,L3_EXAMPLE,L6_EXAMPLE].map(example=>"```json\n"+JSON.stringify(example,null,2)+"\n```").join("\n")}
 ${FEW_SHOT_PRESETS.map((p) => `\`\`\`json\n${JSON.stringify({ ...p.module, explanation: "…(one plain-English sentence)" }, null, 2)}\n\`\`\``).join("\n")}
 
 ## Research limits
@@ -424,7 +439,7 @@ export interface ParseResult { ok: boolean; module?: CustomModule; errors: strin
 /** Parse JSON AI trả về → module đã validate. CHỈ nhận field trong schema (order/lot/risk bị BỎ, không leak). */
 export function parseAiModule(json: string, extraMetrics:string[]=[]): ParseResult {
   let raw: unknown;
-  try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], strippedFields: [] }; }
+  try { raw = parseModuleJson(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], strippedFields: [] }; }
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false, errors: ["Expected one JSON object."], strippedFields: [] };
   const src = raw as Record<string, unknown>;
   // trích lời GIẢI THÍCH của AI (đời thường) — hiển thị cho user hiểu ngay module làm gì; không phải field module
@@ -438,7 +453,7 @@ export function parseAiModule(json: string, extraMetrics:string[]=[]): ParseResu
   const draft: Partial<CustomModule> = {
     level: clean.level as Level, role: clean.role as Role, name: clean.name as string,
     explain: clean.explain as string, why: clean.why as string,
-    conditions: (clean.conditions as CustomModule["conditions"]) || [], logic: (clean.logic as "ALL" | "ANY") || "ALL",
+    conditions: (clean.conditions as CustomModule["conditions"]) || [], logic: clean.logic === undefined ? "ALL" : clean.logic as "ALL" | "ANY",
     direction: clean.direction as CustomModule["direction"], weight: clean.weight as number, reliability: clean.reliability as number,
     exitAction: clean.exitAction as CustomModule["exitAction"], lockR: clean.lockR as number,
     zoneRole: clean.zoneRole as CustomModule["zoneRole"], zoneOffsetAtr: clean.zoneOffsetAtr as number,
@@ -453,20 +468,25 @@ export function parseAiModule(json: string, extraMetrics:string[]=[]): ParseResu
 export interface FormulaParseResult { ok: boolean; ast?: QuantFormulaAst; outputType?: string; errors: string[]; aiExplanation?: string; opsUsed?: string[] }
 export function parseAiFormula(json: string, extraInputs: string[] = []): FormulaParseResult {
   let raw: unknown;
-  try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message] }; }
+  try { raw = parseModuleJson(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message] }; }
   if (!raw || typeof raw !== "object") return { ok: false, errors: ["Expected a JSON object."] };
   const src = raw as Record<string, unknown>;
   const aiExplanation = typeof src.explanation === "string" ? src.explanation.trim() : undefined;
   const ast = (src.ast||(src.rootNodeId&&src.nodes?src:undefined)) as QuantFormulaAst | undefined;
   if (!ast || typeof ast !== "object") return { ok: false, errors: ["Missing 'ast'; supply nested {op,args} or flat {rootNodeId,nodes}."], aiExplanation };
   // AI thường trả cây LỒNG NHAU { op, args } — hệ cần dạng PHẲNG { rootNodeId, nodes }. Tự chuyển nếu là nested.
-  const flat = (ast as { nodes?: unknown }).nodes ? (ast as QuantFormulaAst) : nestedAstToFlat(ast as unknown as NestedAstNode, typeof src.name === "string" ? src.name : "AI L3");
+  let flat:QuantFormulaAst|null;
+  try {flat = (ast as { nodes?: unknown }).nodes ? (ast as QuantFormulaAst) : nestedAstToFlat(ast as unknown as NestedAstNode, typeof src.name === "string" ? src.name : "AI L3");}
+  catch(error){return {ok:false,errors:[error instanceof Error?error.message:String(error)],aiExplanation};}
   if (!flat || !flat.nodes || !flat.rootNodeId) return { ok: false, errors: ["Missing 'ast'; supply nested {op,args} or flat {rootNodeId,nodes}."], aiExplanation };
   if(src.outputType!==undefined&&!["SCORE","PROBABILITY_LIKE_SCORE","INDICATOR","EV_COMPONENT"].includes(String(src.outputType)))return{ok:false,errors:["Unknown L3 output type."]};
+  const outputType=src.outputType??flat.outputType??"SCORE";
+  if(!["SCORE","PROBABILITY_LIKE_SCORE","INDICATOR","EV_COMPONENT"].includes(String(outputType)))return{ok:false,errors:["Unknown L3 AST output type."]};
+  flat={...flat,outputType:outputType as QuantOutputType};
   const macroIds = Object.keys(SEED_MACROS);
-  const val = validateAst(flat, [...KNOWN_L3_INPUTS, ...extraInputs], macroIds);   // ← cửa chặn RIÊNG của L3 (+ feature L1/L2 đã build)
+  const val = validateAst(flat, [...knownL3Inputs(), ...extraInputs], macroIds);   // ← cửa chặn RIÊNG của L3 (+ feature L1/L2 đã build)
   if (!val.ok) return { ok: false, ast: flat, errors: val.errors, aiExplanation, opsUsed: val.report.opsUsed };
-  return { ok: true, ast: flat, outputType: typeof src.outputType === "string" ? src.outputType : "SCORE", errors: [], aiExplanation, opsUsed: val.report.opsUsed };
+  return { ok: true, ast: flat, outputType: String(outputType), errors: [], aiExplanation, opsUsed: val.report.opsUsed };
 }
 
 // ── converter cây LỒNG NHAU (AI trả) → AST PHẲNG ĐẦY-ĐỦ (validateAst + kho L3 cần). Dùng mk* nên node có `safety`
@@ -480,6 +500,17 @@ const FOLD_OPS = new Set(["ADD", "SUB", "MUL", "DIV", "MIN", "MAX", "AND", "OR"]
 // import không còn "CLIP cần 1 con, có 3". (Nguồn quy ước: quantFormulaParser.ts)
 function nestedAstToFlat(root: NestedAstNode, name = "AI L3"): QuantFormulaAst | null {
   if (!root || typeof root !== "object" || !root.op) return null;
+  const pending:{node:unknown;depth:number}[]=[{node:root,depth:1}];let count=0;
+  while(pending.length){const {node,depth}=pending.pop()!;if(++count>MAX_QUANT_NODES||depth>MAX_QUANT_DEPTH)throw new Error(`Nested AST exceeds ${MAX_QUANT_NODES} nodes or depth ${MAX_QUANT_DEPTH}.`);
+    if(typeof node==="string"||typeof node==="number"&&Number.isFinite(node))continue;
+    if(!node||typeof node!=="object"||Array.isArray(node))throw new Error("Each nested AST operand must be an expression, input key or finite number.");
+    const value=node as NestedAstNode;if(typeof value.op!=="string"||value.args!==undefined&&!Array.isArray(value.args))throw new Error("Nested AST requires an operation and an args array.");
+    const parameterErrors=quantParameterErrors(value.op,value.params);if(parameterErrors.length)throw new Error(parameterErrors.join("; "));
+    const args=value.args||[];
+    if(value.op==="CONST"&&(args.length>1||typeof(args[0]??value.value)!=="number"))throw new Error("CONST requires exactly one numeric value.");
+    if(value.op==="INPUT"&&(args.length>1||typeof(args[0]??value.inputRef)!=="string"))throw new Error("INPUT requires exactly one input key.");
+    for(const child of args)pending.push({node:child,depth:depth+1});
+  }
   const nodes: Record<string, QuantAstNode> = {}; const macroSet = new Set(Object.keys(SEED_MACROS));
   const put = (nd: QuantAstNode): string => { nodes[nd.nodeId] = nd; return nd.nodeId; };
   const lit = (a: NestedAstNode | number | string | undefined): number | null => {   // hằng-số (raw number hoặc node CONST) → số
@@ -492,24 +523,27 @@ function nestedAstToFlat(root: NestedAstNode, name = "AI L3"): QuantFormulaAst |
     if (typeof n === "number") return put(mkConst(n));
     if (typeof n === "string") return put(mkInput(n));
     const op = n.op || ""; const a = n.args ?? [];
+    const mergeParams=(provided:QuantAstNode["params"])=>{
+      const merged={...n.params};for(const [key,value]of Object.entries(provided||{})){if(key in merged&&(merged as Record<string,unknown>)[key]!==value)throw new Error(`${op}: conflicting explicit and trailing parameter ${key}.`);(merged as Record<string,unknown>)[key]=value;}return merged;
+    };
     if (op === "CONST") return put(mkConst(Number(a[0] ?? n.value ?? 0)));
     if (op === "INPUT") return put(mkInput(String(a[0] ?? n.inputRef ?? "")));
     if (op === "MACRO_REF") {
       const macroName = String(a[0] ?? "");
-      if (!macroSet.has(macroName)) return put(mkInput(macroName));   // tên KHÔNG phải macro → coi là INPUT (feature L1/L2 ref) — giữ hành vi cũ
+      if (!macroSet.has(macroName)) throw new Error(`Unknown macro '${macroName}'. Use ${[...macroSet].join("/")} or reference an input key directly.`);
       let rest = a.slice(1); let window: number | undefined;
       if (WINDOWED_MACROS.has(macroName) && rest.length) { const w = lit(rest[rest.length - 1]); if (w != null) { window = w; rest = rest.slice(0, -1); } }
-      return put(mkOp("MACRO_REF", rest.map(walk), window != null ? { macroId: macroName, window } : { macroId: macroName }));
+      return put(mkOp("MACRO_REF", rest.map(walk), mergeParams(window != null ? { macroId: macroName, window } : { macroId: macroName })));
     }
     // hằng-số đuôi → params (mirror parser): CLIP(x,lo,hi) · QUANTILE/WINSOR(x,q,W) · <windowed>(x,W) · LAG/DELTA(x,k)
-    if (op === "CLIP" && a.length === 3) { const lo = lit(a[1]), hi = lit(a[2]); if (lo != null && hi != null) return put(mkOp("CLIP", [walk(a[0])], { min: lo, max: hi })); }
-    if ((op === "QUANTILE" || op === "WINSOR") && a.length === 3) { const q = lit(a[1]), w = lit(a[2]); if (q != null && w != null) return put(mkOp(op, [walk(a[0])], { q, window: w })); }
-    if ((op === "LAG" || op === "DELTA") && a.length === 2) { const k = lit(a[1]); if (k != null) return put(mkOp(op, [walk(a[0])], { lag: k })); }
-    if (windowed1(op) && a.length === 2) { const w = lit(a[1]); if (w != null) return put(mkOp(op as QuantOp, [walk(a[0])], { window: w })); }
+    if (op === "CLIP" && a.length === 3) { const lo = lit(a[1]), hi = lit(a[2]); if (lo != null && hi != null) return put(mkOp("CLIP", [walk(a[0])], mergeParams({ min: lo, max: hi }))); }
+    if ((op === "QUANTILE" || op === "WINSOR") && a.length === 3) { const q = lit(a[1]), w = lit(a[2]); if (q != null && w != null) return put(mkOp(op, [walk(a[0])], mergeParams({ q, window: w }))); }
+    if ((op === "LAG" || op === "DELTA") && a.length === 2) { const k = lit(a[1]); if (k != null) return put(mkOp(op, [walk(a[0])], mergeParams({ lag: k }))); }
+    if (windowed1(op) && a.length === 2) { const w = lit(a[1]); if (w != null) return put(mkOp(op as QuantOp, [walk(a[0])], mergeParams({ window: w }))); }
     // op KẾT-HỢP viết n-ary (AI hay làm: MUL(a,b,c)·ADD(a,b,c,d)·MAX(a,b,c)) → GỘP TRÁI về nhị-phân (arity 2). Fix "MUL cần 2 con, có 3".
     if (FOLD_OPS.has(op) && a.length > 2) { let acc = walk(a[0]); for (let k = 1; k < a.length; k++) acc = put(mkOp(op as QuantOp, [acc, walk(a[k])])); return acc; }
     const children = a.map((x) => walk(x));
-    if (!(op in OP_SPEC)) { const id = nid("op"); return put({ nodeId: id, kind: "POINT_OP", op: op as QuantOp, children, params: n.params, safety: { causalOnly: true } }); }
+    if (!Object.prototype.hasOwnProperty.call(OP_SPEC,op)) { const id = nid("op"); return put({ nodeId: id, kind: "POINT_OP", op: op as QuantOp, children, params: n.params, safety: { causalOnly: true } }); }
     return put(mkOp(op as QuantOp, children, n.params));
   };
   const rootId = walk(root);
@@ -532,15 +566,12 @@ function knownFeatureKeys(): Set<string> {
 }
 // input hợp lệ cho L3 = KNOWN_L3_INPUTS + mọi feature L1/L2 đã build (theo id VÀ tên, vì AI hay gọi theo tên người).
 function knownL3Inputs(): string[] {
-  const extra = [...L1_PICKABLE.map((f) => f.key)];
-  for (const m of loadCustomL1()) { extra.push(m.id); extra.push(m.name); }
-  for (const m of loadCustomL2().filter(m=>m.kind!=="overlay")) { extra.push(m.id); extra.push(m.name); }
-  return extra;
+  return [...KNOWN_L3_INPUTS,...availableInputs().map(input=>input.key)];
 }
 
 // L1 — FeatureGraph. AI trả { name, explain, why, graph:{ nodes:[{id,blockId,params?,inputs}], output }, explanation }.
 export function parseAiFeature(json: string): { ok: boolean; module?: CustomL1Module; errors: string[]; warnings: string[]; aiExplanation?: string } {
-  let raw: unknown; try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], warnings: [] }; }
+  let raw: unknown; try { raw = parseModuleJson(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], warnings: [] }; }
   if (!raw || typeof raw !== "object") return { ok: false, errors: ["Expected a JSON object."], warnings: [] };
   const s = raw as Record<string, unknown>;
   const aiExplanation = typeof s.explanation === "string" ? s.explanation.trim() : undefined;
@@ -559,7 +590,7 @@ export function parseAiFeature(json: string): { ok: boolean; module?: CustomL1Mo
 
 // L2 — weighted-sum indicator. AI trả { name, explain, kind, featureKeys:[…], weights:{key:w}, explanation }.
 export function parseAiIndicator(json: string, extraFeatures: string[] = []): { ok: boolean; module?: CustomL2Module; errors: string[]; warnings: string[]; aiExplanation?: string } {
-  let raw: unknown; try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], warnings: [] }; }
+  let raw: unknown; try { raw = parseModuleJson(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], warnings: [] }; }
   if (!raw || typeof raw !== "object") return { ok: false, errors: ["Expected a JSON object."], warnings: [] };
   const s = raw as Record<string, unknown>;
   const aiExplanation = typeof s.explanation === "string" ? s.explanation.trim() : undefined;
@@ -571,10 +602,11 @@ export function parseAiIndicator(json: string, extraFeatures: string[] = []): { 
   }
   const featureKeys = Array.isArray(s.featureKeys) ? s.featureKeys.filter((k): k is string => typeof k === "string") : [];
   if (Array.isArray(s.featureKeys) && featureKeys.length !== s.featureKeys.length || new Set(featureKeys).size !== featureKeys.length) errors.push("featureKeys must be distinct strings");
-  if (featureKeys.length < 1) errors.push("featureKeys must contain at least one L1 feature key");
+  if (featureKeys.length < 1 || featureKeys.length>128) errors.push("featureKeys must contain 1 to 128 distinct L1 feature keys");
   const weightsRaw = (s.weights && typeof s.weights === "object") ? s.weights as Record<string, unknown> : {};
   const weights: Record<string, number> = {};
-  for (const k of featureKeys) { const w = weightsRaw[k]; if (typeof w!=="number" || !Number.isFinite(w)) errors.push("Missing numeric weights['" + k + "']"); else weights[k] = w; }
+  for (const k of featureKeys) { const w = weightsRaw[k]; if (typeof w!=="number" || !Number.isFinite(w) || w<0 || w>100) errors.push("weights['" + k + "'] must be a finite number from 0 to 100; negative weights are not implemented by this normalized composite."); else weights[k] = w; }
+  for(const key of Object.keys(weightsRaw))if(!featureKeys.includes(key))errors.push("Unused weight key: "+key+". Every weight must reference a selected featureKeys ID.");
   if (featureKeys.length && !Object.values(weights).some(w=>w!==0)) errors.push("At least one weight must be nonzero");
   const pool = knownFeatureKeys();
   for (const k of featureKeys) if (!pool.has(k) && !extraFeatures.includes(k)) errors.push("Missing L1 feature dependency: " + k);
@@ -588,7 +620,7 @@ export function parseAiIndicator(json: string, extraFeatures: string[] = []): { 
 
 // L6 — ZONE. AI trả { name, explain, anchor, anchorRef?, role, offsetAtr, widthAtr, explanation }.
 export function parseAiZone(json: string, extraEvidence: string[] = []): { ok: boolean; zone?: CustomL6Zone; errors: string[]; warnings: string[]; aiExplanation?: string } {
-  let raw: unknown; try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], warnings: [] }; }
+  let raw: unknown; try { raw = parseModuleJson(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message], warnings: [] }; }
   if (!raw || typeof raw !== "object") return { ok: false, errors: ["Expected a JSON object."], warnings: [] };
   const s = raw as Record<string, unknown>;
   const aiExplanation = typeof s.explanation === "string" ? s.explanation.trim() : undefined;
@@ -597,7 +629,7 @@ export function parseAiZone(json: string, extraEvidence: string[] = []): { ok: b
     anchor: (typeof s.anchor === "string" && ZONE_ANCHORS.includes(s.anchor as ZoneAnchor) ? s.anchor : undefined) as ZoneAnchor | undefined,
     anchorRef: typeof s.anchorRef === "string" ? s.anchorRef : undefined,
     role: (typeof s.role === "string" && ZONE_ROLES.includes(s.role as ZoneRole) ? s.role : undefined) as ZoneRole | undefined,
-    offsetAtr: typeof s.offsetAtr === "number" ? s.offsetAtr : 0,
+    offsetAtr: s.offsetAtr===undefined?0:typeof s.offsetAtr === "number" ? s.offsetAtr : NaN,
     widthAtr: typeof s.widthAtr === "number" ? s.widthAtr : NaN,
   };
   const v = validateL6Zone(draft);   // cửa RIÊNG L6
@@ -619,7 +651,7 @@ function buildL3Module(ast: QuantFormulaAst, name: string, outputType: QuantOutp
     id: "l3_" + Date.now().toString(36), name, layer: "L3", moduleType: "QUANT_FORMULA_AST", formulaText, ast, astHash: astHash(ast), version: "1",
     inputSources: [...new Set(inputRefs)].map((k) => ({ key: k, sourceLayer: "L1" as const, sourceId: k, timeframe: "H1", asOfPolicy: "CLOSED_ONLY" as const })),
     outputType, status: "SHADOW", authority: L3_AUTHORITY,
-    safety: { parsePass: true, finiteOutput: true, kidiSafe: true, noLookahead: true, causalSafe: true, authorityLocked: true },
+    safety: { parsePass: true, finiteOutput: false, kidiSafe: false, noLookahead: false, causalSafe: false, authorityLocked: true },
     validation: { structuralStatus: "PASS", oosStatus: "NOT_RUN", walkForwardStatus: "NOT_RUN", monteCarloStatus: "NOT_RUN", eraStabilityStatus: "NOT_RUN" },
     createdAt: now, updatedAt: now,
   };
@@ -628,7 +660,7 @@ function buildL3Module(ast: QuantFormulaAst, name: string, outputType: QuantOutp
 // ── DISPATCHER: tự nhận tầng theo HÌNH DẠNG JSON → parser đúng → nếu PASS thì LƯU vào store của tầng (SHADOW). ──
 // Ưu tiên nhận: ast→L3 · graph→L1 · featureKeys→L2 · còn lại (conditions/level/role)→L4·L5. Không đoán được → lỗi rõ.
 export function importAnyLayer(json: string): ImportResult {
-  let raw: unknown; try { raw = JSON.parse(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message] }; }
+  let raw: unknown; try { raw = parseModuleJson(json); } catch (e) { return { ok: false, errors: ["Invalid JSON syntax: " + (e as Error).message] }; }
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false, errors: ["Expected one module as a JSON object."] };
   const s = raw as Record<string, unknown>;
 

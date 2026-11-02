@@ -6,6 +6,7 @@ import type { L5Cond } from "./l5Compile.ts";
 export interface CustomL5Recipe {
   id: string; name: string; explain: string; why: string;
   terminal: "TRIGGER" | "VETO" | "EXIT"; direction?: "LONG" | "SHORT" | "REGIME";
+  logic?:"ALL"|"ANY";weight?:number;reliability?:number;exitAction?:"CLOSE"|"BREAKEVEN"|"LOCK_SL";lockR?:number;
   setup: L5Cond[]; confirm: L5Cond[];
   status: "SHADOW"; createdAt: string;
 }

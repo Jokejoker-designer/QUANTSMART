@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { TK } from "./ui/Ui.tsx";
 import { Glyph } from "./ui/Glyph.tsx";
 import { L1ModuleSandbox } from "./L1ModuleSandbox.tsx";
+import {writePromptText} from "../lib/promptClipboard.ts";
+import {useDefinitionPersistence} from "../lib/definitionPersistence.ts";
 import { ModuleIntentSandbox } from "./ModuleIntentSandbox.tsx";
 import { buildMasterPrompt, buildOrchestratorPrompt, buildLayerPack, parseAiModule, explainSections, PACK_LAYERS, type PackLayer } from "../lib/aiContextPack.ts";
 import { LEVEL_TEMPLATES, METRICS, metricsForScope, validateModule, loadCustomModules, saveCustomModules, MODULE_PRESETS, CREATABLE_LEVELS, EXECUTABLE_ROLES, type CustomModule, type Condition, type Level, type Role, type Op } from "../lib/customModule.ts";
@@ -29,6 +31,9 @@ export function CustomModuleBuilder({ onClose, onSaved, initialLevel }: { onClos
   const [direction, setDirection] = useState<"LONG" | "SHORT" | "REGIME">("LONG");
   const [exitAction, setExitAction] = useState<"CLOSE" | "BREAKEVEN" | "LOCK_SL">("CLOSE");
   const [lockR, setLockR] = useState(0.5);
+  const [weight,setWeight]=useState<number|undefined>();
+  const [reliability,setReliability]=useState<number|undefined>();
+  const persistence=useDefinitionPersistence();
   // ── AI round-trip "vibe coding": user tả ý tưởng TỔNG QUÁT → master pack cho AI của họ → dán JSON về → hệ kiểm
   // → trích lời AI + popup 5-mục → thấy module chạy live. per-tầng là tuỳ-chọn nâng-cao (mặc định master). ──
   const [idea, setIdea] = useState("");
@@ -38,9 +43,9 @@ export function CustomModuleBuilder({ onClose, onSaved, initialLevel }: { onClos
   const [aiExpl, setAiExpl] = useState<string | undefined>(undefined);   // lời AI giải thích (trích khi import — hiển thị NGUYÊN VĂN)
   const [copied, setCopied] = useState<"" | "master" | "layer" | "orch">("");
   const [edited, setEdited] = useState(false);   // user đã sửa tay sau import? → giải thích theo block
-  function copyText(t: string, which: "master" | "layer" | "orch") {
-    try { navigator.clipboard?.writeText(t); } catch { /* clipboard chặn → user tự copy từ textarea nếu cần */ }
-    setCopied(which); setTimeout(() => setCopied(""), 1600);
+  async function copyText(t: string, which: "master" | "layer" | "orch") {
+    setCopied("");try { await writePromptText(t);setCopied(which);setTimeout(()=>setCopied(""),1600); }
+    catch(error){setAiMsg(error instanceof Error?error.message:String(error));}
   }
   function importAi() {
     const r = parseAiModule(aiJson);
@@ -61,12 +66,13 @@ export function CustomModuleBuilder({ onClose, onSaved, initialLevel }: { onClos
     if (d.level != null) setLevel(d.level); if (d.role) setRole(d.role);
     setName(d.name || ""); setExplain(d.explain || ""); setWhy(d.why || ""); setLogic(d.logic || "ALL");
     setConditions(d.conditions && d.conditions.length ? d.conditions : [{ metric: "rsi", op: ">", value: 70 }]);
-    if (d.direction) setDirection(d.direction); if (d.exitAction) setExitAction(d.exitAction); if (typeof d.lockR === "number") setLockR(d.lockR);
+    setDirection(d.direction??"LONG");setExitAction(d.exitAction??"CLOSE");setLockR(d.lockR??.5);
+    setWeight(d.weight);setReliability(d.reliability);
   }
   const setCond = (i: number, patch: Partial<Condition>) => { setEdited(true); setConditions((cs) => cs.map((c, j) => (j === i ? { ...c, ...patch } : c))); };
 
-  const draft: Partial<CustomModule> = { level, role, name, explain, why, conditions: condRole ? conditions : [], logic, direction: role === "TRIGGER" ? direction : undefined, exitAction: role === "EXIT" ? exitAction : undefined, lockR: role === "EXIT" && exitAction === "LOCK_SL" ? lockR : undefined };
-  const v = useMemo(() => validateModule(draft, evKeys), [level, role, name, explain, why, conditions, logic, direction, exitAction, lockR, evKeys]);
+  const draft: Partial<CustomModule> = { level, role, name, explain, why, conditions: condRole ? conditions : [], logic, direction: role === "TRIGGER" ? direction : undefined, exitAction: role === "EXIT" ? exitAction : undefined, lockR: role === "EXIT" && exitAction === "LOCK_SL" ? lockR : undefined,weight:["TRIGGER","CONFIRM"].includes(role)?weight:undefined,reliability:role==="TRIGGER"?reliability:undefined };
+  const v = useMemo(() => validateModule(draft, evKeys), [level, role, name, explain, why, conditions, logic, direction, exitAction, lockR, evKeys,weight,reliability]);
   const mLabel = (k: string) => METRICS.find((x) => x.key === k)?.label || evMetrics.find((x) => x.key === k)?.label || k;
   const condText = (c: Condition) => `${mLabel(c.metric)} ${c.op} ${c.value}${c.op === "between" || c.op === "outside" ? ".." + (c.value2 ?? "?") : ""}`;
   const sentence = !condRole ? `(${ROLE_LABEL[role]} · reference context, not an executable contribution` :
@@ -76,10 +82,11 @@ export function CustomModuleBuilder({ onClose, onSaved, initialLevel }: { onClos
   const condExpr = conditions.map((c) => `${c.metric} ${c.op} ${c.value}${c.op === "between" || c.op === "outside" ? ".." + (c.value2 ?? "?") : ""}`).join(logic === "ALL" ? " AND " : " OR ");
   const compiled = !condRole ? "(advisory — no executable rule in v1)" : role === "CONTEXT_GATE" ? `ENTRY allowed ONLY IF ( ${condExpr} )` : `IF ( ${condExpr} ) THEN ${action}`;
 
-  function save() {
-    if (!v.ok) return;
-    const m: CustomModule = { id: "cm_" + Date.now().toString(36), level, role, name: name.trim(), explain: explain.trim(), why: why.trim(), conditions: condRole ? conditions : [], logic, direction: role === "TRIGGER" ? direction : undefined, exitAction: role === "EXIT" ? exitAction : undefined, lockR: role === "EXIT" && exitAction === "LOCK_SL" ? lockR : undefined, status: "SHADOW", createdAt: new Date().toISOString() };
-    saveCustomModules([m, ...loadCustomModules()]); onSaved(m); onClose();
+  async function save() {
+    if (!v.ok||persistence.busy) return;
+    const m: CustomModule = { ...draft as CustomModule,id: "cm_" + crypto.randomUUID(),name: name.trim(), explain: explain.trim(), why: why.trim(), status: "SHADOW", createdAt: new Date().toISOString() };
+    if(!await persistence.commit(()=>saveCustomModules([m,...loadCustomModules()]),["mfe_custom_modules"]))return;
+    onSaved(m); onClose();
   }
 
   // L1 = visual block Sandbox (a different authoring surface from the L4/L5 condition form).
@@ -107,7 +114,7 @@ export function CustomModuleBuilder({ onClose, onSaved, initialLevel }: { onClos
           {/* ② copy prompt (đã nhét ý tưởng vào) → dán cho AI */}
           <div className="pmut psm" style={{ marginBottom: 3 }}><b style={{ color: "#5aa9ff" }}>② Copy prompt</b> The exported specification includes your idea. Use it with your own assistant:</div>
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
-            <button style={{ ...inp, cursor: "pointer", background: "#1f6feb", color: "#fff", border: "none", fontWeight: 800, padding: "6px 14px" }} onClick={() => copyText(buildMasterPrompt(idea), "master")}>{copied === "master" ? <><Glyph name="check" size={11} /> Copied — paste into your assistant</> : <><Glyph name="export" size={11} /> Copy prompt cho AI</>}</button>
+            <button style={{ ...inp, cursor: "pointer", background: "#1f6feb", color: "#fff", border: "none", fontWeight: 800, padding: "6px 14px" }} onClick={() => copyText(buildMasterPrompt(idea), "master")}>{copied === "master" ? <><Glyph name="check" size={11} /> Copied — paste into your assistant</> : <><Glyph name="export" size={11} /> Copy AI prompt</>}</button>
             <button style={{ ...inp, cursor: "pointer", fontSize: 10.5, background: "rgba(167,139,250,.12)", color: "#a78bfa", borderColor: "#43306a" }} onClick={() => copyText(buildOrchestratorPrompt(idea), "orch")} title={"A multi-layer brief lets your external assistant request the specific layer contracts it needs."}>{copied === "orch" ? <><Glyph name="check" size={10} /> brief</> : <><Glyph name="score" size={10} /> Multi-layer brief</>}</button>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }} title={"Export one layer specification"}>
               <button style={{ ...inp, cursor: "pointer", fontSize: 10.5 }} onClick={() => copyText(buildLayerPack(advLayer), "layer")}>{copied === "layer" ? <><Glyph name="check" size={10} /> layer {advLayer}</> : "by layer"}</button>
@@ -151,6 +158,10 @@ export function CustomModuleBuilder({ onClose, onSaved, initialLevel }: { onClos
         <label style={{ display: "block", marginBottom: 8 }}><div className="pmut psm">Module name</div><input style={{ ...inp, width: "100%" }} value={name} onChange={(e) => setName(e.target.value)} placeholder={"For example: exclude a low-activity session"} /></label>
 
         {/* role-specific controls */}
+        {["TRIGGER","CONFIRM"].includes(role)&&<div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
+          <label>Vote / confirmation weight <input aria-label="Module weight" type="number" min={0} max={100} step={.01} value={weight??(role==="CONFIRM"?1.25:.8)} onChange={e=>setWeight(e.target.valueAsNumber)} style={{...inp,width:100}}/></label>
+          {role==="TRIGGER"&&<label>Reliability coefficient <input aria-label="Module reliability coefficient" type="number" min={.001} max={.999} step={.01} value={reliability??.53} onChange={e=>setReliability(e.target.valueAsNumber)} style={{...inp,width:100}}/></label>}
+        </div>}
         {role === "TRIGGER" && <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}><span className="pmut psm">Direction:</span>{(["LONG", "SHORT", "REGIME"] as const).map((d) => <button key={d} onClick={() => setDirection(d)} style={{ ...inp, cursor: "pointer", background: d === direction ? "rgba(33,208,122,.18)" : "var(--mfe-s3)", color: d === direction ? TK.green : "var(--mfe-text2)" }}>{d}</button>)}</div>}
         {role === "EXIT" && <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}><span className="pmut psm">Simulated action:</span>{(["CLOSE", "BREAKEVEN", "LOCK_SL"] as const).map((a) => <button key={a} onClick={() => setExitAction(a)} style={{ ...inp, cursor: "pointer", background: a === exitAction ? "rgba(33,208,122,.18)" : "var(--mfe-s3)", color: a === exitAction ? TK.green : "var(--mfe-text2)" }}>{a === "CLOSE" ? "Close simulated position" : a === "BREAKEVEN" ? "Protect at break-even" : "Tighten protective stop"}</button>)}{exitAction === "LOCK_SL" && <><span className="pmut psm">lock at +</span><input type="number" step={0.1} min={0} value={lockR} onChange={(e) => setLockR(+e.target.value || 0)} style={{ ...inp, width: 64 }} /><span className="pmut psm">R, tighten only</span></>}</div>}
 
@@ -211,6 +222,7 @@ export function CustomModuleBuilder({ onClose, onSaved, initialLevel }: { onClos
           <button disabled={!v.ok} style={{ ...inp, cursor: v.ok ? "pointer" : "not-allowed", background: v.ok ? "#1f6feb" : "var(--mfe-s3)", color: v.ok ? "#fff" : "var(--mfe-muted)", border: "none", fontWeight: 800, padding: "6px 16px" }} onClick={save}>Save module</button>
         </div>
         <div className="pfoot" style={{ marginTop: 6 }}>A parameterized, interpretable definition; not arbitrary executable code. {EXECUTABLE_ROLES.includes(role) ? "This role is evaluated in simulation." : "This role provides reference context only."}</div>
+        {persistence.error&&<p role="alert">{persistence.error}</p>}
       </div>
     </div>
   );

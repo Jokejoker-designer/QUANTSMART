@@ -16,6 +16,11 @@
 !/docs/DRIVE_INTEGRATION_AUDIT.md
 !/docs/DRIVE_REASSESSMENT.md
 !/docs/DRIVE_REASSESSMENT_RESULTS.json
+!/docs/AI_JSON_IMPORT.md
+!/docs/schemas/
+!/docs/schemas/module-import-contracts.json
+!/docs/examples/
+!/docs/examples/confirmed-swing-distance.l1.json
 !/docs/TUTORIALS.md
 !/docs/INSTALLATION.md
 !/docs/INSTALLER_VALIDATION.md

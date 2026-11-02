@@ -16,6 +16,7 @@ export type L5Terminal = "TRIGGER" | "VETO" | "EXIT";
 export interface L5Recipe {
   name: string; explain: string; why: string;
   terminal: L5Terminal;
+  logic?: "ALL" | "ANY";
   direction?: "LONG" | "SHORT" | "REGIME";   // chỉ TRIGGER
   setup?: L5Cond[];     // ENTRY_PATTERN (bắt buộc ≥1 nếu TRIGGER)
   confirm?: L5Cond[];   // CONFIRMATION (ALL cùng setup)
@@ -39,7 +40,7 @@ function buildGraph(r: L5Recipe): { nodes: L5GraphNode[]; edges: { from: string;
   const nodes: L5GraphNode[] = []; const edges: { from: string; to: string }[] = [];
   const conds = r.terminal === "TRIGGER" ? [...(r.setup ?? []), ...(r.confirm ?? [])] : r.terminal === "VETO" ? (r.veto ?? []) : (r.exit ?? []);
   const leafIds: string[] = [];
-  conds.forEach((c, i) => { const id = "n" + i; const b = L5_BY_ID[c.blockId]; nodes.push({ id, blockId: c.blockId, label: b?.label ?? c.blockId, state: (b?.outputs[0].type ?? "SETUP") as L5PortType, inputs: [], cond: c }); leafIds.push(id); });
+  conds.forEach((c, i) => { const id = "n" + i; const b = L5_BY_ID[c.blockId]; nodes.push({ id, blockId: c.blockId, label: b?.label ?? (c.blockId==="imported_condition"?"Imported condition":c.blockId), state: (b?.outputs[0].type ?? (r.terminal==="TRIGGER"?"SETUP":r.terminal==="VETO"?"VETO":"EXIT_HINT")) as L5PortType, inputs: [], cond: c }); leafIds.push(id); });
   // terminal emit node (READY for TRIGGER, VETO, EXIT_HINT) — the decision-state the module emits
   const termState: L5PortType = r.terminal === "TRIGGER" ? "READY" : r.terminal === "VETO" ? "VETO" : "EXIT_HINT";
   const emitId = "emit"; nodes.push({ id: emitId, blockId: "emit_decision_state", label: r.terminal === "TRIGGER" ? "READY → " + (r.direction ?? "?") : r.terminal, state: termState, inputs: leafIds });
@@ -60,7 +61,7 @@ export function compileL5(r: L5Recipe): L5Compiled {
   // CustomModule — chỉ field advisory/điều-kiện; TUYỆT ĐỐI không set order/lot/risk/SL-TP (field không tồn tại).
   const module: CustomModule = {
     id: "l5_" + Date.now().toString(36), level: 5, role, name: r.name.trim() || "L5 decision",
-    explain: r.explain.trim(), why: r.why.trim(), conditions, logic: "ALL",
+    explain: r.explain.trim(), why: r.why.trim(), conditions, logic: r.logic ?? "ALL",
     direction: role === "TRIGGER" ? r.direction : undefined,
     weight: role === "TRIGGER" || role === "CONFIRM" ? (r.weight ?? 0.9) : undefined,
     reliability: role === "TRIGGER" ? (r.reliability ?? 0.53) : undefined,
@@ -69,4 +70,13 @@ export function compileL5(r: L5Recipe): L5Compiled {
     status: "SHADOW", createdAt: new Date().toISOString(),
   };
   return { module, graph, role, warnings };
+}
+
+export function l5RecipeFromModule(module:CustomModule):L5Recipe {
+  if(module.level!==5||!["TRIGGER","VETO","EXIT"].includes(module.role))throw new Error("This recipe editor supports L5 TRIGGER, VETO or EXIT. Use the generic module importer for CONFIRM.");
+  const conditions=module.conditions.map(c=>({blockId:"imported_condition",...c}));
+  const terminal=module.role as L5Terminal;
+  return {name:module.name,explain:module.explain,why:module.why,terminal,logic:module.logic,direction:module.direction,
+    setup:terminal==="TRIGGER"?conditions:[],confirm:[],veto:terminal==="VETO"?conditions:undefined,exit:terminal==="EXIT"?conditions:undefined,
+    weight:terminal==="TRIGGER"?(module.weight??.8):undefined,reliability:terminal==="TRIGGER"?(module.reliability??.53):undefined,exitAction:module.exitAction,lockR:module.lockR};
 }

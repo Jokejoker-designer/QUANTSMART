@@ -1,4 +1,5 @@
 import { importAnyLayer, type ImportResult } from "./aiContextPack.ts";
+import {parseModuleJson} from "./moduleJsonText.ts";
 import {
   prepareDefinitionImport,
   DEFINITION_KEYS,
@@ -17,7 +18,7 @@ export async function importModuleDefinition(
     errors: ["Import did not complete."],
   };
   try {
-    const raw: unknown = JSON.parse(text.replace(/^\uFEFF/, ""));
+    const raw: unknown = parseModuleJson(text);
     await commitDefinitionChange(() => {
       let key = "";
       if (record(raw) && safeDefinitionId(raw.id)) {

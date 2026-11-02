@@ -3,6 +3,8 @@
 // domain guards (≤0 → 0), EXP/POW are clamped against overflow, and every output is NaN/Inf-sealed. validateAst
 // enforces the operator whitelist, arity, known inputs, declared macros, and no cycles.
 import { OP_SPEC, type QuantFormulaAst, type QuantOp } from "./quantAstTypes.ts";
+import { quantParameterErrors, MAX_QUANT_NODES, MAX_QUANT_DEPTH } from "./quantImportContract.ts";
+import { SEED_MACROS } from "./quantMacroRegistry.ts";
 
 export const EPS = 1e-9;
 export const seal = (v: number) => (isFinite(v) ? v : 0);
@@ -19,27 +21,29 @@ export interface AstValidation { ok: boolean; errors: string[]; report: AstRepor
 export function validateAst(ast: QuantFormulaAst, knownInputs: string[], macroIds: string[] = []): AstValidation {
   const errors: string[] = [], opsUsed = new Set<QuantOp>(), inputsUsed = new Set<string>();
   const invalid=(message:string):AstValidation=>({ok:false,errors:[message],report:{kidiSafe:false,domainSafe:false,nanInfSafe:false,causalSafe:false,noLookahead:false,opsUsed:[],inputsUsed:[]}});
-  if (!ast || typeof ast!=="object" || !ast.nodes || typeof ast.nodes!=="object" || Array.isArray(ast.nodes) || typeof ast.rootNodeId!=="string" || Object.keys(ast.nodes).length>256) return invalid("AST requires a root ID and at most 256 nodes.");
+  const safeId=(id:unknown):id is string=>typeof id==="string"&&/^[A-Za-z0-9_.:-]{1,128}$/.test(id)&&!["constructor","prototype","__proto__"].includes(id);
+  if (!ast || typeof ast!=="object" || !ast.nodes || typeof ast.nodes!=="object" || Array.isArray(ast.nodes) || !safeId(ast.rootNodeId) || Object.keys(ast.nodes).length>MAX_QUANT_NODES) return invalid("AST requires a safe root ID and at most 256 nodes.");
   for(const [id,node] of Object.entries(ast.nodes)){
-    if(!/^[A-Za-z0-9_.:-]{1,128}$/.test(id)||["constructor","prototype","__proto__"].includes(id)||!node||typeof node!=="object"||!["INPUT","CONST","POINT_OP","ROLLING_OP","LOGIC_OP","MACRO"].includes(node.kind)||node.children!==undefined&&(!Array.isArray(node.children)||node.children.some(child=>typeof child!=="string")))return invalid(`Malformed AST node: ${id}`);
-    if(node.params){if(typeof node.params!=="object"||Array.isArray(node.params))return invalid(`Invalid parameters at ${id}`);for(const[key,value]of Object.entries(node.params)){if(key==='macroId'){if(typeof value!=='string')return invalid(`Invalid macro at ${id}`);}else if(typeof value!=='number'||!Number.isFinite(value))return invalid(`Nonfinite AST parameter at ${id}`);if((key==='window'||key==='lag')&&(typeof value!=='number'||!Number.isInteger(value)||value<0||value>10000||key==='window'&&value<1))return invalid(`Invalid window/lag at ${id}`);if(key==='q'&&(typeof value!=='number'||value<0||value>1))return invalid(`Invalid quantile at ${id}`);}}
+    if(!safeId(id)||!node||typeof node!=="object"||Array.isArray(node)||node.nodeId!==undefined&&node.nodeId!==id||!["INPUT","CONST","POINT_OP","ROLLING_OP","LOGIC_OP","MACRO"].includes(node.kind)||node.children!==undefined&&(!Array.isArray(node.children)||node.children.some(child=>!safeId(child))))return invalid(`Malformed AST node: ${id}`);
+    errors.push(...quantParameterErrors(node.op||"",node.params).map(message=>`${id}: ${message}`));
   }
-  if (!ast.nodes[ast.rootNodeId]) errors.push("Missing root node");
+  if (!Object.prototype.hasOwnProperty.call(ast.nodes,ast.rootNodeId)) errors.push("Missing root node");
   for (const id of Object.keys(ast.nodes)) {
     const nd = ast.nodes[id];
-    if (nd.kind === "INPUT") { if (!nd.inputRef) errors.push(`${id}: INPUT requires inputRef`); else { inputsUsed.add(nd.inputRef); if (!knownInputs.includes(nd.inputRef)) errors.push(`${id}: unknown input '${nd.inputRef}'`); } continue; }
-    if (nd.kind === "CONST") { if (typeof nd.constValue !== "number" || !isFinite(nd.constValue)) errors.push(`${id}: invalid CONST`); continue; }
-    if (!nd.op || !(nd.op in OP_SPEC)) { errors.push(`${id}: operation is not whitelisted`); continue; }
+    if (nd.kind === "INPUT") { if(nd.children?.length)errors.push(`${id}: INPUT cannot have children`); if (typeof nd.inputRef!=="string"||!nd.inputRef) errors.push(`${id}: INPUT requires inputRef`); else { inputsUsed.add(nd.inputRef); if (!knownInputs.includes(nd.inputRef)) errors.push(`${id}: unknown input '${nd.inputRef}'`); } continue; }
+    if (nd.kind === "CONST") { if(nd.children?.length)errors.push(`${id}: CONST cannot have children`); if (typeof nd.constValue !== "number" || !isFinite(nd.constValue)) errors.push(`${id}: invalid CONST`); continue; }
+    if (typeof nd.op!=="string" || !Object.prototype.hasOwnProperty.call(OP_SPEC,nd.op)) { errors.push(`${id}: operation is not whitelisted`); continue; }
     opsUsed.add(nd.op);
     const spec = OP_SPEC[nd.op], kids = nd.children ?? [];
-    if (nd.op === "MACRO_REF") { if (!nd.params?.macroId || !macroIds.includes(nd.params.macroId)) errors.push(`${id}: unknown macro`); }
+    if (nd.op === "MACRO_REF") { if (!nd.params?.macroId || !macroIds.includes(nd.params.macroId)) errors.push(`${id}: unknown macro`); else if(Object.prototype.hasOwnProperty.call(SEED_MACROS,nd.params.macroId)&&kids.length!==SEED_MACROS[nd.params.macroId].inputs.length)errors.push(`${id}: macro ${nd.params.macroId} requires ${SEED_MACROS[nd.params.macroId].inputs.length} children; received ${kids.length}`); }
     else if (spec.arity >= 0 && kids.length !== spec.arity) errors.push(`${id}: ${nd.op} requires ${spec.arity} children; received ${kids.length}`);
-    for (const c of kids) if (!ast.nodes[c]) errors.push(`${id}: con '${c}' does not exist`);
+    for (const c of kids) if (!Object.prototype.hasOwnProperty.call(ast.nodes,c)) errors.push(`${id}: child '${c}' does not exist`);
   }
-  const grey = new Set<string>(), black = new Set<string>(); let cyclic = false;
-  const visit = (id: string) => { if (black.has(id)) return; if (grey.has(id)) { cyclic = true; return; } grey.add(id); for (const c of ast.nodes[id]?.children ?? []) if (ast.nodes[c]) visit(c); grey.delete(id); black.add(id); };
+  const grey = new Set<string>(), black = new Set<string>(),depths=new Map<string,number>(); let cyclic = false;
+  const visit = (id: string):number => { if (black.has(id)) return depths.get(id)||1; if (grey.has(id)) { cyclic = true; return 0; } grey.add(id);let depth=1; for (const c of ast.nodes[id]?.children ?? []) if (Object.prototype.hasOwnProperty.call(ast.nodes,c))depth=Math.max(depth,1+visit(c));grey.delete(id);black.add(id);depths.set(id,depth);return depth; };
   for(const id of Object.keys(ast.nodes))visit(id);
   if (cyclic) errors.push("AST contains a cycle");
+  if([...depths.values()].some(depth=>depth>MAX_QUANT_DEPTH))errors.push(`AST dependency depth exceeds ${MAX_QUANT_DEPTH}`);
   const ok = errors.length === 0;
   return { ok, errors, report: { kidiSafe: ok, domainSafe: ok, nanInfSafe: ok, causalSafe: ok, noLookahead: ok, opsUsed: [...opsUsed], inputsUsed: [...inputsUsed] } };
 }

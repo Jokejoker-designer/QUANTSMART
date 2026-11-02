@@ -3,6 +3,7 @@
 // read a FIXED metric catalog (no arbitrary math, no lookahead). New modules are SHADOW until validated.
 export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export type Op = ">" | "<" | ">=" | "<=" | "==" | "between" | "outside";
+export const CONDITION_OPERATORS:Op[]=[">","<",">=","<=","==","between","outside"];
 export type Role =
   | "SAFETY_VETO" | "FEATURE" | "INDICATOR" | "ALGORITHM" | "CONTEXT_GATE" | "TRIGGER" | "VETO" | "CONFIRM" | "EXIT" | "ZONE";
 
@@ -89,7 +90,7 @@ export function validateModule(m: Partial<CustomModule>, allowedExtra?: Set<stri
     const allowed = new Set(metricsForScope(scope).map((x) => x.key));
     if (allowedExtra) for (const k of allowedExtra) allowed.add(k);   // + metric block-native (id module evidence đã build)
     (m.conditions || []).forEach((c, i) => {
-      if (![">","<",">=","<=","==","between","outside"].includes(c.op)) e.push(`Condition ${i+1}: unknown operator.`);
+      if (!CONDITION_OPERATORS.includes(c.op)) e.push(`Condition ${i+1}: unknown operator; use ${CONDITION_OPERATORS.join("/")}.`);
       if (!allowed.has(c.metric)) e.push(`Condition ${i + 1}: metric "${c.metric}" is unavailable at ${scope}.`);
       if (typeof c.value !== "number" || !Number.isFinite(c.value)) e.push(`Condition ${i + 1}: invalid value.`);
       if ((c.op === "between" || c.op === "outside") && (typeof c.value2!=="number" || !Number.isFinite(c.value2) || c.value2<c.value)) e.push(`Condition ${i + 1}: an ordered finite second value is required.`);

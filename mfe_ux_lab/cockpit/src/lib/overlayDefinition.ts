@@ -4,6 +4,7 @@ const record = (value: unknown): value is Record<string, unknown> =>
 const safeDefinitionId = (value: unknown): value is string =>
   typeof value === "string" && /^[A-Za-z0-9_.:-]{1,128}$/.test(value);
 export function normalizeOverlayDefinition(row: Record<string, unknown>) {
+  if(row.overlayKey!==undefined&&row.overlayLines!==undefined)throw new Error("Choose one overlay recipe or explicit overlayLines; both formats cannot be active together.");
   if (
     typeof row.name !== "string" ||
     row.name.trim().length < 2 ||
@@ -28,6 +29,10 @@ export function normalizeOverlayDefinition(row: Record<string, unknown>) {
         ))
     )
       throw new Error("Invalid overlay parameters");
+    for(const [key,value]of Object.entries((row.overlayParams||{}) as Record<string,unknown>)){
+      const parameter=STD_BY_KEY[row.overlayKey as string].params?.find(p=>p.name===key);
+      if(!parameter||typeof value!=="number"||!Number.isFinite(value)||value<parameter.min||value>parameter.max||Number.isInteger(parameter.def)&&(parameter.step??1)>=1&&!Number.isInteger(value))throw new Error(`Overlay ${row.overlayKey}: expected exact params ${JSON.stringify(STD_BY_KEY[row.overlayKey as string].params||[])}; got ${JSON.stringify({[key]:value})}`);
+    }
   } else {
     if (
       !Array.isArray(row.overlayLines) ||

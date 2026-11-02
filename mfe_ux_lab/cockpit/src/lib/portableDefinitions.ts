@@ -216,8 +216,8 @@ export function prepareDefinitionImport(
             ...row,
             level: 5,
             role: row.terminal,
-            logic: "ALL",
-            conditions: [...row.setup, ...row.confirm],
+            logic: row.logic ?? "ALL",
+            conditions: row.terminal==="TRIGGER"?[...row.setup, ...row.confirm]:row.setup,
           }),
           evidence,
         );

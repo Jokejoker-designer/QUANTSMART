@@ -1,0 +1,16 @@
+{
+  "name": "Distance below confirmed swing high",
+  "explain": "Signed distance from close to the last confirmed swing high, measured in ATR units.",
+  "why": "Inspect a delayed structural reference on completed OHLC bars; early values use the documented current-high fallback.",
+  "graph": {
+    "nodes": [
+      { "id": "price", "blockId": "close", "inputs": [] },
+      { "id": "pivot", "blockId": "swing_high", "params": { "W": 2 }, "inputs": [] },
+      { "id": "distance", "blockId": "sub", "inputs": ["pivot", "price"] },
+      { "id": "normalized", "blockId": "div_atr", "params": { "p": 14 }, "inputs": ["distance"] },
+      { "id": "out", "blockId": "emit_feature", "inputs": ["normalized"] }
+    ],
+    "output": "out"
+  },
+  "explanation": "Positive values mean close is below the delayed reference; negative values mean it is above. This is bar-level measurement, not tick volatility or a directional trading recommendation. Before a confirmed pivot exists, the source block returns the current high."
+}

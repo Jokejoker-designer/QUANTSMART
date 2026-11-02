@@ -14,11 +14,11 @@ export function astToText(ast: QuantFormulaAst, label: (k: string) => string, ma
     if (nd.kind === "INPUT") return label(nd.inputRef ?? "?");
     if (nd.kind === "CONST") return String(nd.constValue ?? 0);
     const kids = (nd.children ?? []).map(txt), op = nd.op!;
-    if (op === "MACRO_REF") { const m = macros[nd.params?.macroId ?? ""]; const w = nd.params?.window != null ? `, ${nd.params.window}` : ""; return `${m ? m.name : nd.params?.macroId}(${kids.join(", ")}${w})`; }
+    if (op === "MACRO_REF") { const m = macros[nd.params?.macroId ?? ""]; const usesWindow=m?Object.values(m.ast.nodes).some(node=>node.op&&OP_SPEC[node.op]?.windowed):nd.params?.window!==undefined; const w = usesWindow ? `, ${nd.params?.window??20}` : ""; return `${m ? m.name : nd.params?.macroId}(${kids.join(", ")}${w})`; }
     if (SYM[op]) return `(${kids[0]} ${SYM[op]} ${kids[1]})`;
     if (op === "IF_ELSE") return `ifelse(${kids[0]}, ${kids[1]}, ${kids[2]})`;
     if (op === "CLIP") return nd.params && (nd.params.min != null || nd.params.max != null) ? `clip(${kids[0]}, ${nd.params.min ?? -1}, ${nd.params.max ?? 1})` : `clip(${kids[0]})`;
-    if (op === "QUANTILE" || op === "WINSOR") return `${op === "QUANTILE" ? "quantile" : "winsorize"}(${kids[0]}, ${nd.params?.q ?? 0.5}, ${nd.params?.window ?? 20})`;
+    if (op === "QUANTILE" || op === "WINSOR") return `${op === "QUANTILE" ? "quantile" : "winsorize"}(${kids[0]}, ${nd.params?.q ?? (op==="WINSOR"?.05:.5)}, ${nd.params?.window ?? 20})`;
     if (OP_SPEC[op]?.windowed) return `${FN[op]}(${kids[0]}, ${nd.params?.window ?? 20})`;
     if (op === "LAG" || op === "DELTA") return `${FN[op]}(${kids[0]}, ${nd.params?.lag ?? 1})`;
     return `${FN[op] ?? op.toLowerCase()}(${kids.join(", ")})`;
