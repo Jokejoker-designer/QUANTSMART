@@ -38,6 +38,12 @@ class DemoAutomation:
         self.demo = DemoExecution(terminal, enabled=enabled)
         self.session = None
 
+    def status(self):
+        result = self.demo.status()
+        if result.get("reason") == "MANUAL_DEMO_DISABLED":
+            result = {**result, "reason": "CARD_DEMO_DISABLED"}
+        return result
+
     def stop(self):
         with self.terminal.lock:
             if self.session:
@@ -55,7 +61,7 @@ class DemoAutomation:
     def reconcile(self):
         with self.terminal.lock:
             try:
-                status = self.demo.status()
+                status = self.status()
                 if not status["available"]:
                     raise ValueError(status["reason"])
                 self.flat()
@@ -73,7 +79,7 @@ class DemoAutomation:
     def market(self, symbol, tf):
         with self.terminal.lock:
             try:
-                status = self.demo.status()
+                status = self.status()
                 if not status["available"]:
                     raise ValueError(status["reason"])
                 resolved = self.terminal.resolve(symbol)
@@ -95,7 +101,7 @@ class DemoAutomation:
 
     def _guard(self, session_id=None):
         session = self.session
-        status = self.demo.status()
+        status = self.status()
         if (
             not session
             or not session["active"]
@@ -115,7 +121,7 @@ class DemoAutomation:
 
     def start(self, body: AutoStart):
         with self.terminal.lock:
-            status = self.demo.status()
+            status = self.status()
             if not status["available"]:
                 return {"ok": False, "reason": status["reason"]}
             if self.session and self.session["active"]:

@@ -49,8 +49,8 @@
     },
     {
       "path": "bridge/demo_automation.py",
-      "sha256": "2f7c614c8950a168141c646ec3f22ac28df2152d963e4a8a087d96eeb2478821",
-      "bytes": 13313
+      "sha256": "63fc753cf315bbf1457c33e6dcb04a3753aac6a5938be143f0527f995aa56c03",
+      "bytes": 13503
     },
     {
       "path": "bridge/demo_execution.py",
