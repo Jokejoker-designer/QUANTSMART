@@ -726,4 +726,3 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
   ev(bars.length - 1, "RUN_COMPLETED", `${res.actual_trades_taken} trades · ${res.signals_seen} signals seen`, bars.length ? new Date(_ms(bars[bars.length - 1].t) + TF_MINUTES[designTf] * 60000).toISOString() : "");
   return res;
 }
-

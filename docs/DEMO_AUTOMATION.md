@@ -55,4 +55,3 @@ The implementation has passed the checks listed below. Visual acceptance and a l
 The initial execution scope is design-close with equal design/execution timeframes, fixed lots, static initial broker SL/TP, and supported native/custom trigger, gate and close rules. Dynamic protective-stop changes, modeled trade-memory modules, intrabar execution and account-history metrics are refused. `L6` is reference geometry; adding a zone does not define an order or replace a Card's stop model. Check support before assuming that a saved BEAST or Card can run through this adapter.
 
 Research responses remain `SHADOW_ONLY / NO_DECISION / live_apply_allowed=false`. The separate execution adapter is `CARD_DEMO_ONLY`; its order path is changed in this preview. Real-account execution and QTQ integration remain absent.
-

@@ -104,8 +104,8 @@
     },
     {
       "path": "docs/DEMO_AUTOMATION.md",
-      "sha256": "e0d4eef63fb3ea5c2d377977c15f509d284ffecaa7c03962e381da8495d0e7bb",
-      "bytes": 6537
+      "sha256": "947de245caba7d2b0bee0ad31f28d360b0f9986287b5799b507f7343ad6830e9",
+      "bytes": 6535
     },
     {
       "path": "docs/DRIVE_INTEGRATION_AUDIT.md",
@@ -1574,8 +1574,8 @@
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/realisticStrategySim.ts",
-      "sha256": "1af8fe4e962e6da6c432fcf6f4432cbc115927f585dbc0257fc3205606aa7254",
-      "bytes": 64744
+      "sha256": "e28d12629f031ac03cb96faee090ae0c20aee589b84b216558cc2b6df64eee16",
+      "bytes": 64742
     },
     {
       "path": "mfe_ux_lab/cockpit/src/lib/resampleM1.ts",
@@ -2089,8 +2089,8 @@
     },
     {
       "path": "scripts/package-portable.mjs",
-      "sha256": "52f4be791d5425efc4091f307895e98eb3229d658b172d42488d187d2b4bf710",
-      "bytes": 6473
+      "sha256": "59d112b3f0d903a853c7daf044bc155fbed17b37718d58e0eb3f1073f339674b",
+      "bytes": 6499
     },
     {
       "path": "scripts/package-release.mjs",
