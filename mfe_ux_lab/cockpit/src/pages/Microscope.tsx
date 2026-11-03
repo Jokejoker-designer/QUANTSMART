@@ -29,8 +29,8 @@ import { CalibrationPanel } from "../components/CalibrationPanel.tsx";
 import { HonestyDashboard } from "../components/HonestyDashboard.tsx";
 import { FundingPanel } from "../components/FundingPanel.tsx";
 import { StageStepper } from "../components/StageStepper.tsx";
-import { sliceForStage, STAGE_LABEL, STAGE_DAYS, STAGE_HINT, STAGE_SOURCE, type Stage } from "../lib/stageWindow.ts";
-import { replayLastIndex, compareCardSummary, type CompareCardSummary } from "../lib/microscopeComputed.ts";
+import { sliceForStage, STAGE_LABEL, STAGE_DAYS, STAGE_HINT, type Stage } from "../lib/stageWindow.ts";
+import { replayLastIndex, compareCardSummary, microscopeCsvSupports, microscopeCardIssue, type CompareCardSummary } from "../lib/microscopeComputed.ts";
 import { recordWindow } from "../lib/cardRunStore.ts";
 import { honestyVerdict } from "../lib/simHonesty.ts";
 import { computeCardZones } from "../lib/cardZones.ts";
@@ -100,7 +100,7 @@ export function Microscope() {
   useEffect(() => { loadM1Years().then((ys) => { if (ys.length) { setM1Years(ys); setM1Year(ys[ys.length - 1].year); } }); }, []);
   const [zoneOn, setZoneOn] = useState<Record<string, boolean>>({ observation: true, risk: true, demand: true, sweep: true, invalidation: true });
 
-  const [csvBars, setCsvBars] = useState<OhlcBar[] | null>(null); const [csvName, setCsvName] = useState(""); const [csvErr, setCsvErr] = useState(""); const [csvWarnings,setCsvWarnings]=useState<string[]>([]);
+  const [csvView, setCsvView] = useState<{ key: string; bars: OhlcBar[] } | null>(null); const [csvName, setCsvName] = useState(""); const [csvErr, setCsvErr] = useState(""); const [csvWarnings,setCsvWarnings]=useState<string[]>([]);
   const [csvMeta,setCsvMeta]=useState<CsvImportMetadata|null>(null);
   const [csvRange,setCsvRange]=useState<{from:string;to:string}|undefined>();
   function openCsv(meta:CsvImportMetadata){setActiveSymbol(meta.symbol);setCsvMeta(meta);setCsvRange(undefined);setSource('CSV');setStage('Y10');setMaxStage(0);setActiveId(current=>{const selected=readStrategyCards().find((card:any)=>card.id===current);return selected&&(selected.symbol||'XAUUSD')!==meta.symbol?null:current;});setTf(meta.tf);setRunning(false);setCursor(null);setAutoCascade(false);localStorage.setItem(CSV_SELECTED_KEY,meta.id);}
@@ -120,7 +120,7 @@ export function Microscope() {
   // must DUYỆT each window before the next unlocks → can't judge a card on a lucky recent month. Resets per card.
   const [stage, setStage] = useState<Stage>("Y10");
   const [maxStage, setMaxStage] = useState(0);
-  const [designBars, setDesignBars] = useState<OhlcBar[] | null>(null);
+  const [designTape, setDesignTape] = useState<{ tf: string; bars: OhlcBar[] } | null>(null);
   const runTimer = useRef<number | null>(null);
   const activeCard = library.find((c: any) => c.id === activeId) || null;
   const [cmpId, setCmpId] = useState<string>("");   // COMPARE: card/Beast thứ 2 chạy song song cùng cửa sổ
@@ -132,10 +132,26 @@ export function Microscope() {
   // only / follows the card). The TF selector is free only when no card is loaded. Fixes "entries followed
   // my Chart TF instead of the card deciding".
   useEffect(() => { if (activeCard) setTf(designTf); }, [activeId, designTf, csvMeta?.id, source]);   // eslint-disable-line
-  useEffect(()=>{
-    if(source!=='CSV'||!csvMeta)return;const controller=new AbortController();setCsvBars(null);setBars(null);setCsvErr('');setCsvWarnings(['Loading imported data…']);
-    readCsvView(csvMeta.id,activeCard?designTf:tf,csvRange,controller.signal).then(view=>{if(controller.signal.aborted)return;setCsvBars(view.bars);setBars(view.bars);setCsvName(`${csvMeta.symbol} · ${csvMeta.filename} · ${view.bars.length.toLocaleString()} bars (${activeCard?designTf:tf})`);setCsvErr('');setCsvWarnings(csvMeta.warnings);}).catch(e=>{if(!controller.signal.aborted){setCsvWarnings([]);setCsvErr(e.message);}});return()=>controller.abort();
-  },[source,csvMeta?.id,tf,designTf,activeId,csvRange?.from,csvRange?.to]);
+  const csvTf = activeCard ? designTf : tf;
+  const csvKey = JSON.stringify([csvMeta?.id, csvTf, csvRange?.from, csvRange?.to]);
+  const csvBars = source === "CSV" && csvView?.key === csvKey ? csvView.bars : null;
+  const csvCompatible = !csvMeta || microscopeCsvSupports(csvMeta.tf, csvTf);
+  useEffect(() => {
+    if (source !== "CSV" || !csvMeta) return;
+    const controller = new AbortController();
+    setCsvErr("");
+    setCsvName(`${csvMeta.symbol} · ${csvMeta.filename} · ${csvMeta.tf} source`);
+    setCsvWarnings(csvCompatible ? ["Loading imported data…"] : []);
+    if (!csvCompatible) return;
+    readCsvView(csvMeta.id, csvTf, csvRange, controller.signal).then(view => {
+      if (controller.signal.aborted) return;
+      setCsvView({ key: csvKey, bars: view.bars });
+      setCsvWarnings(csvMeta.warnings);
+    }).catch(error => {
+      if (!controller.signal.aborted) { setCsvWarnings([]); setCsvErr(error.message); }
+    });
+    return () => controller.abort();
+  }, [source, csvKey, csvCompatible]);
   const [calib, setCalib] = useState<BrokerCalibrationInput | null>(null);
   useEffect(() => { loadBrokerCalibration(getActiveSymbol()).then(setCalib).catch(() => setCalib(null)); }, []);
   const [capital, setCapital] = useState(10000);   // funding mode
@@ -145,14 +161,25 @@ export function Microscope() {
   useEffect(() => { setStage(source === "Live" ? "M1" : "Y10"); setMaxStage(0); }, [activeId]);   // eslint-disable-line
   // Y10/M6 use the RAW static historical tape (includeExt=false) — NOT the live-backfilled one, so the live
   // feed can't contaminate the historical windows / shift their anchor. M1 (live) reads the live `bars` instead.
-  useEffect(() => { if (activeCard) { setDesignBars(null); loadSimOhlc(designTf, false).then((d) => setDesignBars(d?.bars || null)); } }, [activeId, designTf]);
+  const designBars = designTape?.tf === designTf ? designTape.bars : null;
+  useEffect(() => {
+    if (source !== "Replay" || !activeCard) return;
+    let active = true;
+    loadSimOhlc(designTf, false).then(data => {
+      if (active) setDesignTape(data ? { tf: designTf, bars: data.bars } : null);
+    });
+    return () => { active = false; };
+  }, [source, activeId, designTf]);
   // SOURCE-split windows (disjoint, time-ordered): Y10/M6 = historical REPLAY tape · M1 = LIVE last-month feed.
   // M1 slices the live bars (so it's the genuine forward month); Y10/M6 slice the historical designBars.
+  const liveQuery = useLiveWorkspaceQuery(liveSymbol(getActiveSymbol()), tf, "H1", "", 600, source === "Live");
+  const liveReady = !!liveQuery.data?.account?.connected && tf === designTf && freshWorkspaceBars(liveQuery.data.bars, tf);
   const stageBars = useMemo(() => {
     if (source === "CSV") return csvBars || [];
-    if (stage === "M1" && source === "Live" && bars && bars.length) return sliceForStage(bars, "M1");
+    if (source === "Live") return stage === "M1" && liveReady
+      ? sliceForStage(liveQuery.data?.bars || [], "M1") : [];
     return sliceForStage(designBars, stage);
-  }, [stage, source, bars, csvBars, designBars]);
+  }, [stage, source, liveReady, liveQuery.data?.bars, csvBars, designBars]);
   // ── P2 INTRABAR (execution_tf < design_tf): run the M1-master path so the card enters EARLY inside the design bar.
   // Only on a tractable REPLAY window (M1 ≈ designBars × TF_MINUTES[designTf] ≤ cap). Y10 / live stay design-close (honest badge).
   const execTf = activeCard ? getCardRuntimeConfig(activeCard).allowed_execution_tf : designTf;
@@ -172,10 +199,14 @@ export function Microscope() {
   const waitingForM1 = intrabarFeasible && m1Win === undefined;
   const researchOptions = { symbol: getActiveSymbol(), chartTf: tf, withWalkForward: source!=="CSV"&&stage === "Y10", walkForwardFolds: 5, calibration: calib || undefined, capital, riskPct, customModules: customMods, hard: hardMode };
   const csvReference=source==="CSV"&&csvMeta?{id:csvMeta.id,windowTf:activeCard?designTf:tf}:undefined;
-  const primaryJob = useResearchBacktest(waitingForM1 ? null : source!=="CSV"&&useM1Job ? m1Win : stageBars, activeCard, researchOptions, useM1Job ? "m1" : "design", source === "Replay", source, source==="CSV"?undefined:stage,csvReference);
-  const realisticBt = primaryJob.result;
+  const customTriggerIds = customMods.filter(module => module.role === "TRIGGER").map(module => module.id);
+  const issueOptions = { source, csvTf: csvMeta?.tf, liveReady, customTriggerIds };
+  const primaryIssue = microscopeCardIssue(activeCard, issueOptions);
   const cmpCard = library.find((c: any) => c.id === cmpId) || null;
-  const compareJob = useResearchBacktest(source==="CSV"?null:stageBars, cmpCard, researchOptions, "design", source === "Replay", source, stage);
+  const compareIssue = microscopeCardIssue(cmpCard, { ...issueOptions, primaryTf: activeCard ? designTf : undefined, primaryIntrabar: wantIntrabar });
+  const primaryJob = useResearchBacktest(primaryIssue || waitingForM1 ? null : source !== "CSV" && useM1Job ? m1Win : stageBars, activeCard, researchOptions, useM1Job ? "m1" : "design", source === "Replay", source, source === "CSV" ? undefined : stage, csvReference);
+  const realisticBt = primaryJob.result;
+  const compareJob = useResearchBacktest(!activeCard || primaryIssue || compareIssue ? null : stageBars, cmpCard, researchOptions, source === "CSV" && useM1Job ? "m1" : "design", source === "Replay", source, source === "CSV" ? undefined : stage, csvReference);
   const cmpBt = compareJob.result;
   // honest intrabar status for the badge
   const intrabarStatus = !wantIntrabar ? "off"
@@ -198,7 +229,7 @@ export function Microscope() {
   // ── UNIFIED REPLAY ── the chart, cursor, markers and Trade Log all run on the SAME realistic engine + stage
   // window as the result table below (one engine of record). No more legacy gross sim over the full feed — so the
   // Trade Log count now EQUALS analytics.n (both = realisticBt.sim.trades.length) and the dates match the window.
-  const replayBars = (activeCard && realisticBt) ? (realisticBt.designBars ?? stageBars) : (bars ?? []);   // intrabar (M1-master) renders its OWN resampled designBars so markers index-align
+  const replayBars = (activeCard && realisticBt) ? (realisticBt.designBars ?? stageBars) : (source === "CSV" ? csvBars ?? [] : bars ?? []);   // intrabar (M1-master) renders its OWN resampled designBars so markers index-align
   // CH Episode Lens overlay — only when the card carries ch_episode_lens (observer · no engine effect). Indices align: same replayBars array feeds the chart.
   const msEpisodes = useMemo(() => (activeCard?.modules?.includes("ch_episode_lens") && replayBars.length > 30 ? chEpisodeSegments(replayBars, tf) : null), [replayBars, tf, activeId]);   // eslint-disable-line
   const replay = useMemo(() => {
@@ -206,7 +237,7 @@ export function Microscope() {
     const trades: TradeSeg[] = realisticBt.sim.trades.map((t) => ({ entryI: t.entryI, entry: t.entry_effective, exitI: t.exitI, exit: t.exit_effective ?? t.entry_effective, dir: t.dir, outcome: t.outcome, R: Math.round(t.netR * 100) / 100, t: t.fill_time, why: t.why }));
     return { trades, markers: realisticBt.sim.markers.filter((m) => m.kind === "buy" || m.kind === "sell") };
   }, [activeCard, realisticBt]);
-  const lastI = replayLastIndex(replayBars.length, source);
+  const lastI = replayLastIndex(replayBars.length, realisticBt && source === "Live" ? "Replay" : source);
   const runDone = cursor != null && cursor >= lastI && replayBars.length > 0;
   const revealed = cursor == null ? [] : replay.trades.filter((t) => t.exitI <= cursor);
   // L6 ZONE modules → real chart geometry, anchored to current structure at the cursor (else last bar).
@@ -264,7 +295,6 @@ export function Microscope() {
   function resetRun() { setRunning(false); setCursor(null); }
 
   useEffect(() => { loadCotrade().then((d) => (d ? setSimAdv(d) : setMissing(true))); }, []);
-  const liveQuery = useLiveWorkspaceQuery(liveSymbol(getActiveSymbol()), tf, "H1", "", 600, source === "Live");
   useEffect(() => {
     if (source !== "Live") { setLiveAdv(null); return; }
     const bundle = liveQuery.data;
@@ -272,7 +302,7 @@ export function Microscope() {
   }, [source, liveQuery, tf]);
   useEffect(() => {
     let alive = true;
-    if (source === "CSV") { if (csvBars && csvBars.length) setBars(csvBars); return; }
+    if (source === "CSV") { setBars(null); return; }
     if (source === "Replay") {
       if (tf === "M1" && m1Years.length) { setBars(null); loadSimM1Year(m1Year).then((d) => { if (alive) setBars(d?.bars || null); }); }
       else loadSimOhlc(tf).then((d) => { if (alive) setBars(d?.bars.slice(-70000) || null); });
@@ -286,7 +316,7 @@ export function Microscope() {
   const brokerEvidence = useBrokerDeals(getActiveSymbol(), source === "Live");
   const isLive = source === "Live" && !!liveQuery.data?.account?.connected && freshWorkspaceBars(liveQuery.data.bars, tf);
   if (missing && !adv) return <div className="pc">
-      <ResearchJobStatus pending={primaryJob.pending || compareJob.pending} error={primaryJob.error || compareJob.error} /><div className="mfe-empty"><div className="ic">◫</div><div className="msg">Co-Trade payload not found — NO_DATA honesty.</div></div></div>;
+      <ResearchJobStatus pending={primaryJob.pending || compareJob.pending} error={null} /><div className="mfe-empty"><div className="ic">◫</div><div className="msg">Co-Trade payload not found — NO_DATA honesty.</div></div></div>;
   if (!adv) return <div className="pc"><div className="mfe-empty"><div className="ic">◫</div><div className="msg">Loading…</div></div></div>;
 
   const bias: any = adv.bias || {}; const ind: any = adv.indicators || {};
@@ -332,7 +362,7 @@ export function Microscope() {
 
   return (
     <div className="ms">
-      <ResearchJobStatus pending={primaryJob.pending || compareJob.pending} error={primaryJob.error || compareJob.error} />
+      <ResearchJobStatus pending={primaryJob.pending || compareJob.pending} error={null} />
       <details className="coef-section"><summary>Recorded tick and spread event inspection</summary><RecordedObservationPanel mode="replay" /></details>
       <style>{`
         .ms{font-size:13px}
@@ -368,7 +398,7 @@ export function Microscope() {
         <span className="pmut psm" style={{ marginRight: 2 }}>Chart TF:</span>
         <div className="ms-seg">{TFS.map((t) => <button key={t} className={tf === t ? "on" : ""} disabled={!!activeCard || source==="CSV"&&!!csvMeta&&CSV_MINUTES[t]<CSV_MINUTES[csvMeta.tf]} title={activeCard ? "Strategy Card locks Chart TF to its own design_tf. Clear card selection to switch TF freely." : "Select chart timeframe"} onClick={() => setTf(t)}>{t}</button>)}</div>
         {activeCard && <span className="pflag b" style={{ margin: 0 }} title="Entries evaluate on the card's design_tf"><Glyph name="lock" size={12} /> design_tf = {designTf} (locked by card)</span>}
-        <div className="ms-seg">{(["Live", "CSV", "Replay"] as const).map((s) => <button key={s} className={source === s ? "on" : ""} onClick={() => { setSource(s);  }}>{s}</button>)}</div>
+        <div className="ms-seg">{(["Live", "CSV", "Replay"] as const).map((s) => <button key={s} className={source === s ? "on" : ""} onClick={() => { setCsvErr(""); setSource(s); resetRun(); }}>{s}</button>)}</div>
         {source === "Live" && <span className="pflag" style={{ margin: 0, background: isLive ? "rgba(33,208,122,.14)" : "rgba(255,138,42,.12)", color: isLive ? TK.green : TK.orange, border: "1px solid " + (isLive ? TK.green : TK.orange) }}>{isLive ? "● LIVE " + liveSymbol(getActiveSymbol()) : <><Glyph name="warning" size={12} /> SIM · MT5 offline</>}</span>}
         {source === "Replay" && tf === "M1" && m1Years.length > 0 && (
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -377,16 +407,16 @@ export function Microscope() {
           </span>
         )}
         <span className="pflag a">{source === "CSV" ? "VOLUME NOT USED AS EVIDENCE" : "SYNTHETIC VOLUME: NOT EVIDENCE"}</span>
-        {csvName && <span className="pmut psm" style={{ maxWidth: 230, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{csvName}</span>}
-        {csvErr && <span className="pflag r" style={{ margin: 0 }}><Glyph name="warning" size={12} /> {explainResearchError(csvErr)}</span>}
+        {source === "CSV" && csvName && <span className="pmut psm" style={{ maxWidth: 230, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{csvName}</span>}
+        {source === "CSV" && csvErr && <span className="pflag r" style={{ margin: 0 }}><Glyph name="warning" size={12} /> {explainResearchError(csvErr)}</span>}
         {source==="CSV"&&csvWarnings.length>0&&<details style={{fontSize:11,color:TK.orange}}><summary>Import notes ({csvWarnings.length})</summary><ul>{csvWarnings.map(note=><li key={note}>{note}</li>)}</ul></details>}
       </div>
 
       <div style={{ marginBottom: 10 }}><Mt5ConnectPanel /></div>
 
       <CsvImportPanel onOpen={openCsv}/>
-      {source==="CSV"&&csvMeta&&activeCard&&stageBars.length>0&&<StrategyAttributionPanel importId={csvMeta.id} card={activeCard} from={stageBars[0].t} to={stageBars[stageBars.length-1].t} windowTf={designTf} options={researchOptions}/>}
-      {source==="CSV"&&csvMeta&&activeCard&&stageBars.length>0&&<DecisionEvidencePanel importId={csvMeta.id} card={activeCard} from={stageBars[0].t} to={stageBars[stageBars.length-1].t} windowTf={designTf} barsCount={stageBars.length} options={researchOptions}/>}
+      {source==="CSV"&&csvMeta&&activeCard&&!primaryIssue&&stageBars.length>0&&<StrategyAttributionPanel importId={csvMeta.id} card={activeCard} from={stageBars[0].t} to={stageBars[stageBars.length-1].t} windowTf={designTf} options={researchOptions}/>}
+      {source==="CSV"&&csvMeta&&activeCard&&!primaryIssue&&stageBars.length>0&&<DecisionEvidencePanel importId={csvMeta.id} card={activeCard} from={stageBars[0].t} to={stageBars[stageBars.length-1].t} windowTf={designTf} barsCount={stageBars.length} options={researchOptions}/>}
       {source==='CSV'&&csvMeta&&<div className="pc" style={{padding:10}}><p>Imported interval · {csvMeta.symbol} · {csvMeta.from} → {csvMeta.to} UTC. This is a diagnostic run, not an automatic 10Y / OOS / forward holdout.</p>{csvMeta.quality.gapCount>0&&<button onClick={()=>setCsvRange({from:csvMeta.quality.longestContinuous.from,to:csvMeta.quality.longestContinuous.to})}>Use longest continuous interval ({csvMeta.quality.longestContinuous.bars.toLocaleString()} source bars)</button>}{csvRange&&<button onClick={()=>setCsvRange(undefined)}>Use full imported interval</button>}</div>}
       <div className="ms-grid">
         {/* LEFT context */}
@@ -472,16 +502,29 @@ export function Microscope() {
         )}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
           <span className="pmut psm">Strategy Card:</span>
-          <select className="ms-sel" disabled={running} value={activeId || ""} onChange={(e) => setActiveId(e.target.value || null)}>
+          <select aria-label="Primary Strategy Card" className="ms-sel" disabled={running} value={activeId || ""} onChange={(e) => setActiveId(e.target.value || null)}>
             <option value="">— Select Strategy Card —</option>
             {library.map((c: any) => <option key={c.id} value={c.id}>{c.name} · {c.archetype}</option>)}
           </select>
           {library.length === 0 && <span className="pmut psm">Library is empty — package a card in Strategy Canvas or load the Starter Card on Home.</span>}
           {library.length > 1 && (
-            <select value={cmpId} onChange={(e) => setCmpId(e.target.value)} title="COMPARE: Run a second Card/Beast side-by-side on the exact same window and engine" style={{ background: "#0b141e", border: "1px solid #6b4fd8", borderRadius: 6, color: "var(--mfe-text)", padding: "3px 7px", fontSize: 11.5, marginLeft: 6 }}>
+            <select value={cmpId} onChange={(e) => setCmpId(e.target.value)} aria-label="Comparison Strategy Card" title="Compare two design-close Cards on the same window" style={{ background: "#0b141e", border: "1px solid #6b4fd8", borderRadius: 6, color: "var(--mfe-text)", padding: "3px 7px", fontSize: 11.5, marginLeft: 6 }}>
               <option value="">⇄ Compare with… (Beast/Card)</option>
               {library.filter((c: any) => c.id !== activeId).map((c: any) => <option key={c.id} value={c.id}>{c.name} · {c.archetype}</option>)}
             </select>
+          )}
+          {[{ card: activeCard, issue: primaryIssue, error: primaryJob.error, label: "Primary" },
+            { card: cmpCard, issue: compareIssue, error: compareJob.error, label: "Comparison" }].map(item =>
+            item.card && (item.issue || item.error) && <div key={item.label} role="status" className="strategy-notice" style={{ width: "100%" }}>
+              <strong>{item.label} · {item.card.name}</strong>
+              <p>{item.issue ?? (item.error ? explainResearchError(item.error) : "")}</p>
+              <details><summary>Inspect Card modules</summary><p>{item.card.modules.join(", ") || "No modules saved"}</p></details>
+              <button className="ms-q" type="button" onClick={() => {
+                localStorage.setItem("mfe_strategylab_preselect", item.card.id);
+                window.dispatchEvent(new CustomEvent("mfe-nav", { detail: "strategy-lab" }));
+              }}>Inspect in Strategy Lab</button>
+              {" "}<a href="#beast-lab">Open Beast Lab</a>
+            </div>
           )}
           {cmpBt && realisticBt && (() => {
             const A = compareCardSummary(realisticBt), B = compareCardSummary(cmpBt);
@@ -502,7 +545,7 @@ export function Microscope() {
                       : <button onClick={() => { if (cardId) { setCmpId(activeId || ""); setActiveId(cardId); } }} title="Make this card the primary runner on the chart"
                         style={{ marginLeft: "auto", background: "transparent", border: "1px solid var(--mfe-border)", borderRadius: 5, color: "var(--mfe-cyan, #25B7FF)", fontSize: 9.5, fontWeight: 700, padding: "2px 7px", cursor: "pointer" }}> Set Primary Runner</button>}
                   </div>
-                  <div style={{ fontSize: 12.5, fontWeight: 800, color: edge ? "#21D07A" : "#FF4D4D", marginBottom: 5 }}>{edge ? "POSITIVE NET EDGE (this window)" : "NO NET EDGE AFTER COSTS"}<span className="pmut" style={{ fontWeight: 400, fontSize: 9.5 }}> · {hardMode ? "HARD" : "normal"} · modeled</span></div>
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: edge ? "#21D07A" : "#FF4D4D", marginBottom: 5 }}>{s.n === 0 ? "NO MODELED TRADES" : edge ? "POSITIVE NET RESULT (this window)" : "NO POSITIVE NET RESULT AFTER COSTS"}<span className="pmut" style={{ fontWeight: 400, fontSize: 9.5 }}> · {hardMode ? "HARD" : "normal"} · modeled</span></div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 5, fontSize: 11, fontFamily: "var(--mfe-mono)" }}>
                     <div><div className="pmut" style={{ fontSize: 8.5 }}>NET PF</div><b style={{ color: better(s.pf, other.pf) }}>{s.pf}</b></div>
                     <div><div className="pmut" style={{ fontSize: 8.5 }}>NET R</div><b style={{ color: better(s.netR, other.netR) }}>{s.netR}</b></div>
@@ -528,7 +571,7 @@ export function Microscope() {
           })()}
           {activeCard && <span className="pflag b">{activeCard.verdict} · {activeCard.score}%</span>}
           {activeCard && (autoRR ? <span className="pflag g"><Glyph name="gear" size={12} /> Auto R:R</span> : <span className="pflag a">Fixed risk (1 ATR · TP-cap +4R)</span>)}
-          {activeCard && <span className="pflag" style={{ margin: 0, background: "rgba(33,208,122,.12)", color: TK.green, border: "1px solid " + TK.green }}>Card TF {designTf} · realistic · next-open · cost ON</span>}
+          {activeCard && realisticBt && <span className="pflag" style={{ margin: 0, background: "rgba(33,208,122,.12)", color: TK.green, border: "1px solid " + TK.green }}>Card TF {designTf} · realistic · next-open · cost ON</span>}
         </div>
         {/* FORCED cascade Y10 → M6 → M1 */}
         {activeCard && (
@@ -542,7 +585,7 @@ export function Microscope() {
               </button>
             )}
             <span className="pmut psm" style={{ marginLeft: "auto" }}>
-              <b style={{ color: STAGE_SOURCE[stage] === "Live" ? "#21D07A" : "#9fd0ff" }}>{source==="CSV" ? "CSV interval" : STAGE_SOURCE[stage] === "Live" ? <><Glyph name="dot" size={11} color={TK.red} /> LIVE</> : <><Glyph name="tape" size={12} /> REPLAY</>}</b>
+              <b style={{ color: source === "Live" ? "#21D07A" : "#9fd0ff" }}>{source==="CSV" ? "CSV interval" : source === "Live" ? <><Glyph name="dot" size={11} color={TK.red} /> LIVE</> : <><Glyph name="tape" size={12} /> REPLAY</>}</b>
               {stageRange ? <> · <b style={{ fontFamily: "var(--mfe-mono)" }}>{stageRange.from} → {stageRange.to}</b></> : ""} · {stageBars.length.toLocaleString()} bars ({designTf})
             </span>
           </div>
@@ -612,10 +655,10 @@ export function Microscope() {
       {/* ── REALISTIC SIM truth surface ── */}
       {activeCard && runDone && stageIdx <= maxStage && (
         <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="pc" style={{ borderColor: STAGE_SOURCE[stage] === "Live" ? "#1c5b3c" : "#43306a" }}>
+          <div className="pc" style={{ borderColor: source === "Live" ? "#1c5b3c" : "#43306a" }}>
             <div className="pc-h violet">
               Window Results: {source === "CSV" ? "Selected CSV interval" : STAGE_LABEL[stage]}
-              <span className="pflag" style={{ margin: "0 0 0 6px", background: STAGE_SOURCE[stage] === "Live" ? "rgba(33,208,122,.14)" : "rgba(159,208,255,.12)", color: STAGE_SOURCE[stage] === "Live" ? TK.green : "#9fd0ff", border: "1px solid " + (STAGE_SOURCE[stage] === "Live" ? "#1c5b3c" : "#27506e") }}>{STAGE_SOURCE[stage] === "Live" ? "🔴 LIVE · 1M Forward" : "📼 REPLAY · Historical"}</span>
+              <span className="pflag" style={{ margin: "0 0 0 6px", background: source === "Live" ? "rgba(33,208,122,.14)" : "rgba(159,208,255,.12)", color: source === "Live" ? TK.green : "#9fd0ff", border: "1px solid " + (source === "Live" ? "#1c5b3c" : "#27506e") }}>{source === "Live" ? "MT5 · closed candles" : "Replay · historical"}</span>
               <span className="mut">{source !== "CSV" && stage === "Y10" ? "Walk-forward requested" : "Single descriptive window"}</span>
             </div>
             {stageRange && <div className="pmut psm pmono" style={{ marginTop: 2 }}><Glyph name="calendar" size={12} /> Range: <b style={{ color: TK.text2 }}>{stageRange.from} → {stageRange.to}</b> · {stageBars.length.toLocaleString()} bars ({designTf}{source==="CSV"?", selected CSV interval":`, ${STAGE_DAYS[stage]}d`})</div>}

@@ -16,10 +16,14 @@ function beastContext(beast: SavedBeast, cards: StrategyCardArtifactRecord[]) {
 }
 
 function describeFailure(reason: string) {
-  switch (reason) {
+  switch (reason.split(":", 1)[0]) {
     case "ACTIVITY_MEMBER_REQUIRES_BEAST": return "This Card serves a supporting role. Evaluate it inside a saved Beast with an Attacker.";
     case "ACTIVITY_EXPLICIT_TRIGGER_REQUIRED": return "The saved definition needs an explicit entry trigger.";
     case "ACTIVITY_DESIGN_CLOSE_ONLY": return "This view supports Cards with matching design and execution timeframes.";
+    case "ACTIVITY_BEAST_LINEAGE": return "One or more Beast members no longer match their saved Card fingerprints.";
+    case "ACTIVITY_BEAST_COMPOSITION": return "The saved roles do not form an evaluable Beast. Review the details in Beast Lab.";
+    case "ACTIVITY_INVALID_CLOSED_TAPE": return "The source returned unordered, duplicated or invalid candles.";
+    case "ACTIVITY_ARTIFACT_NOT_SAVED": return "Save the selected Card or Beast to the workspace, then evaluate again.";
     case "ACTIVITY_BEAST_CONTEXT_MISMATCH": return "Use a Beast whose member Cards share an asset and matching design and execution timeframes.";
     case "ACTIVITY_BEAST_DEFINITION_CHANGED": return "The saved Beast differs from its current composition. Review and re-save it in Beast Lab.";
     case "ACTIVITY_REQUIRES_120_TO_600_CLOSED_BARS": return "This evaluation requires at least 120 closed candles.";
@@ -39,7 +43,7 @@ export function StrategyActivity({ card, symbol, source }: {
   const [library, setLibrary] = useState(() => ({ beasts: loadBeasts(), cards: readStrategyCards() }));
   const [selectedBeast, setSelectedBeast] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const [state, setState] = useState<{ key: string; data?: CockpitActivity; error?: string; pending?: boolean; stale?: boolean }>();
+  const [state, setState] = useState<{ key: string; data?: CockpitActivity; error?: string; detail?: string; pending?: boolean; stale?: boolean }>();
   const controller = useRef<AbortController | null>(null);
   useEffect(() => subscribeArtifactChanges(() => setLibrary({ beasts: loadBeasts(), cards: readStrategyCards() })), []);
   const choices = library.beasts.filter(item => beastContext(item, library.cards)?.symbol === symbol);
@@ -73,7 +77,7 @@ export function StrategyActivity({ card, symbol, source }: {
       if (!request.signal.aborted) setState({ key, data });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      if (!request.signal.aborted) setState({ key, error: describeFailure(reason), stale: reason.startsWith("ACTIVITY_BEAST_LINEAGE:") });
+      if (!request.signal.aborted) setState({ key, error: describeFailure(reason), detail: reason, stale: reason.startsWith("ACTIVITY_BEAST_LINEAGE:") });
     }
   }
 
@@ -107,7 +111,19 @@ export function StrategyActivity({ card, symbol, source }: {
     </p>
     <button type="button" className="strategy-secondary" disabled={!target || !timeframe || visible?.pending}
       onClick={() => void evaluate()}>{visible?.pending ? "Evaluating…" : "Evaluate closed candles"}</button>
-    {visible?.error && <p role="alert" className="strategy-error">{visible.error}</p>}
+    {visible?.error && <div role="status">
+      <p className="strategy-error">{visible.error}</p>
+      <details><summary>Inspect saved definition</summary>
+        <p>{target?.name} · {symbol} · {timeframe}</p>
+        {target?.modules?.length ? <p>{target.modules.join(", ")}</p> : <p>No modules saved.</p>}
+        {visible.detail && <p>{visible.detail}</p>}
+      </details>
+      {!beast && card && <button type="button" className="strategy-secondary" onClick={() => {
+        localStorage.setItem("mfe_strategylab_preselect", card.id);
+        window.dispatchEvent(new CustomEvent("mfe-nav", { detail: "strategy-lab" }));
+      }}>Inspect in Strategy Lab</button>}
+      {!visible.stale && <>{" "}<a href="#beast-lab">Open Beast Lab</a></>}
+    </div>}
     {visible?.stale && beast && <>
       <p className="strategy-help">Save a copy using the current Card definitions and the same modules. Previous results stay with the original Beast.</p>
       <button type="button" className="strategy-secondary" disabled={refreshing} onClick={() => void refreshBeast()}>

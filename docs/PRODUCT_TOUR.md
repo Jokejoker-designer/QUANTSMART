@@ -197,3 +197,5 @@ Select a Card in Strategy & orders, or select a saved Beast in Strategy activity
 For a Beast, expand a role to see the contributing Cards, retained and excluded modules, and the result when removing that role on the same sample. Roles with multiple members also show each member's separate comparison when its modules can be removed independently. Shared modules stay present while another member supplies them. Removing the primary Attacker leaves no primary candidate. Results describe activity in this sample.
 
 If a Beast has stale member fingerprints, Save refreshed Beast copy creates a separate version from the current saved Cards when the original role slots, modules and context still match. A changed composition needs review in Beast Lab.
+
+In Microscope, select any saved Card to inspect it. A supporting role, incompatible CSV timeframe, or missing trigger is explained beside the affected selection. Side-by-side results require the same design timeframe and design-close execution. The active source is shown with the result.
