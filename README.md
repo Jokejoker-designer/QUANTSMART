@@ -305,3 +305,8 @@ Current downloadable preview: [1.2.0-rc.7](https://github.com/Jokejoker-designer
 In Microscope, select a saved CSV and Strategy Card, then open **Decision & outcome evidence**. Build a local journal to link observed engine signals, policy blocks, modeled fills and completed t[...]
 
 The journal covers observed canonical signals on 61–5,000 design bars. It does not invent structural-thesis identity, missing veto events, exact excursions or calibrated probabilities. See the [...]
+
+## License
+
+QUANTSMART is licensed under the [Apache License, Version 2.0](LICENSE).
+Copyright 2026 Phan Trần Anh Quân. See [NOTICE](NOTICE) for attribution and the date of this notice.
