@@ -60,10 +60,16 @@ export const PIPELINE_STAGES = [
   "forecast_map", "outcome_join", "calibration", "walk_forward_oos", "memory_write",
   "shadow_observation", "manager_promotion_review",
 ] as const;
-export type PipelineStage = typeof PIPELINE_STAGES[number];
+export type IngestionOrigin = "CSV" | "MT5_QUOTE_RECORDING";
+export type PipelineStage = typeof PIPELINE_STAGES[number] | "live_tick_ingest";
+// Keep the historical CSV sequence unchanged. Recorded quotes enter the same
+// downstream gates with an explicit origin, never a mislabeled CSV stage.
+export function pipelineStagesFor(origin: IngestionOrigin): readonly PipelineStage[] {
+  return origin === "CSV" ? PIPELINE_STAGES : ["live_tick_ingest", ...PIPELINE_STAGES.slice(1)];
+}
 export type StageStatus = "OK" | "INSUFFICIENT_SAMPLE" | "LEAKAGE_BLOCKED" | "QUARANTINE" | "NEEDS_MANAGER" | "NOT_IMPLEMENTED" | "BLOCKED_UPSTREAM";
 export interface StageResult { stage: PipelineStage; status: StageStatus; note?: string; metrics?: Record<string, number> }
-export interface PipelineResult { asset_key: string; stages: StageResult[]; blocked_at?: PipelineStage; ok: boolean }
+export interface PipelineResult { asset_key: string; stages: StageResult[]; blocked_at?: PipelineStage; ok: boolean; ingestion_origin?:IngestionOrigin; source_id?:string }
 
 // ── Versioned models with rollback (doc §1.7 + §5). ──
 export type ModelStatus = "SHADOW" | "QUARANTINE" | "PROPOSED" | "PROMOTED" | "ROLLED_BACK";

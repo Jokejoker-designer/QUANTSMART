@@ -15,6 +15,8 @@ import secrets
 import sys
 import threading
 import time
+import hashlib
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -28,10 +30,14 @@ if __package__:
     from .demo_execution import DemoExecution, DemoPreviewInput, DemoSubmitInput
     from .broker_deals import read_demo_deals
     from .demo_automation import DemoAutomation, AutoStart, AutoAction
+    from .tick_evidence import TickEvidenceStore, TickRecorder
+    from .quote_observer import QuoteObserver
 else:
     from demo_execution import DemoExecution, DemoPreviewInput, DemoSubmitInput
     from broker_deals import read_demo_deals
     from demo_automation import DemoAutomation, AutoStart, AutoAction
+    from tick_evidence import TickEvidenceStore, TickRecorder
+    from quote_observer import QuoteObserver
 
 AUTHORITY = {"authority": "SHADOW_ONLY", "decision": "NO_DECISION", "live_apply_allowed": False, "read_only": True}
 TF_MINUTES = {"M1": 1, "M5": 5, "M15": 15, "M30": 30, "H1": 60, "H4": 240, "D1": 1440, "W1": 10080}
@@ -62,6 +68,19 @@ class SymbolInput(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
 
+class RecorderInput(BaseModel):
+    symbol: str = Field(default="XAUUSD",min_length=3,max_length=64,pattern=r"^[A-Za-z0-9_.#-]+$")
+    model_config = ConfigDict(extra="forbid")
+
+
+class ObserverModelInput(BaseModel):
+    source_id:str=Field(min_length=1,max_length=128)
+    model_id:str=Field(default="",max_length=128)
+    reviewer:str=Field(default="",max_length=80)
+    action:str=Field(default="",max_length=40)
+    model_config=ConfigDict(extra="forbid")
+
+
 def indicators(bars: list[dict]) -> dict:
     # Same EMA and Wilder ATR recurrence as the historical observation adapter.
     fast = slow = bars[0]["c"]
@@ -89,6 +108,7 @@ class TerminalService:
         self.server_timezone_name = server_timezone
         self.server_timezone = ZoneInfo(server_timezone)
         self.tick_symbols: dict[tuple, str] = {}
+        self.evidence_attach_at = 0.0
 
     def market_time(self, value: Any) -> datetime:
         # Some terminal feeds encode broker wall-clock fields as an epoch value.
@@ -310,7 +330,7 @@ class TerminalService:
                 if bid is None or ask is None or last is None or bid <= 0 or ask < bid:
                     return {"ok": False, "reason": "INVALID_TICK_OBSERVATION", **AUTHORITY}
                 utc_ms = int(self.market_time(raw_ms // 1000).timestamp()) * 1000 + raw_ms % 1000
-                ticks.append({"time_msc": utc_ms, "bid": bid, "ask": ask, "last": last, "volume": numeric(item["volume"]), "flags": int(item["flags"])})
+                ticks.append({"time_msc": utc_ms, "raw_time_msc":raw_ms,"source_ordinal":group_count,"bid": bid, "ask": ask, "last": last, "volume": numeric(item["volume"]), "flags": int(item["flags"])})
                 last_ms, last_ordinal = raw_ms, group_count
             if len(raw) >= 8192 and not ticks:
                 return {"ok": False, "reason": "TICK_BACKLOG_OVERFLOW", **AUTHORITY}
@@ -334,6 +354,33 @@ class TerminalService:
                 result["bar"] = converted[-1] if converted else None
                 result["closed_bar"] = converted[-2] if len(converted) > 1 else None
             return result
+
+    def evidence_packet(self,canonical: str,cursor: tuple[int,int],salt: str) -> dict:
+        with self.lock:
+            account=self.account()
+            if not account.get("connected") and account.get("reason")=="NOT_ATTACHED" and self.platform=="win32" and time.monotonic()-self.evidence_attach_at>30:
+                # Saved recorder intent authorizes read-only reattachment, not terminal launch/login.
+                self.evidence_attach_at=time.monotonic()
+                import subprocess
+                running=subprocess.run(["tasklist","/FI","IMAGENAME eq terminal64.exe","/FO","CSV","/NH"],capture_output=True,text=True,creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0),timeout=5)
+                if '"terminal64.exe"' in running.stdout.lower():
+                    self.connect(ConnectInput());account=self.account()
+            if not account.get("connected"):return {"ok":False,"reason":account.get("reason","TERMINAL_DISCONNECTED")}
+            key=(self.generation,canonical.upper(),self.overrides.get(canonical.upper()))
+            name=self.tick_symbols.get(key)
+            resolved={"ok":True,"broker_symbol":name} if name else self.resolve(canonical)
+            if not resolved.get("ok"):return resolved
+            self.tick_symbols[key]=resolved["broker_symbol"]
+            terminal=self.sdk.terminal_info()
+            identity=[salt,str(account.get("account_id")),str(account.get("server")),str(getattr(terminal,"path","")),resolved["broker_symbol"],canonical,self.server_timezone_name]
+            sid="source_"+hashlib.sha256(json.dumps(identity,separators=(",",":"),ensure_ascii=True).encode()).hexdigest()
+            source={"id":sid,"canonical_symbol":canonical,"broker_symbol":resolved["broker_symbol"],"broker":str(account.get("broker") or "Broker terminal"),"server_timezone":self.server_timezone_name,"timestamp_contract":"BROKER_WALL_TO_UTC_V1"}
+            latest=self.sdk.symbol_info_tick(resolved["broker_symbol"])
+            if latest is not None and cursor[0] and int(getattr(latest,"time_msc",0) or latest.time*1000)<cursor[0]:return {"ok":False,"reason":"SOURCE_CLOCK_REWIND"}
+            generation=self.generation
+            packet=self.ticks(canonical,"M1",f"{generation}:{cursor[0]}:{cursor[1]}" if cursor[0] else "")
+            if self.generation!=generation:return {"ok":False,"reason":"TERMINAL_CHANGED"}
+            return {**packet,"source":source}
 
     def bar(self, canonical: str, tf: str) -> dict:
         result = self.rates(canonical, tf, 1, True)
@@ -394,10 +441,19 @@ class TerminalService:
             return {"ok": bool(bars), "bars": bars, "n": len(bars), "source": "MT5_HISTORY", "broker_symbol": resolved["broker_symbol"], **AUTHORITY}
 
 
-def create_app(service: TerminalService | None = None, token: str | None = None) -> FastAPI:
+def create_app(service: TerminalService | None = None, token: str | None = None, evidence_path: Path | None = None) -> FastAPI:
     terminal = service or TerminalService(server_timezone=os.environ.get("MFE_MT5_SERVER_TIMEZONE", "UTC"))
     shared_token = os.environ.get("MFE_BRIDGE_TOKEN", "") if token is None else token
-    app = FastAPI(title="MFE Read-only MT5 Bridge", docs_url=None, redoc_url=None, openapi_url=None)
+    store = TickEvidenceStore(evidence_path or Path(os.environ.get("MFE_TICK_EVIDENCE_DIR",str(Path(__file__).resolve().parent.parent/".mfe-state"/"tick-evidence")))/"quotes.sqlite3") if evidence_path is not None or service is None and shared_token else None
+    observer = QuoteObserver(store) if store else None
+    recorder = TickRecorder(store,terminal.evidence_packet,on_commit=observer.advance) if store else None
+    @asynccontextmanager
+    async def lifespan(_app):
+        if recorder and recorder.intent["enabled"]:recorder.launch()
+        yield
+        if recorder:recorder.shutdown()
+        if store and (not recorder.thread or not recorder.thread.is_alive()):store.close()
+    app = FastAPI(title="MFE Read-only MT5 Bridge", docs_url=None, redoc_url=None, openapi_url=None,lifespan=lifespan)
     active_streams = 0
     demo = DemoExecution(terminal, enabled=os.environ.get("MFE_ENABLE_MANUAL_DEMO", "false").lower() == "true")
     automation = DemoAutomation(terminal, enabled=os.environ.get("MFE_ENABLE_CARD_DEMO", "false").lower() == "true")
@@ -436,6 +492,77 @@ def create_app(service: TerminalService | None = None, token: str | None = None)
     @app.get("/mt5/account")
     def account():
         return terminal.account()
+
+    @app.get("/mt5/evidence/status")
+    def evidence_status():
+        return {"ok":True,**recorder.status()} if recorder else {"ok":False,"reason":"EVIDENCE_STORE_DISABLED",**AUTHORITY}
+
+    @app.post("/mt5/evidence/start")
+    def evidence_start(settings: RecorderInput):
+        if not recorder:return JSONResponse({"error":"EVIDENCE_STORE_DISABLED"},503)
+        if not terminal.account().get("connected"):return JSONResponse({"error":"CONNECT_TERMINAL_FIRST"},409)
+        return {"ok":True,**recorder.start(settings.symbol)}
+
+    @app.post("/mt5/evidence/stop")
+    def evidence_stop():
+        return {"ok":True,**recorder.stop()} if recorder else {"ok":False,"reason":"EVIDENCE_STORE_DISABLED",**AUTHORITY}
+
+    @app.get("/mt5/evidence/replay")
+    def evidence_replay(source_id: str=Query(min_length=1,max_length=128),after_ms: int=Query(default=0,ge=0),limit: int=Query(default=1000,ge=1,le=10000),after_raw_ms: int=Query(default=0,ge=0),after_ordinal: int=Query(default=0,ge=0)):
+        if not store:return JSONResponse({"error":"EVIDENCE_STORE_DISABLED"},503)
+        return {"ok":True,**store.replay(source_id,after_ms,limit,after_raw_ms,after_ordinal)}
+
+    @app.get("/mt5/evidence/integrity")
+    def evidence_integrity():
+        if not store:return JSONResponse({"error":"EVIDENCE_STORE_DISABLED"},503)
+        return store.integrity()
+
+    @app.get("/mt5/evidence/reconcile")
+    def evidence_reconcile(source_id:str=Query(min_length=1,max_length=128),limit:int=Query(default=1000,ge=1,le=1000)):
+        if not store:return JSONResponse({"error":"EVIDENCE_STORE_DISABLED"},503)
+        with store.lock:
+            sources=[source for source in store.status()["sources"] if source["id"]==source_id]
+            rows=store.db.execute("SELECT raw_ms,ordinal,utc_ms,bid,ask,last,flags,volume,hash FROM ticks WHERE source=? ORDER BY raw_ms DESC,ordinal DESC LIMIT ?",(source_id,limit)).fetchall()[::-1]
+        if not sources or not rows:return {"ok":False,"reason":"NO_RECORDED_SOURCE_SAMPLE",**AUTHORITY}
+        if rows[-1][0]-rows[0][0]>3600000:return {"ok":False,"reason":"RECONCILIATION_WINDOW_EXCEEDS_ONE_HOUR",**AUTHORITY}
+        with terminal.lock:
+            packet=terminal.evidence_packet(sources[0]["canonical_symbol"],store.cursor(source_id),store.get("salt"))
+            if not packet.get("ok") or packet.get("source",{}).get("id")!=source_id:return {"ok":False,"reason":"RECONCILIATION_SOURCE_UNAVAILABLE_OR_CHANGED",**AUTHORITY}
+            generation=terminal.generation
+            first=datetime.fromtimestamp(rows[0][0]//1000,timezone.utc);last=datetime.fromtimestamp(rows[-1][0]//1000+1,timezone.utc)
+            raw=terminal.sdk.copy_ticks_range(sources[0]["broker_symbol"],first,last,terminal.sdk.COPY_TICKS_ALL)
+            if raw is None:return {"ok":False,"reason":"NATIVE_TICK_RANGE_UNAVAILABLE",**AUTHORITY}
+            observed={};group_ms=group_count=0
+            for item in raw:
+                ms=int(item["time_msc"] or item["time"]*1000);group_count=group_count+1 if ms==group_ms else 1;group_ms=ms
+                observed[(ms,group_count)]=tuple(numeric(item[key]) for key in ("bid","ask","last","flags","volume"))
+            terminal.account()
+            if terminal.generation!=generation:return {"ok":False,"reason":"TERMINAL_CHANGED_DURING_RECONCILIATION",**AUTHORITY}
+            missing=mismatches=0
+            for row in rows:
+                native=observed.get((row[0],row[1]))
+                if native is None:missing+=1
+                elif native!=(row[3],row[4],row[5],row[6],row[7]):mismatches+=1
+            return {"ok":missing==0 and mismatches==0,"sampled_rows":len(rows),"matched_rows":len(rows)-missing-mismatches,"missing_native_rows":missing,"value_mismatches":mismatches,"from_raw_ms":rows[0][0],"to_raw_ms":rows[-1][0],"scope":"FROZEN_STORED_SAMPLE_VS_SAME_TERMINAL_HISTORY_NOT_TOTAL_FEED_COMPLETENESS",**AUTHORITY}
+
+    @app.get("/mt5/evidence/observation")
+    def evidence_observation(symbol:str=Query(default="XAUUSD",min_length=3,max_length=64), comparison:bool=False):
+        if not observer:return JSONResponse({"error":"EVIDENCE_STORE_DISABLED"},503)
+        sources=[s for s in store.status()["sources"] if s["canonical_symbol"]==symbol]
+        sid=max(sources,key=lambda s:s["to_ms"] or 0)["id"] if sources else ""
+        return observer.snapshot(sid,include_comparison=comparison)
+
+    @app.post("/mt5/evidence/model/propose")
+    def evidence_model_propose(settings:ObserverModelInput):
+        if not observer:return JSONResponse({"error":"EVIDENCE_STORE_DISABLED"},503)
+        try:return observer.propose(settings.source_id)
+        except ValueError as error:return JSONResponse({"error":str(error)},409)
+
+    @app.post("/mt5/evidence/model/review")
+    def evidence_model_review(settings:ObserverModelInput):
+        if not observer:return JSONResponse({"error":"EVIDENCE_STORE_DISABLED"},503)
+        try:return observer.review(settings.source_id,settings.model_id,settings.reviewer,settings.action)
+        except ValueError as error:return JSONResponse({"error":str(error)},409)
 
     @app.get("/mt5/demo/status")
     def demo_status():
@@ -491,6 +618,7 @@ def create_app(service: TerminalService | None = None, token: str | None = None)
 
     @app.post("/mt5/disconnect")
     def disconnect():
+        if recorder:recorder.stop()
         return terminal.disconnect()
 
     @app.get("/mt5/symbols")

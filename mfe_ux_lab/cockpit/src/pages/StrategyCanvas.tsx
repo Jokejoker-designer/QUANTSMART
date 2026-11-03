@@ -436,6 +436,7 @@ export function StrategyCanvas() {
 
   return (
     <div className="cotrade" style={{ paddingBottom: 36 }}>
+      <details><summary>Recorded tick inputs · currently locked</summary><p>Recorded quotes are observer evidence. No new L1/L2 input or executable guard is exposed until source timing, coverage and independent validation are qualified. Existing Card modules and triggers are unchanged.</p></details>
       {/* Compact Header + Operating Profile Summary */}
       <div className="co-topbar" style={{ gap: 8, flexWrap: "wrap", padding: "6px 12px", marginBottom: profileOpen ? 4 : 8 }}>
         <span className="co-lock">Strategy Canvas</span>

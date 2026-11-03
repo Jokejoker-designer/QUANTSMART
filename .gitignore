@@ -17,6 +17,8 @@
 !/docs/DRIVE_REASSESSMENT.md
 !/docs/DRIVE_REASSESSMENT_RESULTS.json
 !/docs/AI_JSON_IMPORT.md
+!/docs/TICK_EVIDENCE.md
+!/docs/RECORDED_OBSERVER.md
 !/docs/schemas/
 !/docs/schemas/module-import-contracts.json
 !/docs/examples/
@@ -83,3 +85,7 @@
 **/workspace*.json
 !/.env.example
 !/docs/DEMO_AUTOMATION.md
+
+!/scripts/import-xauusd-history.py
+!/tests/test_import_xauusd_history.py
+!/docs/LOCAL_XAUUSD_HISTORY.md

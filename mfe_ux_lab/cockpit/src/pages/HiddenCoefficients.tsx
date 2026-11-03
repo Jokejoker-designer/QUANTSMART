@@ -1,3 +1,4 @@
+import {RecordedObservationPanel} from "../components/RecordedObservationPanel.tsx";
 // Read-only config inventory and a separate, explicitly labelled Shadow profile editor.
 import { useMemo, useState } from "react";
 import "./cotrade.css";
@@ -48,7 +49,7 @@ export function HiddenCoefficients() {
   const shown = filter === "ALL" ? coefs : coefs.filter((c) => c.kind === filter);
 
   return (
-    <div className="coefficients-page">
+    <div className="coefficients-page"><RecordedObservationPanel mode="models"/>
       <header className="coeff-page-heading">
         <div>
           <h1>

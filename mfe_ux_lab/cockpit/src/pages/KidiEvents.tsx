@@ -8,6 +8,7 @@ import { loadSimOhlc, SIM_TFS } from "../adapters/loadSimOhlc.ts";
 import { mt5Bars, liveSymbol, isOffline as mtOffline } from "../lib/mt5DemoAdapter.ts";
 import type { OhlcBar } from "../adapters/loadOhlcReplayChart.ts";
 import { kidiScan, kidiSummary, type KidiEvent, type KidiType, type KidiSeverity } from "../lib/kidiEvents.ts";
+import {TickEvidencePanel} from "../components/TickEvidencePanel.tsx";
 
 const TYPE_COLOR: Record<KidiType, string> = { FROZEN_FEED: TK.red, RANGE_ZERO: TK.yellow, DATA_GAP: TK.orange };
 const TYPE_LABEL: Record<KidiType, string> = { FROZEN_FEED: "Frozen feed", RANGE_ZERO: "Range zero", DATA_GAP: "Data gap" };
@@ -47,6 +48,7 @@ export function KidiEvents() {
 
   return (
     <div className="cm" style={{ fontSize: 13 }}>
+      <TickEvidencePanel quality/>
       <div className="mfe-pillbar" style={{ marginBottom: 12 }}>
         <span className="auth lock">KIDI WITNESS</span><span className="auth lock">DIAGNOSTIC ONLY</span>
         <span className="auth warn">FLATNESS / FROZEN-FEED, NOT A GAP DETECTOR</span>
