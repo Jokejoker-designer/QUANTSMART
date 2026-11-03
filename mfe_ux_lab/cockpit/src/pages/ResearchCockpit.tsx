@@ -18,6 +18,7 @@ import { kidiScan, kidiSummary } from "../lib/kidiEvents.ts";
 import { closedFrameCutoff, finite, observedBias, rangePercentile, sessionAt, type MarketSnapshot } from "../lib/cockpitTelemetry.ts";
 import { MicroChart } from "../components/MicroChart.tsx";
 import { CardEvidencePanel } from "../components/CardEvidencePanel.tsx";
+import { StrategyActivity } from "../components/StrategyActivity.tsx";
 import { StrategyControls } from "../components/StrategyControls.tsx";
 import { BiasBar, Gauge, Telemetry, type TelemetryTone as Tone } from "../components/CockpitTelemetry.tsx";
 import { InfoTip } from "../components/ui/Ui.tsx";
@@ -229,6 +230,7 @@ export function ResearchCockpit() {
 
       <aside className="quant-decision-column" aria-label="Strategy and scenario inspection">
         <Panel title="Strategy & orders"><label className="strategy-field">Strategy Card<select aria-label="Active Strategy Card" value={card?.id || ""} onChange={(e) => setSelected(e.target.value)}><option value="">Select a strategy</option>{availableCards.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label><StrategyControls card={card} onAdvanced={inspect} />{!card && <button className="quant-link" disabled={busy} onClick={createExample}>{busy ? "Saving…" : "Create a research Card"}</button>}</Panel>
+        <Panel title="Strategy activity"><StrategyActivity card={card} symbol={symbol} source={source} /></Panel>
         <CardEvidencePanel card={card} />
         <details className="quant-research-context"><summary>Research assessment & source plan</summary>
         <Panel title="Research assessment" className={advice?.no_trade?.hard_block ? "quant-assessment blocked" : "quant-assessment"}>

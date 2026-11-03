@@ -48,6 +48,16 @@ async function run() { try {
     if (request.dataset.first && JSON.stringify(bars[0]) !== request.dataset.first) throw new Error('DATA_SOURCE_MISMATCH');
     if (request.dataset.last && JSON.stringify(bars[bars.length - 1]) !== request.dataset.last) throw new Error('DATA_SOURCE_MISMATCH');
   } else dataHash = createHash('sha256').update(JSON.stringify(bars)).digest('hex');
+  if (request.analysis === 'cockpit_activity') {
+    const { measureCockpitActivity } = await import('../src/lib/cockpitActivity.ts');
+    const window = bars.slice(-600);
+    const sourceHash = createHash('sha256').update(JSON.stringify(window)).digest('hex');
+    const artifactHash = createHash('sha256').update(JSON.stringify([request.parameters.artifact, request.storage])).digest('hex');
+    const activity = measureCockpitActivity(window, request.parameters.artifact, request.options.symbol, request.timeframe);
+    parentPort.postMessage({ result: { ...activity, sourceHash, artifactHash, engineHash: workerData.engineHash },
+      provenance: { dataHash: sourceHash, bars: window.length } });
+    return;
+  }
   if(request.kind==='layer_preview'){
     const{DEFINITION_KEYS,prepareDefinitionImport}=await import('../src/lib/portableDefinitions.ts');const id=String(request.moduleId||'').replace(/^myL[123456]_/,'');let store,row;
     for(const key of DEFINITION_KEYS){const found=JSON.parse(storage[key]||'[]').find(module=>module.id===id);if(found){if(row)throw new Error('MODULE_ID_AMBIGUOUS');store=key;row=found;}}

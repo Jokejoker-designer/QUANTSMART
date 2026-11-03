@@ -71,6 +71,7 @@ export interface EntryEvaluation {
   code: string;
   reason: string;
   direction: "BUY" | "SELL" | null;
+  votes?: { reason: string; weight: number }[];
 }
 
 export interface RealisticSimResult {
@@ -509,8 +510,9 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
 
     const decisionTime = new Date(_ms(b.t) + TF_MINUTES[designTf] * 60000).toISOString();
     const decisionEvent = (type: SimEventType, reason: string) => ev(i, type, reason, decisionTime);
+    let tracedVotes: EntryEvaluation["votes"];
     const entryFact = (outcome: EntryEvaluation["outcome"], code: string, reason: string, direction: EntryEvaluation["direction"] = null) => {
-      res.entryTrace?.push({barIndex:i,barTime:b.t,at:decisionTime,outcome,code,reason,direction});
+      res.entryTrace?.push({barIndex:i,barTime:b.t,at:decisionTime,outcome,code,reason,direction,...(tracedVotes ? {votes:tracedVotes} : {})});
     };
     const occupiedAtOpen = !!pos;
     processExit(i);
@@ -642,6 +644,7 @@ export function runRealisticSim(bars: OhlcBar[], modules: string[], autoRR: bool
       if (useFusion) { const score = votes.reduce((a, v) => a + v.dir * v.w, 0); if (Math.abs(score) >= TC.fusionThreshold) dir = score > 0 ? "BUY" : "SELL"; }
       else if (useBayes) { const lo = votes.reduce((a, v) => a + v.dir * lnLR(v.rel), 0); const p = 1 / (1 + Math.exp(-lo)); if (p >= TC.bayesUp) dir = "BUY"; else if (p <= TC.bayesDown) dir = "SELL"; }
       else { const sum = votes.reduce((a, v) => a + v.dir, 0); dir = sum > 0 ? "BUY" : sum < 0 ? "SELL" : null; }
+      if (res.entryTrace) tracedVotes = votes.map(vote => ({ reason: vote.why, weight: vote.w }));
       if (!dir) { entryFact("ABSTAIN", "COMBINATION_ABSTAIN", "Trigger votes did not pass the active combination rule."); continue; }
       const ds = dir === "BUY" ? 1 : -1;
       const hour = pt.h;

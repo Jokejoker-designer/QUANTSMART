@@ -188,3 +188,12 @@ For a closer look at the authoring workflow, open the illustrated
 
 See the [README](../README.md) for installation, MT5 setup and the distinction
 between research runs and optional manually confirmed Demo tickets.
+
+
+### Strategy activity in Cockpit
+
+Select a Card in Strategy & orders, or select a saved Beast in Strategy activity. Choose Historical or Live feed and select Evaluate closed candles. The panel shows the sample and last evaluated close, recorded trigger reasons and weights, veto reasons, and modeled entries. It runs on a bounded sample of closed candles with HARD costs.
+
+For a Beast, expand a role to see the contributing Cards, retained and excluded modules, and the result when removing that role on the same sample. Roles with multiple members also show each member's separate comparison when its modules can be removed independently. Shared modules stay present while another member supplies them. Removing the primary Attacker leaves no primary candidate. Results describe activity in this sample.
+
+If a Beast has stale member fingerprints, Save refreshed Beast copy creates a separate version from the current saved Cards when the original role slots, modules and context still match. A changed composition needs review in Beast Lab.

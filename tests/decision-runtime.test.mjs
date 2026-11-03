@@ -91,6 +91,52 @@ try {
     text =
       "time,open,high,low,close\n" +
       bars.map((b) => [b.t, b.o, b.h, b.l, b.c].join(",")).join("\n");
+  const attacker = { ...card, artifact: { artifact_id: card.id, content_hash: "attacker-v1" },
+    modules: ["trend_pullback"] };
+  const guard = { ...card, id: "FORTRESS", name: "Fortress", role: "GUARD",
+    artifact: { artifact_id: "FORTRESS", content_hash: "guard-v1" },
+    modules: ["sr_zone_context", "level_memory", "regime_ctx"] };
+  const beast = {
+    id: "BEAST_FIXTURE", name: "Paired Fortress", context: { symbol: "XAUUSD", design_tf: "H1", execution_tf: "H1" },
+    modules: [...attacker.modules, ...guard.modules],
+    members: [[attacker, "ATTACKER"], [guard, "GUARD"]].map(([source, role]) => ({
+      card_id: source.id, role, modules: source.modules, source_kind: "STRATEGY_CARD",
+      source_artifact_id: source.artifact.artifact_id, source_content_hash: source.artifact.content_hash,
+    })),
+  };
+  beast.members.push({ card_id: "l0", role: "SAFETY", modules: [], source_kind: "SAFETY" });
+  const seed = await request("/api/research/workspace");
+  const save = async cards => {
+    const current = await request("/api/research/workspace");
+    const response = await fetch(base + "/api/research/workspace", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ revision: current.revision, storage: {
+        mfe_strategy_cards: JSON.stringify(cards), mfe_beasts: JSON.stringify([beast]),
+      } }),
+    });
+    assert.equal(response.status, 200);
+  };
+  assert.ok(seed.storage);
+  await save([attacker, guard]);
+  const sample = bars.slice(0, 300);
+  const activity = (artifactKind, artifactId) => ({
+    kind: "diagnostic", analysis: "cockpit_activity", timeframe: "H1", bars: sample,
+    options: { symbol: "XAUUSD" }, parameters: { artifactKind, artifactId },
+  });
+  const cardActivity = await job(activity("CARD", attacker.id));
+  assert.equal(cardActivity.lastBar, sample.at(-1).t);
+  assert.ok(cardActivity.counts.withVotes > 0);
+  assert.ok(cardActivity.recentActions.some(row => row.votes?.length));
+  await job(activity("CARD", guard.id), /ACTIVITY_MEMBER_REQUIRES_BEAST/);
+  const beastActivity = await job(activity("BEAST", beast.id));
+  const guardActivity = beastActivity.roles.find(row => row.role === "GUARD");
+  assert.deepEqual(guardActivity.removed, guard.modules);
+  assert.deepEqual(guardActivity.without, cardActivity.counts);
+  assert.equal(beastActivity.roles.find(row => row.role === "ATTACKER").without, null);
+  assert.notDeepEqual(beastActivity.counts, guardActivity.without);
+  await save([attacker, { ...guard, artifact: { ...guard.artifact, content_hash: "guard-v2" } }]);
+  await job(activity("BEAST", beast.id), /ACTIVITY_BEAST_LINEAGE/);
+  console.log("COCKPIT ACTIVITY PASS: recorded trigger votes, guard role removal, frozen saved definitions and stale lineage refusal.");
   const meta = await job({
     kind: "csv_import",
     symbol: "XAUUSD",
