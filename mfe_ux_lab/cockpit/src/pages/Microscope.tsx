@@ -1,5 +1,6 @@
 import { useBrokerDeals } from "../lib/useBrokerDeals.ts";
 import {DecisionEvidencePanel} from "../components/DecisionEvidencePanel.tsx";
+import {RecordedObservationPanel} from "../components/RecordedObservationPanel.tsx";
 import{explainResearchError}from"../lib/researchErrors.ts";
 // Microscope — refit to the MD spec (PAGE 02). Deep diagnostic view: big zone chart + session context +
 // MTF minis + event timeline. Reuses CockpitChart. Diagnostic/advisory ONLY · order_send FORBIDDEN.
@@ -332,6 +333,7 @@ export function Microscope() {
   return (
     <div className="ms">
       <ResearchJobStatus pending={primaryJob.pending || compareJob.pending} error={primaryJob.error || compareJob.error} />
+      <details className="coef-section"><summary>Recorded tick and spread event inspection</summary><RecordedObservationPanel mode="replay" /></details>
       <style>{`
         .ms{font-size:13px}
         .ms-ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--mfe-s2);border:1px solid var(--mfe-border);border-radius:10px;padding:7px 10px;margin-bottom:12px;position:sticky;top:54px;z-index:30;box-shadow:0 4px 18px rgba(0,0,0,.35)}

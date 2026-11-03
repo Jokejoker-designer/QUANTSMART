@@ -1,8 +1,11 @@
 // Local same-origin gateway. Market reads and explicitly gated manual Demo routes.
 // No arbitrary forwarding, credentials in URLs, or legacy/Real execution routes.
-const GET_PATHS = new Set(['status','account','symbols','bars','bar','live_bundle','stream','symbol_spec','history','advice','week_history','candle_markers','candle_lessons','vote_ledger','demo/status','demo/positions','demo/receipt','demo/deals']);
-const POST_PATHS = new Set(['connect','disconnect','resolve','demo/preview','demo/submit']);
+const GET_PATHS = new Set(['status','account','symbols','bars','bar','live_bundle','stream','symbol_spec','history','advice','week_history','candle_markers','candle_lessons','vote_ledger','demo/status','demo/positions','demo/receipt','demo/deals','evidence/status','evidence/replay','evidence/integrity']);
+const POST_PATHS = new Set(['connect','disconnect','resolve','demo/preview','demo/submit','evidence/start','evidence/stop']);
 const AUTHORITY = {authority:'SHADOW_ONLY',decision:'NO_DECISION',live_apply_allowed:false,read_only:true};
+GET_PATHS.add('evidence/observation');
+GET_PATHS.add('evidence/reconcile');
+POST_PATHS.add('evidence/model/propose');POST_PATHS.add('evidence/model/review');
 export function createMt5BridgeProxy({port=Number(process.env.MFE_BRIDGE_PORT||8791),token=process.env.MFE_BRIDGE_TOKEN||'',enabled=!!process.env.MFE_BRIDGE_TOKEN}={}) {
  if(!Number.isInteger(port)||port<1024||port>65535)throw new Error('INVALID_BRIDGE_PORT');
  const send=(res,status,data)=>{res.statusCode=status;res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(data));};

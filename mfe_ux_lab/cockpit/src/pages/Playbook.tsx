@@ -1,3 +1,4 @@
+import {RecordedObservationPanel} from "../components/RecordedObservationPanel.tsx";
 // Playbook — TWO separated collections (manager: "phải chia ra"):
 //  §1 Foundation v1 — the honest base: AVOID map (sure) + candidate zones (hypotheses, NOT proven edges).
 //  §2 Market-Instability signals — a library of the 11y's most unstable episodes + a LIVE "this moment
@@ -13,10 +14,13 @@ import { InfoTip } from "../components/ui/Ui.tsx";
 import { legacyDisplayCopy } from "../lib/legacyDisplayCopy.ts";
 
 // compute the LIVE "this moment" instability from the real advisor (shock/danger/black-swan), + nearest episode
-const _n = (v: any) => (v == null || isNaN(+v) ? 0 : +v);
-function computeLiveNow(adv: any, lib: InstLib | null): NowInst {
+const _n = (v: unknown):number|null => typeof v === "number" && Number.isFinite(v) && v>=0 && v<=1 ? v : null;
+function computeLiveNow(adv: any, lib: InstLib | null): NowInst|null {
+  if(!adv||typeof adv!=="object")return null;
+  if(typeof adv.as_of!=="string"||!Number.isFinite(Date.parse(adv.as_of)))return null;
   const reg = adv.regime || {};
   const shock = _n(reg.shock_regime_gauge), danger = _n(adv.danger_score), swan = _n(adv.blackswan?.blackswan_risk);
+  if(shock===null||danger===null||swan===null)return null;
   const score = Math.round((shock * 0.5 + danger * 0.3 + swan * 0.2) * 1000) / 1000;
   const band = score >= 0.6 ? "UNSTABLE" : score >= 0.38 ? "ELEVATED" : "STABLE";
   const verdict = band === "UNSTABLE" ? "STAND_ASIDE" : band === "ELEVATED" ? "CAUTION" : "NORMAL";
@@ -111,7 +115,7 @@ export function Playbook() {
     return { sim, strength, nearTie, gaps, clear };
   }, [nowFeat, bestMatch, matches]);
 
-  if (missing) return <div className="co-card" role="status"><h2>No historical playbook loaded</h2><p>This installation does not include precomputed market episodes or a dated playbook collection. Importing price history does not automatically create one.</p><p>You can inspect your CSV and test Strategy Cards in Chart &amp; Replay.</p><button className="pbtn" onClick={() => window.dispatchEvent(new CustomEvent("mfe-nav", { detail: "microscope" }))}>Open chart &amp; CSV</button></div>;
+  if (missing) return <div><RecordedObservationPanel mode="episodes"/><div className="co-card" role="status"><h2>No historical playbook loaded</h2><p>This installation does not include precomputed market episodes or a dated playbook collection. Importing price history does not automatically create one.</p><p>You can inspect your CSV and test Strategy Cards in Chart &amp; Replay.</p><button className="pbtn" onClick={() => window.dispatchEvent(new CustomEvent("mfe-nav", { detail: "microscope" }))}>Open chart &amp; CSV</button></div></div>;
   if (!fnd && !lib) return <div className="co-card">Loading…</div>;
   const isLive = !!liveAdv;
   const now: NowInst | null = liveAdv ? computeLiveNow(liveAdv, lib) : staticNow;
@@ -125,7 +129,7 @@ export function Playbook() {
   const advisorGap = (transp && now) ? +(now.instability_score - transp.score).toFixed(3) : null;
 
   return (
-    <div className="cotrade">
+    <div className="cotrade"><RecordedObservationPanel mode="episodes"/>
       <div className="co-topbar">
         <span className="co-lock">PLAYBOOK · REPORT-ONLY · ADVISORY / AUDIT · NO WIN-RATE PROMISE</span>
         <span className="small co-mut" style={{ marginLeft: "auto" }}>Market Risk Playbook · Instability Monitor + Foundation Avoid Map</span>

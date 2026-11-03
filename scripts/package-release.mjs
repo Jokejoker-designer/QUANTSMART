@@ -48,6 +48,9 @@ top.push('docs/LAYER_VALIDATION.md','docs/TUTORIALS.md','tests/l1-import.test.mj
 top.push('docs/DRIVE_INTEGRATION_AUDIT.md','tests/decision-journal.test.mjs','tests/decision-runtime.test.mjs','tests/signature-records.test.mjs','mfe_ux_lab/cockpit/src/lib/signatureBuild.ts');
 top.push('docs/DRIVE_REASSESSMENT.md','docs/DRIVE_REASSESSMENT_RESULTS.json','tests/entry-trace.test.mjs');
 top.push('docs/AI_JSON_IMPORT.md','docs/schemas/module-import-contracts.json','docs/examples/confirmed-swing-distance.l1.json','tests/prompt-import-contract.test.mjs','mfe_ux_lab/cockpit/tools/generate-module-contracts.mjs');
+top.push('scripts/import-xauusd-history.py','tests/test_import_xauusd_history.py','docs/LOCAL_XAUUSD_HISTORY.md');
+top.push('bridge/tick_evidence.py','bridge/tests/test_tick_evidence.py','docs/TICK_EVIDENCE.md');
+top.push('bridge/quote_observer.py','bridge/tests/test_quote_observer.py','tests/recorded-observer.test.mjs','docs/RECORDED_OBSERVER.md');
 top.push('tests/report-labels.test.mjs','tests/broker-markers.test.mjs','tests/demo-card-decision.test.mjs','tests/demo-runner.test.mjs','bridge/broker_deals.py','bridge/demo_automation.py','bridge/tests/test_broker_deals.py','bridge/tests/test_demo_automation.py','docs/DEMO_AUTOMATION.md','mfe_ux_lab/cockpit/tools/demoDecisionWorker.mjs');
 // Only reviewed public screenshots are eligible; never enumerate the private artifact tree.
 for(const page of ['home','entry-danger','microscope','kidi-events','playbook','strategy-lab','strategy-canvas','blocks-modules','beast-lab','formula-lab','weekly-audit','strategy-ranking','assets','hidden-coefficients','analysis','debugger','help'])top.push(`docs/screenshots/${page}.jpg`);

@@ -19,6 +19,11 @@ try{
  assert.equal((await fetch(base+'/api/mt5/status?redirect=1')).status,503);
  const stream=await fetch(base+'/api/mt5/stream?symbol=XAUUSD&tf=M1',{headers:{'Last-Event-ID':'1:1000:1'}});assert.equal(stream.status,200);assert.ok(stream.headers.get('content-type').startsWith('text/event-stream'));assert.ok((await stream.text()).includes('event: tick'));assert.equal(observed.at(-1).headers['last-event-id'],'1:1000:1');
  assert.equal((await fetch(base+'/api/mt5/stream',{headers:{Origin:'https://external.invalid'}})).status,403);
+ for(const route of ['evidence/status','evidence/observation?symbol=XAUUSD','evidence/reconcile?source_id=fixture&limit=1000'])assert.equal((await fetch(base+'/api/mt5/'+route)).status,200);
+ for(const route of ['evidence/start','evidence/stop','evidence/model/propose','evidence/model/review']){
+  assert.equal((await fetch(base+'/api/mt5/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).status,403);
+  assert.equal((await fetch(base+'/api/mt5/'+route,{method:'POST',headers:{'Content-Type':'application/json','X-MFE-Request':'1'},body:'{}'})).status,200);
+ }
  assert.equal((await fetch(base+'/api/mt5/connect',{method:'POST',headers:{'Content-Type':'application/json','X-MFE-Request':'1'},body:'x'.repeat(9000)})).status,413);
  console.log('MT5 PROXY PASS: same-origin/host restrictions, per-process internal token, bounded bodies, no credential URLs, no browser auth forwarding, redirect refusal and no execution routes.');
 }finally{await close(server);await close(bridge);}

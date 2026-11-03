@@ -98,6 +98,7 @@ export function BlockModuleLibrary() {
 
   return (
     <div style={{ maxWidth: 1440, margin: "0 auto" }}>
+      <details><summary>Recorded quote inputs · qualification required</summary><p>Live recording does not expose a new executable block. Descriptive tick/spread inputs remain locked until their source, timing and independent validation contracts are qualified.</p></details>
       <div className="co-topbar" style={{ marginBottom: 12 }}>
         <span className="co-lock">BLOCKS &amp; MODULES · TACTICAL TCG ARMORY · COMPILER-BOUNDED ROLES</span>
         <span className="small co-mut">

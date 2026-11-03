@@ -1,3 +1,4 @@
+import {RecordedObservationPanel} from "../components/RecordedObservationPanel.tsx";
 // Production Quant Cockpit. Source-backed observations; research scenarios never send orders.
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -179,6 +180,7 @@ export function ResearchCockpit() {
       <SessionTelemetry live={source === "live"} asOf={last?.t} />
     </div>
 
+    <details><summary>Recorded tick and spread evidence</summary><RecordedObservationPanel/></details>
     <div className="quant-cockpit-grid">
       <aside className="quant-diagnostics" aria-label="Market diagnostics">
         <Panel title="MTF bias stack" note="Bars show EMA 10–34 direction and gap in ATR units, capped at 2 ATR on the bar. These are observations, not probabilities or Card votes. Live percentages are supplied by the advisory source.">

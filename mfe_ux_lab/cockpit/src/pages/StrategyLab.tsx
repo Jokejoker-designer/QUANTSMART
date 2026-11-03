@@ -1,3 +1,4 @@
+import {RecordedObservationPanel} from "../components/RecordedObservationPanel.tsx";
 // Strategy Lab — Card evaluation, album index, Microscope cascade sync, and deep diagnostics.
 // Advisory-only · zone-only · controlled-optimism.
 import { useEffect, useMemo, useState } from "react";
@@ -289,7 +290,7 @@ export function StrategyLab() {
   );
 
   return (
-    <div className="cotrade">
+    <div className="cotrade"><details><summary>Recorded evidence qualification and controls</summary><RecordedObservationPanel mode="pipeline"/><p>Existing OOS, attribution and ablation results remain the canonical tests. No recorded coefficient is automatically applied, and this panel supplies no predictive calibration receipt.</p></details>
       <ResearchJobStatus pending={researchJob.pending} error={researchJob.error} />
       <div className="co-topbar">
         <span className="co-lock">STRATEGY LAB</span>
