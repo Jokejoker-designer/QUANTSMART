@@ -3,9 +3,12 @@ import { terminalRequest, useTerminalGeneration, MT5_OPEN_DIALOG_EVENT } from ".
 
 interface Status { available: boolean; reason?: string; account_kind: string; account_id?: string; server?: string }
 interface Position { ticket: string; symbol: string; side: string; volume: number; profit: number }
-interface Preview { ok: true; preview_id: string; kind: "OPEN" | "CLOSE"; symbol: string; side: "BUY" | "SELL"; volume: number; price: number; sl: number; tp: number; account_id: string; server: string; deviation: number; ticket?: string }
-interface Receipt { ok: boolean; state: "sending" | "filled" | "partial" | "accepted" | "rejected" | "unknown"; reason?: string; retcode?: number; deal?: string; order?: string; volume?: number; price?: number }
-type TicketState = { kind: "editing" } | { kind: "review"; preview: Preview } | { kind: "sending"; id: string } | { kind: "result"; receipt: Receipt; id: string };
+interface Preview { ok: true; preview_id: string; kind: "OPEN" | "CLOSE"; symbol: string; side: "BUY" | "SELL"; volume: number; price: number; sl: number; tp: number; account_id: string; server: string; deviation: number; price_tolerance?: number; ticket?: string }
+interface Receipt { ok: boolean; state: "sending" | "filled" | "partial" | "accepted" | "rejected" | "unknown"; reason?: string; retcode?: number; deal?: string; order?: string; volume?: number; price?: number; submitted_to_broker?: boolean | null; reviewed_price?: number; current_price?: number; price_tolerance?: number }
+type TicketIntent =
+  | { kind: "OPEN"; symbol: string; side: "BUY" | "SELL"; volume: number; sl: number; tp: number; deviation: number }
+  | { kind: "CLOSE"; ticket: number; deviation: number };
+type TicketState = { kind: "editing" } | { kind: "review"; preview: Preview; intent: TicketIntent } | { kind: "sending"; id: string } | { kind: "result"; receipt: Receipt; id: string; intent?: TicketIntent };
 const PENDING_KEY = "mfe_demo_pending_request";
 function pendingRequest(value?: string | null) { try { if (value === null) sessionStorage.removeItem(PENDING_KEY); else if (value !== undefined) sessionStorage.setItem(PENDING_KEY, value); return sessionStorage.getItem(PENDING_KEY); } catch { return null; } }
 const messages: Record<string, string> = {
@@ -47,21 +50,41 @@ export function DemoTradeTicket({ symbol }: { symbol: string }) {
     return () => { active = false; controller.abort(); clearInterval(timer); document.removeEventListener("visibilitychange", pull); };
   }, [symbol, generation]);
   async function preview(ticket?: string) {
+    const intent: TicketIntent = ticket
+      ? { kind: "CLOSE", ticket: Number(ticket), deviation: Number(deviation) }
+      : { kind: "OPEN", symbol, side, volume: Number(volume), sl: Number(sl), tp: Number(tp), deviation: Number(deviation) };
+    if (!pendingRequest()) await reviewIntent(intent);
+  }
+  async function reviewIntent(intent: TicketIntent) {
     if (busy) return; setBusy(true); setError("");
     try {
-      const next = await terminalRequest<Preview | { ok: false; reason: string }>("/demo/preview", ticket ? { kind: "CLOSE", ticket: Number(ticket), deviation: Number(deviation) } : { kind: "OPEN", symbol, side, volume: Number(volume), sl: Number(sl), tp: Number(tp), deviation: Number(deviation) });
-      if (!next.ok) { setError(explain(next.reason)); return; } setState({ kind: "review", preview: next });
+      const next = await terminalRequest<Preview | { ok: false; reason: string }>("/demo/preview", intent);
+      if (!next.ok) { setError(explain(next.reason)); return; }
+      pendingRequest(null);
+      setState({ kind: "review", preview: next, intent });
     } catch (e) { setError(explain(e instanceof Error ? e.message : undefined)); } finally { setBusy(false); }
   }
   async function checkReceipt(id: string) {
-    setBusy(true); try { const receipt = await terminalRequest<Receipt>(`/demo/receipt?request_id=${encodeURIComponent(id)}`); setState({ kind: "result", receipt, id }); await refresh(); } catch { setError("Result is unavailable. Check the terminal before trying again."); } finally { setBusy(false); }
+    setBusy(true); try { const receipt = await terminalRequest<Receipt>(`/demo/receipt?request_id=${encodeURIComponent(id)}`); setState(current => ({ kind: "result", receipt, id, intent: current.kind === "result" && current.id === id ? current.intent : undefined })); await refresh().catch(() => {}); } catch { setError("Result is unavailable. Check the terminal before trying again."); } finally { setBusy(false); }
   }
-  async function confirm(preview: Preview) {
-    if (busy) return; setBusy(true); setError(""); pendingRequest(preview.preview_id); setState({ kind: "sending", id: preview.preview_id });
-    try { const receipt = await terminalRequest<Receipt>("/demo/submit", { preview_id: preview.preview_id, confirm_demo: true }); setState({ kind: "result", receipt, id: preview.preview_id }); await refresh(); }
-    catch { setState({ kind: "result", id: preview.preview_id, receipt: { ok: false, state: "unknown", reason: "BROKER_RESULT_UNKNOWN_CHECK_MT5" } }); }
-    finally { setBusy(false); }
+  async function confirm(preview: Preview, intent: TicketIntent) {
+    if (busy || pendingRequest()) return;
+    setBusy(true); setError("");
+    pendingRequest(preview.preview_id);
+    setState({ kind: "sending", id: preview.preview_id });
+    try {
+      const receipt = await terminalRequest<Receipt>("/demo/submit", { preview_id: preview.preview_id, confirm_demo: true });
+      setState({ kind: "result", receipt, id: preview.preview_id, intent });
+      await refresh().catch(() => setError("The order result is shown below. Positions could not be refreshed."));
+    } catch {
+      setState({ kind: "result", id: preview.preview_id, receipt: { ok: false, state: "unknown", reason: "BROKER_RESULT_UNKNOWN_CHECK_MT5" } });
+    } finally {
+      setBusy(false);
+    }
   }
+  const canRefreshQuote = state.kind === "result" && state.receipt.state === "rejected" &&
+    ["PRICE_CHANGED_REVIEW_AGAIN", "PREVIEW_EXPIRED", "QUOTE_STALE"].includes(state.receipt.reason ?? "") &&
+    state.receipt.submitted_to_broker !== true;
   const canUse = !!status?.available;
   return <div className="demo-ticket">
     <div className="strategy-context"><strong>Manual MT5 Demo</strong><span>{status?.account_id ? `${status.server} · #${status.account_id}` : "Terminal not connected"}</span></div>
@@ -74,9 +97,29 @@ export function DemoTradeTicket({ symbol }: { symbol: string }) {
       <details className="strategy-advanced"><summary>Stops and price tolerance</summary><div className="strategy-field-row"><label className="strategy-field">Stop loss price<input type="number" min="0" step="any" value={sl} onChange={e => setSl(e.target.value)} placeholder="Optional" /></label><label className="strategy-field">Take profit price<input type="number" min="0" step="any" value={tp} onChange={e => setTp(e.target.value)} placeholder="Optional" /></label></div><label className="strategy-field">Review price drift (points)<input type="number" min="0" max="10000" step="1" value={deviation} onChange={e => setDeviation(e.target.value)} /></label></details>
       <button className="strategy-primary" disabled={!canUse || busy || !volume} type="submit">{busy ? "Checking with broker…" : `Review Demo ${side}`}</button>
     </form>}
-    {state.kind === "review" && <section className="demo-review" aria-label="Review Demo order"><h4>{state.preview.kind === "CLOSE" ? `Close position #${state.preview.ticket}` : `Review ${state.preview.side}`}</h4><dl><div><dt>Instrument</dt><dd>{state.preview.symbol}</dd></div><div><dt>Volume</dt><dd>{state.preview.volume} lots</dd></div><div><dt>Quoted price</dt><dd>{amount(state.preview.price)}</dd></div><div><dt>Stop / target</dt><dd>{state.preview.sl || "—"} / {state.preview.tp || "—"}</dd></div></dl><p className="strategy-help">Demo account #{state.preview.account_id}. Review expires in 30 seconds. Broker execution can differ from this quote.</p><div className="strategy-actions"><button className={`strategy-primary ${state.preview.kind === "CLOSE" || state.preview.side === "SELL" ? "danger" : ""}`} disabled={busy || !canUse} onClick={() => void confirm(state.preview)}>{state.preview.kind === "CLOSE" ? "Confirm Demo close" : `Confirm Demo ${state.preview.side}`}</button><button className="strategy-secondary" disabled={busy} onClick={() => setState({ kind: "editing" })}>Back</button></div></section>}
+    {state.kind === "review" && <section className="demo-review" aria-label="Review Demo order"><h4>{state.preview.kind === "CLOSE" ? `Close position #${state.preview.ticket}` : `Review ${state.preview.side}`}</h4><dl><div><dt>Instrument</dt><dd>{state.preview.symbol}</dd></div><div><dt>Volume</dt><dd>{state.preview.volume} lots</dd></div><div><dt>Quoted price</dt><dd>{amount(state.preview.price)}</dd></div><div><dt>Stop / target</dt><dd>{state.preview.sl || "—"} / {state.preview.tp || "—"}</dd></div></dl><p className="strategy-help">Demo account #{state.preview.account_id}. Review expires in 30 seconds. Allowed drift: {state.preview.deviation} points{state.preview.price_tolerance == null ? "" : ` (±${amount(state.preview.price_tolerance)} in price)`}.</p><div className="strategy-actions"><button className={`strategy-primary ${state.preview.kind === "CLOSE" || state.preview.side === "SELL" ? "danger" : ""}`} disabled={busy || !canUse} onClick={() => void confirm(state.preview, state.intent)}>{state.preview.kind === "CLOSE" ? "Confirm Demo close" : `Confirm Demo ${state.preview.side}`}</button><button className="strategy-secondary" disabled={busy} onClick={() => setState({ kind: "editing" })}>Back</button></div></section>}
     {state.kind === "sending" && <p role="status">Waiting for the broker response. This request will not be sent twice.</p>}
-    {state.kind === "result" && <section className="demo-result" role="status"><strong>{state.receipt.state === "filled" ? "Broker confirmed fill" : state.receipt.state === "partial" ? "Partially filled" : state.receipt.state === "accepted" ? "Accepted · awaiting broker fill" : state.receipt.state === "sending" ? "Broker request pending" : state.receipt.state === "rejected" ? "Request rejected" : "Result unknown"}</strong><p>{state.receipt.reason ? explain(state.receipt.reason) : `Volume ${state.receipt.volume ?? "—"} · price ${state.receipt.price ?? "—"} · order #${state.receipt.order || "—"}`}</p><div className="strategy-actions"><button className="strategy-secondary" disabled={busy} onClick={() => void checkReceipt(state.id)}>Check broker result</button><button className="strategy-secondary" disabled={busy || state.receipt.state === "sending"} onClick={() => { pendingRequest(null); setState({ kind: "editing" }); }}>{state.receipt.state === "unknown" ? "Back after checking MT5" : "New ticket"}</button></div></section>}
-    <div className="demo-positions"><div className="strategy-section-heading"><h4>Demo positions</h4><button className="strategy-link" disabled={busy} onClick={() => void refresh().catch(() => setError("Positions could not be refreshed."))}>Refresh</button></div>{positions.length ? positions.map(position => <div className="demo-position" key={position.ticket}><div><strong>{position.symbol} · {position.side}</strong><small>#{position.ticket} · {position.volume} lots · P/L {position.profit.toFixed(2)}</small></div><button className="strategy-secondary" disabled={!canUse || busy || state.kind === "sending"} onClick={() => void preview(position.ticket)}>Review close</button></div>) : <p className="strategy-help">{status?.account_kind === "DEMO" ? positionsReady ? "No open Demo positions." : "Positions are unavailable. Refresh to check the terminal." : "Connect a Demo account to see positions."}</p>}</div>
+    {state.kind === "result" && <section className="demo-result" role="status">
+      <strong>{state.receipt.state === "filled" ? "Broker confirmed fill" :
+        state.receipt.state === "partial" ? "Partially filled" :
+        state.receipt.state === "accepted" ? "Accepted · awaiting broker fill" :
+        state.receipt.state === "sending" ? "Broker request pending" :
+        state.receipt.state === "rejected" ? (canRefreshQuote || state.receipt.submitted_to_broker === false ? "Stopped before sending" : "Broker rejected request") :
+        "Result unknown"}</strong>
+      <p>{state.receipt.reason ? explain(state.receipt.reason) : `Volume ${state.receipt.volume ?? "—"} · price ${state.receipt.price ?? "—"} · order #${state.receipt.order || "—"}`}</p>
+      {state.receipt.reviewed_price != null && state.receipt.current_price != null && state.receipt.price_tolerance != null && (
+        <p>Reviewed {amount(state.receipt.reviewed_price)} · current {amount(state.receipt.current_price)} · allowed move {amount(state.receipt.price_tolerance)}</p>
+      )}
+      <div className="strategy-actions">
+        {canRefreshQuote && state.intent && <button className="strategy-primary" disabled={busy || !canUse}
+          onClick={() => { if (state.intent) void reviewIntent(state.intent); }}>Review fresh quote</button>}
+        {!canRefreshQuote && <button className="strategy-secondary" disabled={busy} onClick={() => void checkReceipt(state.id)}>Check broker result</button>}
+        <button className="strategy-secondary" disabled={busy || state.receipt.state === "sending"}
+          onClick={() => { pendingRequest(null); setState({ kind: "editing" }); }}>
+          {state.receipt.state === "unknown" ? "Back after checking MT5" : "New ticket"}
+        </button>
+      </div>
+    </section>}
+    <div className="demo-positions"><div className="strategy-section-heading"><h4>Demo positions</h4><button className="strategy-link" disabled={busy} onClick={() => void refresh().catch(() => setError("Positions could not be refreshed."))}>Refresh</button></div>{positions.length ? positions.map(position => <div className="demo-position" key={position.ticket}><div><strong>{position.symbol} · {position.side}</strong><small>#{position.ticket} · {position.volume} lots · P/L {position.profit.toFixed(2)}</small></div><button className="strategy-secondary" disabled={!canUse || busy || state.kind === "sending" || !!pendingRequest()} onClick={() => void preview(position.ticket)}>Review close</button></div>) : <p className="strategy-help">{status?.account_kind === "DEMO" ? positionsReady ? "No open Demo positions." : "Positions are unavailable. Refresh to check the terminal." : "Connect a Demo account to see positions."}</p>}</div>
   </div>;
 }

@@ -162,7 +162,8 @@ class DemoExecution:
                            "price": price, "sl": request.get("sl", 0), "tp": request.get("tp", 0),
                            "ticket": str(body.ticket) if body.kind == "CLOSE" else None,
                            "account_id": status["account_id"], "server": status["server"],
-                           "deviation": body.deviation, "expires_in_seconds": 30}
+                           "deviation": body.deviation, "price_tolerance": body.deviation * float(info.point),
+                           "expires_in_seconds": 30}
                 with self.lock:
                     self.requests = {k: v for k, v in self.requests.items() if time.monotonic() - v["created"] < 1200}
                     if len(self.requests) >= 128:
@@ -188,11 +189,12 @@ class DemoExecution:
         with self.lock:
             item = self.requests.get(body.preview_id)
             if not item:
-                return {"ok": False, "state": "rejected", "reason": "PREVIEW_EXPIRED", **SCOPE}
+                return {"ok": False, "state": "rejected", "reason": "PREVIEW_EXPIRED", "submitted_to_broker": False, **SCOPE}
             if item["state"] != "preview":
                 return item.get("result") or {"ok": True, "state": item["state"], **SCOPE}
             item["state"] = "sending"
         result = None
+        attempted_send = False
         try:
             with self.terminal.lock:
                 status = self.status()
@@ -210,8 +212,12 @@ class DemoExecution:
                 tick = self._quote(request["symbol"])
                 info = self.terminal.sdk.symbol_info(request["symbol"])
                 current = float(tick.ask if request["type"] == self.terminal.sdk.ORDER_TYPE_BUY else tick.bid)
-                if abs(current - item["quoted_price"]) > request["deviation"] * float(info.point) + 1e-9:
-                    raise ValueError("PRICE_CHANGED_REVIEW_AGAIN")
+                tolerance = request["deviation"] * float(info.point)
+                if abs(current - item["quoted_price"]) > tolerance + 1e-9:
+                    result = {"ok": False, "state": "rejected", "reason": "PRICE_CHANGED_REVIEW_AGAIN",
+                              "submitted_to_broker": False, "reviewed_price": item["quoted_price"],
+                              "current_price": current, "price_tolerance": tolerance, **SCOPE}
+                    return result
                 if not item["market_execution"]:
                     request["price"] = current
                 self._check(request)
@@ -219,19 +225,25 @@ class DemoExecution:
                 native = self.terminal.sdk.account_info()
                 if native is None or int(native.trade_mode) != self.terminal.sdk.ACCOUNT_TRADE_MODE_DEMO or (str(native.login), str(native.server)) != item["identity"]:
                     raise ValueError("DEMO_ACCOUNT_CHANGED")
+                attempted_send = True
                 sent = self.terminal.sdk.order_send(request)
                 if sent is None:
-                    result = {"ok": False, "state": "unknown", "reason": "BROKER_RESULT_UNKNOWN_CHECK_MT5", **SCOPE}
+                    result = {"ok": False, "state": "unknown", "reason": "BROKER_RESULT_UNKNOWN_CHECK_MT5",
+                              "submitted_to_broker": None if attempted_send else False, **SCOPE}
                 else:
                     code = int(sent.retcode)
                     state = "filled" if code == 10009 else "partial" if code == 10010 else "accepted" if code == 10008 else "rejected"
-                    result = {"ok": state != "rejected", "state": state, "retcode": code,
+                    result = {"ok": state != "rejected", "state": state, "retcode": code, "submitted_to_broker": True,
                               "order": str(sent.order), "deal": str(sent.deal), "volume": float(sent.volume),
                               "price": float(sent.price), "reason": None if state != "rejected" else f"BROKER_REJECTED_{code}", **SCOPE}
         except ValueError as error:
-            result = {"ok": False, "state": "rejected", "reason": str(error), **SCOPE}
+            result = ({"ok": False, "state": "unknown", "reason": "BROKER_RESULT_UNKNOWN_CHECK_MT5",
+                       "submitted_to_broker": None, **SCOPE} if attempted_send else
+                      {"ok": False, "state": "rejected", "reason": str(error),
+                       "submitted_to_broker": False, **SCOPE})
         except Exception:
-            result = {"ok": False, "state": "unknown", "reason": "BROKER_RESULT_UNKNOWN_CHECK_MT5", **SCOPE}
+            result = {"ok": False, "state": "unknown", "reason": "BROKER_RESULT_UNKNOWN_CHECK_MT5",
+                              "submitted_to_broker": None if attempted_send else False, **SCOPE}
         finally:
             with self.lock:
                 item["result"] = result

@@ -140,6 +140,24 @@ assert.throws(
     }),
   /UNSUPPORTED_MODULE/,
 );
+const fortress = ["sr_zone_context", "level_memory", "regime_ctx"];
+let guardedCandidates = 0;
+for (let end = 150; end < 300; end++) {
+  const sample = bars.slice(0, end);
+  const close = sample.at(-1);
+  const market = {
+    bars: sample, bid: close.c, ask: close.c + 0.02, position: null,
+    nowMs: Date.parse(close.t.replace(/Z?$/, "Z")) + 3600000,
+  };
+  const entry = api.evaluateDemoCard({ ...market, card: { ...card, modules: ["trend_pullback"] } });
+  const guarded = api.evaluateDemoCard({
+    ...market, card: { ...card, modules: ["trend_pullback", ...fortress] },
+  });
+  if (entry.kind === "OPEN" && guarded.kind === "WAIT") guardedCandidates++;
+  assert.ok(guarded.kind !== "OPEN" || entry.kind === "OPEN",
+    "Fortress can filter a trigger but cannot supply one");
+}
+assert.ok(guardedCandidates > 0, "Fortress modules must actually veto candidates");
 const chain = moduleChain(api);
 for (const [key, value] of Object.entries(chain.definitions))
   storage.set(key, typeof value === "string" ? value : JSON.stringify(value));
