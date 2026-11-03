@@ -10,9 +10,9 @@ import { DemoCardRunner } from "./DemoCardRunner.tsx";
 import { readCardEvidence } from "./CardEvidencePanel.tsx";
 import "./strategy-controls.css";
 
-export function StrategyControls({ card, onAdvanced }: { card: StrategyCardArtifactRecord | null; onAdvanced?: () => void }) {
+export function StrategyControls({ card, onAdvanced, initialMode = "research" }: { card: StrategyCardArtifactRecord | null; onAdvanced?: () => void; initialMode?: "research" | "demo" }) {
   useTerminalGeneration();
-  const [mode, setMode] = useState<"research" | "demo">("research");
+  const [mode, setMode] = useState<"research" | "demo">(initialMode);
   const [source, setSource] = useState<StrategyTestSource>(() => isTerminalAttached() ? "mt5" : "history");
   const [state, setState] = useState<"idle" | "running" | "saving" | "done" | "error" | "cancelled">("idle"), [message, setMessage] = useState("");
   const controller = useRef<AbortController | null>(null);

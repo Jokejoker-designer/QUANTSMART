@@ -1,3 +1,6 @@
+import { StrategyControls } from "../components/StrategyControls.tsx";
+import { StrategyActivity } from "../components/StrategyActivity.tsx";
+import type { CockpitActivity } from "../lib/cockpitActivity.ts";
 import { useBrokerDeals } from "../lib/useBrokerDeals.ts";
 import {DecisionEvidencePanel} from "../components/DecisionEvidencePanel.tsx";
 import {RecordedObservationPanel} from "../components/RecordedObservationPanel.tsx";
@@ -89,6 +92,8 @@ function Spark({ bars, color }: { bars: OhlcBar[]; color: string }) {
 }
 
 export function Microscope() {
+  const [chartActivity, setChartActivity] = useState<CockpitActivity | null>(null);
+  const [chartIssue, setChartIssue] = useState<string | null>(null);
   const [simAdv, setSimAdv] = useState<TradeAdvice | null>(null);
   const [liveAdv, setLiveAdv] = useState<TradeAdvice | null>(null);
   const [bars, setBars] = useState<OhlcBar[] | null>(null);
@@ -453,7 +458,7 @@ export function Microscope() {
         {/* CENTER chart */}
         <div className="ms-chart">
           {replayBars.length >= 2
-            ? <MicroChart bars={replayBars} zones={visZones} lines={[...visLines,...brokerEvidence.lines]} symbol={isLive ? liveSymbol(getActiveSymbol()) : getActiveSymbol()} tf={tf} live={isLive} cursor={cursor} markers={replay.markers} trades={revealed} brokerDeals={brokerEvidence.deals} brokerSymbol={getActiveSymbol()} episodes={msEpisodes?.bands} formingEpisode={msEpisodes?.forming} />
+            ? <MicroChart bars={replayBars} zones={visZones} lines={[...visLines,...brokerEvidence.lines]} symbol={isLive ? liveSymbol(getActiveSymbol()) : getActiveSymbol()} tf={tf} live={isLive} strategyActivity={chartActivity} strategyIssue={chartIssue} demoCardId={activeCard?.id} cursor={cursor} markers={replay.markers} trades={revealed} brokerDeals={brokerEvidence.deals} brokerSymbol={getActiveSymbol()} episodes={msEpisodes?.bands} formingEpisode={msEpisodes?.forming} />
             : <div className="mfe-empty" style={{ flex: 1 }}><div className="ic">◫</div><div className="msg">Loading {tf} candles…</div></div>}
         </div>
 
@@ -483,6 +488,15 @@ export function Microscope() {
       </div>
 
       <section className="pc" style={{marginTop:12}}><div className="pc-h">Source coverage</div><p className="product-muted">The chart contains {replayBars.length.toLocaleString()} {tf} observations. Other timeframes are not inferred from this chart. No synthetic event timeline or placeholder directional percentage is generated.</p><div className="pkv"><span>As of</span><b>{replayBars.length?replayBars[replayBars.length-1].t:"Not available"}</b></div></section>
+
+      <section className="pc" style={{ marginTop: 12 }}><div className="pc-h">Strategy activity on chart</div>
+        <StrategyActivity card={activeCard} symbol={getActiveSymbol()}
+          source={source === "Live" ? "live" : source === "CSV" ? "csv" : "history"}
+          chartBars={replayBars} chartTf={tf} onActivityChange={setChartActivity} onActivityIssueChange={setChartIssue} />
+        {source === "Live" && activeCard && <details className="strategy-advanced"><summary>MT5 Demo controls</summary>
+          <StrategyControls card={activeCard} initialMode="demo" />
+        </details>}
+      </section>
 
       {/* ── Strategy Replay Runner: bring a packaged Strategy Card here & run it ── */}
       <div className="pc" style={{ marginTop: 12, borderColor: liveShadow ? "#1c5b3c" : "#43306a" }}>

@@ -93,6 +93,7 @@ export function DemoCardRunner({
     setConfirm(false);
     setSupport(null);
     setError("");
+    window.dispatchEvent(new CustomEvent("mfe-card-demo-support-clear"));
   }, [selection]);
   async function checkSupport() {
     setBusy(true);
@@ -111,8 +112,15 @@ export function DemoCardRunner({
       if (!result.ok || result.cardId !== card?.id || typeof result.definitionHash !== "string")
         throw Error("Card support response could not be verified");
       setSupport({ definitionHash: result.definitionHash, selection });
+      window.dispatchEvent(new CustomEvent("mfe-card-demo-support", { detail: {
+        cardId: card?.id, ok: true, reason: "Saved definition and closed candles verified",
+      } }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Card check failed");
+      const reason = e instanceof Error ? e.message : "Card check failed";
+      setError(reason);
+      window.dispatchEvent(new CustomEvent("mfe-card-demo-support", { detail: {
+        cardId: card?.id, ok: false, reason: explainCardError(reason),
+      } }));
     } finally {
       setBusy(false);
     }

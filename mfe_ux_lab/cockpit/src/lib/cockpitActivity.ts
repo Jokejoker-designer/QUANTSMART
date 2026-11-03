@@ -73,7 +73,7 @@ export function measureCockpitActivity(bars: OhlcBar[], artifact: ActivityArtifa
   const measure = (ids: string[]) => {
     const { sim } = runRealisticBacktest(bars, { id: artifact.value.id, modules: ids, design_tf: tf },
       { symbol, chartTf: tf, hard: true, customModules, captureEntryTrace: true });
-    const trace = sim.entryTrace ?? [];
+    const trace = (sim.entryTrace ?? []).map(row => ({ ...row, close: bars[row.barIndex].c }));
     return {
       trace,
       counts: {
@@ -112,6 +112,7 @@ export function measureCockpitActivity(bars: OhlcBar[], artifact: ActivityArtifa
     artifactId: artifact.value.id, name: artifact.value.name, kind: artifact.kind,
     symbol, timeframe: tf, bars: bars.length, firstBar: bars[0].t, lastBar: bars[bars.length - 1].t,
     lastClose: new Date(previous + TF_MINUTES[tf] * 60000).toISOString(),
+    evaluations: full.trace,
     counts: full.counts, latest: full.trace[full.trace.length - 1] ?? null,
     recentActions: full.trace.filter(row => row.outcome === "VETO" || row.votes?.length).slice(-5).reverse(),
     roles,

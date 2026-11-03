@@ -199,3 +199,12 @@ For a Beast, expand a role to see the contributing Cards, retained and excluded 
 If a Beast has stale member fingerprints, Save refreshed Beast copy creates a separate version from the current saved Cards when the original role slots, modules and context still match. A changed composition needs review in Beast Lab.
 
 In Microscope, select any saved Card to inspect it. A supporting role, incompatible CSV timeframe, or missing trigger is explained beside the affected selection. Side-by-side results require the same design timeframe and design-close execution. The active source is shown with the result.
+
+
+### Card activity on the chart
+
+Cockpit and Microscope follow the selected chart's closed candles. The Strategy activity panel refreshes automatically when the candle sample or definition changes. The chart uses circles for recorded votes, crosses for vetoes, and squares for replay entries. Select a mark to read its timestamp, trigger weights and reason. The status line reports the closed sample and Demo runner state.
+
+Demo Card decisions have their own labeled mark when the running definition, asset and timeframe match the selected Card. MT5 deal diamonds retain their broker execution timestamps and prices. Use Check Card support to see Demo-specific restrictions in the chart status line. Microscope exposes the same Demo controls in its Live view.
+
+Changing source, timeframe or Card clears old chart activity. A source price mismatch prevents a replay annotation from being attached to the chart. Previous run receipts with an older engine or coefficient context remain saved as unverified history while new workspace edits can be saved.

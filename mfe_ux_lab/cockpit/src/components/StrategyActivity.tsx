@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { OhlcBar } from "../adapters/loadOhlcReplayChart.ts";
 import { readStrategyCards, subscribeArtifactChanges, writeStrategyCards, type StrategyCardArtifactRecord } from "../lib/artifactRegistry.ts";
 import { loadBeasts, prepareRefreshedBeast, saveBeast, type SavedBeast } from "../lib/cardBeastV2/beastStore.ts";
 import type { CockpitActivity } from "../lib/cockpitActivity.ts";
 import { terminalRequest } from "../lib/mt5Connection.ts";
 import { runResearchJob } from "../lib/researchJobs.ts";
+import { researchContextHash } from "../lib/strategyIdentity.ts";
 import { getCardRuntimeConfig } from "../lib/simTimeframe.ts";
 import { flushWorkspace } from "../lib/workspaceClient.ts";
 
@@ -35,10 +36,14 @@ function describeFailure(reason: string) {
 const counts = (row: CockpitActivity["counts"]) =>
   `${row.withVotes} candles with votes · ${row.vetoed} vetoes · ${row.modeledEntries} modeled entries · ${row.closedTrades} closed simulations`;
 
-export function StrategyActivity({ card, symbol, source }: {
+export function StrategyActivity({ card, symbol, source, chartBars, chartTf, onActivityChange, onActivityIssueChange }: {
   card: StrategyCardArtifactRecord | null;
   symbol: string;
-  source: "history" | "live";
+  source: "history" | "live" | "csv";
+  chartBars?: OhlcBar[];
+  chartTf?: string;
+  onActivityIssueChange?: (issue: string | null) => void;
+  onActivityChange?: (activity: CockpitActivity | null) => void;
 }) {
   const [library, setLibrary] = useState(() => ({ beasts: loadBeasts(), cards: readStrategyCards() }));
   const [selectedBeast, setSelectedBeast] = useState("");
@@ -50,7 +55,12 @@ export function StrategyActivity({ card, symbol, source }: {
   const beast = choices.find(item => item.id === selectedBeast);
   const target = beast ?? card;
   const timeframe = beast ? beastContext(beast, library.cards)?.design_tf : card ? getCardRuntimeConfig(card).design_tf : null;
-  const key = JSON.stringify([source, symbol, timeframe, target?.id, target?.artifact?.content_hash, library.cards.map(item => [item.id, item.artifact?.content_hash])]);
+  const contextHash = target ? researchContextHash({ ...target, design_tf: timeframe ?? undefined }) : "";
+  const lastChartBar = chartBars?.[chartBars.length - 1];
+  const windowKey = useMemo(() => chartBars ? JSON.stringify([chartTf, chartBars.slice(-600)]) : "", [chartBars, chartTf]);
+  const key = JSON.stringify([source, symbol, timeframe, target?.id, target?.artifact?.content_hash, contextHash,
+    library.cards.map(item => [item.id, item.artifact?.content_hash]), windowKey]);
+  const [following, setFollowing] = useState(true);
   useEffect(() => () => controller.current?.abort(), [key]);
   const visible = state?.key === key ? state : undefined;
 
@@ -62,14 +72,16 @@ export function StrategyActivity({ card, symbol, source }: {
     setState({ key, pending: true });
     try {
       await flushWorkspace();
-      const tape = source === "live"
+      const tape = chartBars ? { ok: true, bars: chartTf === timeframe ? chartBars.slice(-600) : [] } : source === "live"
         ? await terminalRequest<{ ok: boolean; bars?: OhlcBar[]; reason?: string }>(
           `/bars?symbol=${encodeURIComponent(symbol)}&tf=${timeframe}&n=600`, undefined, request.signal)
         : null;
-      if (tape && (!tape.ok || !tape.bars)) throw Error(tape.reason || "Closed MT5 candles are unavailable.");
+      if (chartBars && chartTf !== timeframe) throw Error("Choose " + timeframe + " on the chart to evaluate this definition.");
+      if (tape && (!tape.ok || !tape.bars || tape.bars.length < 120))
+        throw Error("The selected chart needs at least 120 closed candles for this evaluation.");
       const data = await runResearchJob<CockpitActivity>({
         kind: "diagnostic", analysis: "cockpit_activity", timeframe,
-        ...(tape?.bars ? { bars: tape.bars.slice(-600), source: "Live" } :
+        ...(tape?.bars ? { bars: tape.bars.slice(-600), source: source === "csv" ? "CSV" : source === "live" ? "Live" : "Replay" } :
           { dataset: { symbol, tf: timeframe }, source: "Replay" }),
         options: { symbol },
         parameters: { artifactId: target.id, artifactKind: beast ? "BEAST" : "CARD" },
@@ -80,6 +92,16 @@ export function StrategyActivity({ card, symbol, source }: {
       if (!request.signal.aborted) setState({ key, error: describeFailure(reason), detail: reason, stale: reason.startsWith("ACTIVITY_BEAST_LINEAGE:") });
     }
   }
+
+  useEffect(() => {
+    onActivityChange?.(visible?.data ?? null);
+    onActivityIssueChange?.(visible?.error ?? null);
+  }, [visible?.data, visible?.error, key, onActivityChange, onActivityIssueChange]);
+  useEffect(() => {
+    if (!following || !target || !timeframe || !chartBars || !lastChartBar) return;
+    const timer = setTimeout(() => { void evaluate(); }, 250);
+    return () => { clearTimeout(timer); };
+  }, [key, following]);
 
   async function refreshBeast() {
     if (!beast || refreshing) return;
@@ -107,8 +129,10 @@ export function StrategyActivity({ card, symbol, source }: {
       </select>
     </label>
     <p className="strategy-help">{target ? `${target.name} · ${timeframe}` : "Select a Card above or choose a saved Beast."}
-      {" · "}{source === "live" ? "MT5 closed candles" : "Local historical candles"}
+      {" · "}{source === "live" ? "MT5 closed candles" : source === "csv" ? "Selected CSV candles" : "Local historical candles"}
     </p>
+    {chartBars && <label className="strategy-help"><input type="checkbox" checked={following}
+      onChange={event => setFollowing(event.target.checked)} /> Follow chart's closed candles</label>}
     <button type="button" className="strategy-secondary" disabled={!target || !timeframe || visible?.pending}
       onClick={() => void evaluate()}>{visible?.pending ? "Evaluating…" : "Evaluate closed candles"}</button>
     {visible?.error && <div role="status">

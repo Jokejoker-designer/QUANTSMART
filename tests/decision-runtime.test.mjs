@@ -123,12 +123,43 @@ try {
     kind: "diagnostic", analysis: "cockpit_activity", timeframe: "H1", bars: sample,
     options: { symbol: "XAUUSD" }, parameters: { artifactKind, artifactId },
   });
+  const { createRequire } = await import("node:module");
+  const require = createRequire(path.join(root, "mfe_ux_lab/cockpit/package.json"));
+  const { build } = require("esbuild");
+  const compiled = await build({stdin:{contents:"export {cardChartAnnotations,demoDecisionAnnotation} from './src/lib/cardChartAnnotations.ts';",
+    resolveDir:path.join(root,"mfe_ux_lab/cockpit")},bundle:true,platform:"node",format:"esm",write:false,logLevel:"silent"});
+  const {cardChartAnnotations,demoDecisionAnnotation} = await import("data:text/javascript;base64,"+Buffer.from(compiled.outputFiles[0].text).toString("base64"));
   const cardActivity = await job(activity("CARD", attacker.id));
   assert.equal(cardActivity.lastBar, sample.at(-1).t);
   assert.ok(cardActivity.counts.withVotes > 0);
   assert.ok(cardActivity.recentActions.some(row => row.votes?.length));
+  const marks = cardChartAnnotations(sample, cardActivity, "XAUUSD", "H1");
+  assert.ok(marks.length > 0);
+  assert.ok(marks.some(mark => mark.votes.length > 0));
+  assert.ok(marks.every(mark => sample[mark.i].t === mark.time && mark.price === sample[mark.i].c));
+  assert.deepEqual(cardChartAnnotations(sample, cardActivity, "EURUSD", "H1"), []);
+  assert.deepEqual(cardChartAnnotations(sample, cardActivity, "XAUUSD", "M15"), []);
+  assert.deepEqual(cardChartAnnotations([...sample,sample.at(-1)],cardActivity,"XAUUSD","H1"),[]);
+  const shortened = sample.slice(100);
+  const shifted = cardChartAnnotations(shortened, cardActivity, "XAUUSD", "H1");
+  assert.ok(shifted.every(mark => shortened[mark.i].t === mark.time));
+  const changed = sample.map(bar => ({...bar,c:bar.c+0.01}));
+  assert.deepEqual(cardChartAnnotations(changed,cardActivity,"XAUUSD","H1"),[]);
+  const demoStatus = {
+    state:"RUNNING",cardId:attacker.id,cardName:attacker.name,symbol:"XAUUSD",timeframe:"H1",
+    lastClosedBar:sample.at(-1).t,reason:null,
+    decision:{kind:"WAIT",reason:"Guard veto",time:new Date(Date.parse(sample.at(-1).t.replace(/Z?$/, "Z"))+3600000).toISOString()},
+  };
+  const demoMark = demoDecisionAnnotation(sample,demoStatus,attacker.id,"XAUUSD","H1");
+  assert.equal(demoMark.label,"DEMO CARD WAIT");
+  assert.equal(demoMark.i,sample.length-1);
+  assert.equal(demoDecisionAnnotation(sample,demoStatus,"other-card","XAUUSD","H1"),null);
+  assert.equal(demoDecisionAnnotation(sample,demoStatus,attacker.id,"XAUUSD","M15"),null);
   await job(activity("CARD", guard.id), /ACTIVITY_MEMBER_REQUIRES_BEAST/);
   const beastActivity = await job(activity("BEAST", beast.id));
+  const vetoMarks = cardChartAnnotations(sample,beastActivity,"XAUUSD","H1");
+  assert.ok(vetoMarks.some(mark => mark.tone === "veto"));
+  assert.ok(vetoMarks.every(mark => ["CARD VOTE","CARD VETO","CARD WAIT","REPLAY ENTRY"].includes(mark.label)));
   const guardActivity = beastActivity.roles.find(row => row.role === "GUARD");
   assert.deepEqual(guardActivity.removed, guard.modules);
   assert.deepEqual(guardActivity.without, cardActivity.counts);

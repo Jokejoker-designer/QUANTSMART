@@ -56,10 +56,10 @@ export function createWorkspaceRepository(directory) {
             const receipt=next.receipts[window.receipt?.job_id];
             if(!receipt){window.verified=false;continue;}
             if(!card||receipt.card_runtime_hash!==digest(runtime(card)))throw new Error('RUN_CARD_MISMATCH');
-            if(receipt.context_hash!==digest(context(next.storage))||currentEngineHash&&receipt.public.engine_hash!==currentEngineHash)throw new Error('RUN_CONTEXT_CHANGED');
+            if(receipt.context_hash!==digest(context(next.storage))||currentEngineHash&&receipt.public.engine_hash!==currentEngineHash){window.verified=false;window.verification_reason='RUN_CONTEXT_CHANGED';continue;}
             if(receipt.public.stage&&receipt.public.stage!==stage)throw new Error('RUN_STAGE_MISMATCH');
             const a=receipt.public.analytics,range=receipt.public.manifest.data_range;
-            Object.assign(window,{verified:true,trades:a.n,netR:a.netNetR,netPF:a.netPF,winRate:a.netWinRate,maxDD:a.maxDDNetR,from:range.start,to:range.end,n:range.bars,source:receipt.public.source});
+            Object.assign(window,{verified:true,verification_reason:null,trades:a.n,netR:a.netNetR,netPF:a.netPF,winRate:a.netWinRate,maxDD:a.maxDDNetR,from:range.start,to:range.end,n:range.bars,source:receipt.public.source});
           }
         }
         next.storage.mfe_card_runs=JSON.stringify(records);
