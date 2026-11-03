@@ -421,7 +421,7 @@ export function MicroChart({ bars: closedBars, zones = [], lines = [], symbol, t
             {!hideDraws && temp && drawEl(temp, -1, true)}
             {/* crosshair + axis boxes */}
             {hover && (
-              <g>
+              <g pointerEvents="none">
                 <rect x={xFor(barAt(hover.x)) - slot / 2} y={PY0} width={slot} height={PH} fill="var(--accent-cyan)" opacity="0.05" />
                 <line x1={hover.x} y1={PY0} x2={hover.x} y2={PY1} stroke="#3a4d61" strokeDasharray="2 3" />
                 <line x1={PX0} y1={hover.y} x2={PX1} y2={hover.y} stroke="#3a4d61" strokeDasharray="2 3" />
