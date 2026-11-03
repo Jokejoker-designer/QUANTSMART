@@ -1,6 +1,19 @@
 import { useEffect, useState } from "react";
 import type { StrategyCardArtifactRecord } from "../lib/artifactRegistry.ts";
 import { useTerminalGeneration } from "../lib/mt5Connection.ts";
+import { flushWorkspace } from "../lib/workspaceClient.ts";
+
+function explainCardError(reason: string): string {
+  if (reason === "DEMO_GUARD_REQUIRES_ATTACKER")
+    return "A Guard filters entries from an Attacker. Combine both roles in Beast Lab and check the exported Card.";
+  if (reason === "DEMO_EXPLICIT_TRIGGER_REQUIRED")
+    return "This Card has no supported entry trigger. Add an explicit trigger in Canvas, then save and check the Card.";
+  if (reason === "DEMO_CARD_CHANGED_CHECK_AGAIN")
+    return "The saved Card or its inputs changed. Check Card support again.";
+  if (reason.startsWith("DEMO_UNSUPPORTED_MODULE:"))
+    return "This module is unavailable for Demo: " + reason.split(":")[1].trim() + ". Review it in Canvas before running a separate Demo version.";
+  return reason.replace(/_/g, " ");
+}
 interface RunnerStatus {
   needsReconciliation: boolean;
   state: "STOPPED" | "RUNNING" | "STARTING";
@@ -50,7 +63,10 @@ export function DemoCardRunner({
     [confirm, setConfirm] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [support, setSupport] = useState("");
+    [support, setSupport] = useState<{ definitionHash: string; selection: string } | null>(null);
+  const guard = card?.role === "GUARD";
+  const selection = JSON.stringify([generation, card?.id, card?.modules, card?.symbol, card?.design_tf, card?.execution_tf, card?.role]);
+  const checked = support?.selection === selection ? support : null;
   useEffect(() => {
     let active = true,
       pending = false;
@@ -75,13 +91,15 @@ export function DemoCardRunner({
   }, [generation]);
   useEffect(() => {
     setConfirm(false);
-    setSupport("");
-  }, [card?.id]);
+    setSupport(null);
+    setError("");
+  }, [selection]);
   async function checkSupport() {
     setBusy(true);
     setError("");
-    setSupport("");
+    setSupport(null);
     try {
+      await flushWorkspace();
       const response = await fetch("/api/demo-runner/preflight", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-MFE-Request": "1" },
@@ -90,9 +108,9 @@ export function DemoCardRunner({
       const result = await response.json();
       if (!response.ok)
         throw Error(result.error || "Card support check failed");
-      setSupport(
-        "Card support checks passed. No session armed and no order sent.",
-      );
+      if (!result.ok || result.cardId !== card?.id || typeof result.definitionHash !== "string")
+        throw Error("Card support response could not be verified");
+      setSupport({ definitionHash: result.definitionHash, selection });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Card check failed");
     } finally {
@@ -100,9 +118,11 @@ export function DemoCardRunner({
     }
   }
   async function act(kind: "start" | "stop" | "reconcile") {
+    if (kind === "start" && (!checked || guard || !confirm)) return;
     setBusy(true);
     setError("");
     try {
+      if (kind === "start") await flushWorkspace();
       setStatus(
         await request(
           kind,
@@ -112,6 +132,7 @@ export function DemoCardRunner({
                 volume: Number(volume),
                 maxEntries: Number(limit),
                 confirmDemo: confirm,
+                definitionHash: checked?.definitionHash,
               }
             : kind === "reconcile"
               ? { confirmReconciled: true }
@@ -120,6 +141,7 @@ export function DemoCardRunner({
       );
       window.dispatchEvent(new Event("mfe-demo-execution-changed"));
     } catch (e) {
+      if (kind === "start") { setSupport(null); setConfirm(false); }
       setError(e instanceof Error ? e.message : "Demo runner failed");
     } finally {
       setBusy(false);
@@ -131,18 +153,25 @@ export function DemoCardRunner({
       aria-label="Strategy Card Demo runner"
       className="demo-card-runner"
     >
-      <h4>Run this Card on Demo</h4>
-      <p className="strategy-help">
-        {card ? card.name : "Select a saved Strategy Card above."} Evaluates
-        newly closed design candles. Uses the Card's supported trigger, gates
-        and exit rules. L6 zones remain chart references.
-      </p>
-      {error && (
-        <p role="alert" className="strategy-error">
-          {error.replace(/_/g, " ")}
+      <h4>{guard ? "Guard Card" : "Run this Card on Demo"}</h4>
+      <p className="strategy-help">{card?.name || "Select a saved Strategy Card above."}</p>
+      {guard ? (
+        <p className="strategy-notice">
+          {explainCardError("DEMO_GUARD_REQUIRES_ATTACKER")}{" "}
+          <a href="#beast-lab">Open Beast Lab</a>
+        </p>
+      ) : (
+        <p className="strategy-help">
+          Evaluates the saved Card's supported trigger, filters and exit rules on newly closed design candles.
+          L6 zones remain chart references.
         </p>
       )}
-      {!running && (
+      {error && (
+        <p role="alert" className="strategy-error">
+          {explainCardError(error)}
+        </p>
+      )}
+      {!running && !guard && (
         <button
           type="button"
           className="strategy-secondary"
@@ -152,9 +181,9 @@ export function DemoCardRunner({
           Check Card support
         </button>
       )}
-      {support && (
+      {checked && (
         <p role="status" className="strategy-help">
-          {support}
+          Support check passed for this saved definition.
         </p>
       )}
       <dl>
@@ -225,7 +254,7 @@ export function DemoCardRunner({
             MT5.
           </p>
         </>
-      ) : (
+      ) : !guard && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -271,6 +300,7 @@ export function DemoCardRunner({
             className="strategy-primary"
             disabled={
               !card ||
+              !checked ||
               !confirm ||
               !volume ||
               busy ||

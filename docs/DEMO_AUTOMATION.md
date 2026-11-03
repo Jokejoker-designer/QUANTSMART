@@ -47,10 +47,14 @@ The implementation has passed the checks listed below. Visual acceptance and a l
 1. Open your own MT5 Demo account and attach it through QUANTSMART.
 2. In the local `.env`, set `MFE_ENABLE_CARD_DEMO=true`, then restart the launcher. Distributed defaults keep it off.
 3. In Cockpit, choose a saved Card and open **MT5 Demo**.
-4. Select **Check Card support**. It checks definitions and the current closed tape without arming a session or sending an order.
+4. Select **Check Card support**. It checks the saved definition and the current closed tape without arming a session or sending an order. Run the check again after changing the Card or its inputs.
 5. Enter a broker-valid fixed volume and a maximum entry count. Read the authorization checkbox, then select **Start Card on Demo** yourself.
 6. Keep the local service running. The runner waits for a newly closed candle; Start does not replay an old signal.
 7. Use **Stop Card runner** to prevent further requests. Stop does not liquidate an existing broker position. Use **Manual Demo ticket & positions** or MT5 to manage that position.
+
+A Guard such as Bastion · Causal S/R Fortress provides filters for an entry trigger. In Beast Lab, pair it with an Attacker, export the combination as a new Card, then check the exported definition. A module such as `ev_rolling` requires modeled trade history and remains unavailable for Demo. The support check names the first unsupported module so you can review the complete combination.
+
+In the manual Demo ticket, **Stopped before sending** means the local confirmation checks refused the request. If the reviewed quote has moved, **Review fresh quote** preserves the original ticket details and returns a new confirmation. **Broker rejected request** identifies a rejection returned by the send call. The result retains the broker retcode. If the result is unknown, check MT5 before creating another ticket.
 
 The initial execution scope is design-close with equal design/execution timeframes, fixed lots, static initial broker SL/TP, and supported native/custom trigger, gate and close rules. Dynamic protective-stop changes, modeled trade-memory modules, intrabar execution and account-history metrics are refused. `L6` is reference geometry; adding a zone does not define an order or replace a Card's stop model. Check support before assuming that a saved BEAST or Card can run through this adapter.
 

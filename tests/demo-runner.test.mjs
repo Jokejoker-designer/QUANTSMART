@@ -10,7 +10,9 @@ let clock = Date.parse("2026-11-02T01:00:01Z"),
   position = null,
   unknown = false,
   evaluations = 0,
-  sends = 0;
+  sends = 0,
+  marketReads = 0,
+  armRequests = 0;
 const card = {
   id: "test",
   name: "Frozen Card",
@@ -20,7 +22,8 @@ const card = {
   modules: ["trend_pullback"],
 };
 const bridge = async (route, body) => {
-  if (route.startsWith("/demo/auto/market"))
+  if (route.startsWith("/demo/auto/market")) {
+    marketReads++;
     return {
       ok: true,
       bars: [{ t: closed }],
@@ -28,12 +31,15 @@ const bridge = async (route, body) => {
       ask: 100.02,
       nowMs: clock,
     };
-  if (route === "/demo/auto/start")
+  }
+  if (route === "/demo/auto/start") {
+    armRequests++;
     return {
       ok: true,
       session_id: "s".repeat(24),
       accountHash: "a".repeat(64),
     };
+  }
   if (route === "/demo/auto/reconcile")
     return { ok: true, accountHash: "a".repeat(64) };
   if (route === "/demo/auto/stop") return { ok: true };
@@ -59,7 +65,7 @@ const bridge = async (route, body) => {
 const options = {
   workspaceDirectory: temp,
   readWorkspace: () => ({
-    storage: { mfe_strategy_cards: JSON.stringify([card]) },
+    storage: { mfe_strategy_cards: JSON.stringify([card, { ...card, id: "guard", role: "GUARD", modules: ["sr_zone_context", "level_memory", "regime_ctx"] }]) },
   }),
   enabled: true,
   bridgeCall: bridge,
@@ -108,6 +114,14 @@ try {
       ).status,
       403,
     );
+    const guardCheck = await fetch(url + "/api/demo-runner/preflight", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-MFE-Request": "1" },
+      body: JSON.stringify({ cardId: "guard" }),
+    });
+    assert.equal(guardCheck.status, 400);
+    assert.equal((await guardCheck.json()).error, "DEMO_GUARD_REQUIRES_ATTACKER");
+    assert.equal(marketReads, 0, "Member-only rejection happens before broker reads");
     const check = await fetch(url + "/api/demo-runner/preflight", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-MFE-Request": "1" },
@@ -118,6 +132,16 @@ try {
     assert.equal(checked.armed, false);
     assert.equal(sends, 0);
     assert.equal(runner.status().state, "STOPPED");
+    const originalModules = card.modules;
+    card.modules = [...originalModules, "regime_ctx"];
+    await assert.rejects(() => runner.start({
+      cardId: "test", definitionHash: checked.definitionHash, volume: 0.01,
+      maxEntries: 1, confirmDemo: true,
+    }), /DEMO_CARD_CHANGED_CHECK_AGAIN/);
+    card.modules = originalModules;
+    assert.equal(armRequests, 0, "A changed definition cannot be armed");
+    assert.equal(sends, 0);
+
   } finally {
     await new Promise((r) => server.close(r));
   }
@@ -134,8 +158,8 @@ try {
   assert.equal(sends, 0);
   assert.equal(
     evaluations,
-    2,
-    "Support check and start preflight only; no historical signal execution",
+    3,
+    "Preflight evaluations only; no historical signal execution",
   );
   closed = "2026-11-02T01:00:00Z";
   clock += 3600000;

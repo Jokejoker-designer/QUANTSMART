@@ -163,6 +163,7 @@ export function createDemoRunner({
       (card.execution_tf && card.execution_tf !== card.design_tf)
     )
       throw Error("DEMO_SAVED_DESIGN_CLOSE_CARD_REQUIRED");
+    if (card.role === "GUARD") throw Error("DEMO_GUARD_REQUIRES_ATTACKER");
     const storage = Object.fromEntries(
       Object.entries(stored).filter(
         ([key]) => key === "mfe_coef_profile" || key.startsWith("mfe_custom_"),
@@ -234,6 +235,8 @@ export function createDemoRunner({
     const startEpoch = ++epoch;
     try {
       const { card, frozen, definitionHash, last } = await prepare(body);
+      if (body.definitionHash !== undefined && body.definitionHash !== definitionHash)
+        throw Error("DEMO_CARD_CHANGED_CHECK_AGAIN");
       persist({
         kind: "ARM_REQUEST",
         definitionHash,

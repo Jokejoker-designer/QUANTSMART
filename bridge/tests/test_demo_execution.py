@@ -51,6 +51,32 @@ class DemoTests(unittest.TestCase):
         preview=self.preview();self.demo.requests[preview['preview_id']]['created']-=31;self.assertFalse(self.send(preview)['ok'])
         preview=self.preview();self.sdk.symbol_info_tick=lambda _:SimpleNamespace(time=int(time.time()),bid=101.,ask=101.02)
         self.assertFalse(self.send(preview)['ok']);self.assertEqual(self.sdk.sent,[])
+    def test_drift_requires_new_review_with_no_broker_send(self):
+        original = self.preview()
+        self.assertAlmostEqual(original["price_tolerance"], .20)
+        self.sdk.symbol_info_tick = lambda _: SimpleNamespace(time=int(time.time()), bid=101., ask=101.02)
+        rejected = self.send(original)
+        self.assertEqual(rejected["reason"], "PRICE_CHANGED_REVIEW_AGAIN")
+        self.assertFalse(rejected["submitted_to_broker"])
+        self.assertEqual((rejected["reviewed_price"], rejected["current_price"]), (100.02, 101.02))
+        self.assertEqual(self.send(original), rejected)
+        fresh = self.preview()
+        self.assertNotEqual(fresh["preview_id"], original["preview_id"])
+        self.assertEqual(fresh["price"], 101.02)
+        self.assertEqual(self.sdk.sent, [])
+
+    def test_send_exception_does_not_claim_a_local_rejection(self):
+        preview = self.preview()
+        def failed_send(request):
+            self.sdk.sent.append(request)
+            raise ValueError("IPC disconnected")
+        self.sdk.order_send = failed_send
+        result = self.send(preview)
+        self.assertEqual(result["state"], "unknown")
+        self.assertIsNone(result["submitted_to_broker"])
+        self.assertEqual(self.send(preview), result)
+        self.assertEqual(len(self.sdk.sent), 1)
+
     def test_close_binds_actual_position_and_volume(self):
         self.sdk.positions=[SimpleNamespace(ticket=555,symbol='GOLD.i#',volume=.02,type=0)]
         preview=self.demo.preview(DemoPreviewInput(kind='CLOSE',ticket=555));self.assertTrue(preview['ok'])
@@ -62,7 +88,10 @@ class DemoTests(unittest.TestCase):
         preview=self.preview();self.sdk.order_send=lambda _:None;self.assertEqual(self.send(preview)['state'],'unknown')
     def test_broker_rejection_is_visible(self):
         preview=self.preview();self.sdk.order_send=lambda _:SimpleNamespace(retcode=10019,order=0,deal=0,volume=0.,price=0.)
-        self.assertEqual(self.send(preview)['state'],'rejected')
+        result = self.send(preview)
+        self.assertEqual(result['state'],'rejected')
+        self.assertTrue(result['submitted_to_broker'])
+        self.assertEqual(result['retcode'], 10019)
     def test_http_preview_requires_local_session_and_explicit_confirmation(self):
         with patch.dict('os.environ',{'MFE_ENABLE_MANUAL_DEMO':'true'}):
             client=TestClient(create_app(self.terminal,'fixture-token'),base_url='http://127.0.0.1')
