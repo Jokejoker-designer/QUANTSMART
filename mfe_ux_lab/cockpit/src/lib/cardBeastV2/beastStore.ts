@@ -1,9 +1,10 @@
-import type {BeastOperatingContext} from "./beastContext.ts";
+import { resolveBeastContext, type BeastOperatingContext } from "./beastContext.ts";
 // cardBeastV2/beastStore (P4) — save composed Beasts + EXPORT a Beast as a Strategy Card so the owner can
 // full-decade backtest it themselves in Microscope (Y10→M6→M1 + HARD). Export writes: (1) the Beast's custom
 // modules into mfe_custom_modules (Microscope loads them), (2) a SavedCard-shaped entry into mfe_strategy_cards
 // with HONEST zeros + bt_window:"NO_DATA" (chưa backtest — số thật sinh ra khi bạn chạy Microscope).
-import type { ComposedBeast, BeastMember, BeastMemberSourceKind } from "./beastCompose.ts";
+import { composeBeast, type ComposedBeast, type BeastMember, type BeastMemberSourceKind } from "./beastCompose.ts";
+import { ROLES } from "./vocabulary.ts";
 import { loadCustomModules, saveCustomModules } from "../customModule.ts";
 import { makeArtifactIdentity, notifyArtifactChange, readStrategyCards, writeStrategyCards, type ArtifactIdentity, type StrategyCardArtifactRecord } from "../artifactRegistry.ts";
 import { censusOf } from "./moduleRoleCensus.ts";
@@ -108,6 +109,37 @@ export function assessBeastLineage(
     } else verified++;
   }
   return { status: missing ? "MISSING_CARD" : stale ? "STALE_MEMBER" : "FRESH", issues, verified_members: verified, legacy_module_matches: legacyMatches };
+}
+
+/** Prepare a new version from the same role slots and module selections. */
+export function prepareRefreshedBeast(beast: SavedBeast, cards: StrategyCardArtifactRecord[]) {
+  const definitions = loadCustomModules();
+  const memberCards: StrategyCardArtifactRecord[] = [];
+  const members: BeastMember[] = beast.members.map(member => {
+    const role = ROLES.find(value => value === member.role);
+    if (!role) throw Error("Unknown role: " + member.role);
+    const sourceKind = inferredSourceKind(member);
+    const customs = definitions.filter(custom => member.modules.includes(custom.id));
+    if (sourceKind === "SAFETY" || sourceKind === "TEMPLATE")
+      return { ...member, role, customs, source_kind: sourceKind };
+    const card = cards.find(item => item.id === member.card_id);
+    if (!card?.artifact || (member.source_artifact_id && member.source_artifact_id !== card.artifact.artifact_id))
+      throw Error("Restore the original Card in Beast Lab: " + member.card_id);
+    if (!sameModules(member.modules, card.modules))
+      throw Error("Member modules changed. Rebuild the role slot in Beast Lab: " + card.name);
+    memberCards.push(card);
+    return { ...member, role, customs, source_kind: "STRATEGY_CARD",
+      source_artifact_id: card.artifact.artifact_id, source_content_hash: card.artifact.content_hash };
+  });
+  const context = resolveBeastContext(memberCards, beast.context);
+  if (beast.context && (context.symbol !== beast.context.symbol || context.design_tf !== beast.context.design_tf ||
+      context.execution_tf !== beast.context.execution_tf))
+    throw Error("Member timeframe or asset changed. Rebuild the Beast in Beast Lab.");
+  const composed = composeBeast(members);
+  if (!composed.ok) throw Error(composed.errors.join(" · "));
+  if (!sameModules(beast.modules, composed.modules))
+    throw Error("The composition changed. Review and rebuild the Beast in Beast Lab.");
+  return { members, context, composed };
 }
 
 /** Export the composed Beast into the Strategy Card library (+ persist its custom modules) for Microscope. */

@@ -10,6 +10,9 @@ import { arrangeZoneLabels } from "../lib/chartZoneLabels.ts";
 import { useLiveTickFeed } from "../lib/liveTickFeed.ts";
 import { withFormingBar } from "../lib/liveTickModel.ts";
 import { useElementSize } from "../core/useElementSize.ts";
+import { cardChartAnnotations, demoDecisionAnnotation, type CardChartAnnotation } from "../lib/cardChartAnnotations.ts";
+import { useDemoChartStatus } from "../lib/useDemoChartStatus.ts";
+import type { CockpitActivity } from "../lib/cockpitActivity.ts";
 import { brokerDealMarkers, type BrokerDeal } from "../lib/brokerDealMarkers.ts";
 
 const ZONE_PAINT: Record<string, string> = {
@@ -64,17 +67,28 @@ export interface SignalMarker {
 
 export interface TradeSeg { entryI: number; entry: number; exitI: number; exit: number; dir: "BUY" | "SELL"; outcome: "TP" | "SL"; R: number; why?: string[]; t?: string }
 
-export function MicroChart({ bars: closedBars, zones = [], lines = [], symbol, tf, live = false, cursor = null, markers = [], signals = [], trades = [], episodes = [], formingEpisode = null, zoneLayout = "recent", brokerDeals = [], brokerSymbol = symbol }: {
+export function MicroChart({ bars: closedBars, zones = [], lines = [], symbol, tf, live = false, cursor = null, markers = [], signals = [], trades = [], episodes = [], formingEpisode = null, zoneLayout = "recent", brokerDeals = [], brokerSymbol = symbol, strategyActivity = null, strategyIssue = null, demoCardId }: {
   bars: OhlcBar[]; zones?: CChartZone[]; lines?: CChartLine[]; symbol: string; tf: string; live?: boolean;
   cursor?: number | null; markers?: { i: number; price: number; kind: string }[]; signals?: SignalMarker[]; trades?: TradeSeg[];
   episodes?: EpisodeBand[]; formingEpisode?: EpisodeBand | null;   // CH Episode Lens (observer) — coloured leg ribbon below the price plot
   zoneLayout?: "recent" | "wide";
   brokerDeals?: BrokerDeal[]; brokerSymbol?: string;
+  strategyActivity?: CockpitActivity | null; strategyIssue?: string | null; demoCardId?: string;
 }) {
   const tickFeed = useLiveTickFeed(symbol, tf, live);
   const frame = tickFeed.status === "live" || tickFeed.status === "stale" ? tickFeed.frame : null;
   const bars = useMemo(() => withFormingBar(closedBars, frame), [closedBars, frame]);
   const brokerMarks = useMemo(() => brokerDealMarkers(bars,brokerDeals,brokerSymbol,({M1:1,M5:5,M15:15,M30:30,H1:60,H4:240,D1:1440,W1:10080} as Record<string,number>)[tf] || 60),[bars,brokerDeals,brokerSymbol,tf]);
+  const cardMarks = useMemo(() => cardChartAnnotations(closedBars, strategyActivity, brokerSymbol, tf),
+    [closedBars, strategyActivity, brokerSymbol, tf]);
+  const [inspectedCardMark, setInspectedCardMark] = useState<CardChartAnnotation | null>(null);
+  const demo = useDemoChartStatus(live && !!demoCardId, demoCardId);
+  const runner = demo?.status;
+  const matchingDemo = runner && runner.cardId === demoCardId && runner.symbol === brokerSymbol &&
+    runner.timeframe === tf ? runner : null;
+  const demoMark = useMemo(() => demoDecisionAnnotation(closedBars, matchingDemo, demoCardId, brokerSymbol, tf),
+    [closedBars, matchingDemo, demoCardId, brokerSymbol, tf]);
+  const selectedMark = [...cardMarks, ...(demoMark ? [demoMark] : [])].find(mark => mark.id === inspectedCardMark?.id);
   const quote = frame?.ticks[frame.ticks.length - 1];
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const { ref: measureChart, size: chartSize } = useElementSize<HTMLDivElement>();
@@ -218,6 +232,26 @@ export function MicroChart({ bars: closedBars, zones = [], lines = [], symbol, t
 
       {/* chart + bottom bar */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        {demoCardId && <div aria-label="Card chart status" style={{
+          padding: "5px 8px", borderBottom: "1px solid var(--border-subtle)", fontSize: 11,
+          color: "var(--text-secondary)", display: "flex", gap: 10, flexWrap: "wrap"
+        }}>
+          <span>Card chart · {strategyActivity?.name || "Waiting for evaluation"}</span>
+          {strategyIssue && <span role="status" style={{ color: "var(--warn-amber)" }}>{strategyIssue}</span>}
+          {demo?.support && <span role="status">{demo.support.ok ? "Demo support checked" : "Demo support blocked"} · {demo.support.reason}</span>}
+          {strategyActivity && <span>Closed sample {strategyActivity.lastClose}</span>}
+          {live && <span>{demo?.error ? "Demo status unavailable" : matchingDemo
+            ? `Demo ${matchingDemo.state} · ${matchingDemo.decision?.reason || matchingDemo.reason || "Waiting for a closed candle"}`
+            : demo?.status?.state === "RUNNING" ? `Demo running another Card: ${demo.status.cardName}` : "Demo stopped for selected Card"}</span>}
+          <span>Circle = vote · cross = veto · square = replay entry · diamond = broker deal</span>
+        </div>}
+        {selectedMark && <div role="status" style={{ padding: "8px", background: "var(--bg-panel)", color: "var(--text-primary)", fontSize: 11 }}>
+          <strong>{selectedMark.label} · {selectedMark.time}</strong>
+          <p>{selectedMark.reason}</p>
+          {selectedMark.votes.length > 0 && <ul>{selectedMark.votes.map((vote, index) => <li key={index}>{vote}</li>)}</ul>}
+          <small>Evaluated at {selectedMark.evaluatedAt} · {strategyActivity?.name}</small>
+          <button type="button" onClick={() => setInspectedCardMark(null)} style={{ marginLeft: 12 }}>Close detail</button>
+        </div>}
         {live && <div className="micro-live-quote" aria-label="Live tick feed" data-ticks={tickFeed.received} data-tick-time={quote?.time_msc} data-bid={quote?.bid} data-ask={quote?.ask} style={{ minHeight: 25, display: "flex", gap: 14, alignItems: "center", padding: "3px 8px", borderBottom: "1px solid var(--border-subtle)", color: "var(--text-secondary)", font: `11px ${MONO}`, fontVariantNumeric: "tabular-nums" }}><span style={{ color: tickFeed.status === "live" ? "var(--bull-green)" : "var(--warn-amber)" }}>{tickFeed.status === "live" ? "Tick live" : tickFeed.status === "stale" ? "Waiting for tick" : "Connecting feed"}</span><span>BID <b>{quote ? quote.bid.toLocaleString("en-US", { maximumFractionDigits: 5 }) : "—"}</b></span><span>ASK <b>{quote ? quote.ask.toLocaleString("en-US", { maximumFractionDigits: 5 }) : "—"}</b></span><span>{frame ? `${frame.broker_symbol} · forming candle` : ""}</span></div>}
         <div className="mfe-chart-plot" ref={setWrap} style={{ flex: 1, minHeight: 0, display: "flex", position: "relative", background: "var(--chart-canvas)" }}>
           <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: "block", background: "var(--chart-canvas)", cursor: tool === "cursor" ? (drag.current ? "grabbing" : "crosshair") : "cell", touchAction: "none" }}
@@ -271,6 +305,36 @@ export function MicroChart({ bars: closedBars, zones = [], lines = [], symbol, t
               const col = m.kind === "tp" ? "var(--bull-green)" : "var(--bear-red)";
               return <g key={`mk${k}`}><circle cx={x} cy={y} r="2.6" fill={col} stroke="var(--chart-canvas)" strokeWidth="0.8" />{lab && <text x={x + 5} y={y + 3} fill={col} fontSize="7.5" fontWeight="700" fontFamily={MONO}>{m.kind.toUpperCase()}</text>}</g>;
             })}
+            {cardMarks.filter(mark => mark.i >= start && mark.i <= end && (cursor == null || mark.i <= cursor)).map(mark => {
+              const x = xFor(mark.i), y = Math.max(PY0 + 65, Math.min(PY1 - 16, yFor(mark.price) + 20));
+              const color = mark.tone === "veto" ? "var(--warn-amber)" : mark.tone === "modeled" ? "var(--zone-purple)" : "var(--accent-cyan)";
+              return <g key={mark.id} role="button" tabIndex={0} aria-label={mark.label + " at " + mark.time + ". " + mark.reason}
+                style={{ cursor: "help" }} onPointerDown={event => event.stopPropagation()}
+                onClick={event => { event.stopPropagation(); setInspectedCardMark(mark); }}
+                onFocus={() => setInspectedCardMark(mark)}
+                onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setInspectedCardMark(mark); } }}>
+                <title>{mark.label + " · " + mark.time + " · " + mark.reason}</title>
+                <circle cx={x} cy={y} r={10} fill="transparent" />
+                {mark.tone === "veto" ? <path d={`M ${x-4} ${y-4} l 8 8 M ${x-4} ${y+4} l 8 -8`} stroke={color} strokeWidth={2} />
+                  : mark.tone === "modeled" ? <rect x={x-4} y={y-4} width={8} height={8} fill="var(--chart-canvas)" stroke={color} strokeWidth={1.5} />
+                  : <circle cx={x} cy={y} r={mark.tone === "wait" ? 2 : 4} fill="var(--chart-canvas)" stroke={color} strokeWidth={1.5} />}
+                {mark.id === cardMarks[cardMarks.length-1]?.id && <text x={x+8} y={y+3} fill={color} fontSize={9}
+                  stroke="var(--chart-canvas)" strokeWidth={3} paintOrder="stroke">{mark.label}</text>}
+              </g>;
+            })}
+            {demoMark && demoMark.i >= start && demoMark.i <= end && (cursor == null || demoMark.i <= cursor) && (
+              <g role="button" tabIndex={0} aria-label={demoMark.label + ". " + demoMark.reason}
+                style={{ cursor: "help" }} onPointerDown={event => event.stopPropagation()}
+                onFocus={() => setInspectedCardMark(demoMark)}
+                onClick={event => { event.stopPropagation(); setInspectedCardMark(demoMark); }}
+                onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setInspectedCardMark(demoMark); } }}>
+                <title>{demoMark.label + " · " + demoMark.reason}</title>
+                <rect x={xFor(demoMark.i)-5} y={Math.max(PY0+50,yFor(bars[demoMark.i].h)-22)} width={10} height={10}
+                  fill="var(--chart-canvas)" stroke="var(--accent-cyan)" strokeWidth={2} />
+                <text x={xFor(demoMark.i)+10} y={Math.max(PY0+58,yFor(bars[demoMark.i].h)-14)} fill="var(--accent-cyan)"
+                  stroke="var(--chart-canvas)" strokeWidth={3} paintOrder="stroke" fontSize={10}>{demoMark.label}</text>
+              </g>
+            )}
             {brokerMarks.filter(m => m.i >= start && m.i <= end).map((m,k) => { const x=xFor(m.i),y=yFor(m.price),offset=(k%3)*16;return <g key={`broker-${m.id}`} role="img" aria-label={`${m.label} ${m.detail}`}><title>{m.detail}</title><path d={`M ${x} ${y-5} l 5 5 l -5 5 l -5 -5 z`} fill={m.color} stroke="#fff" strokeWidth="1"/><line x1={x} y1={y} x2={x+12} y2={y-18-offset} stroke={m.color}/><text x={x+14} y={y-18-offset} fill={m.color} stroke="var(--chart-canvas)" strokeWidth="3" paintOrder="stroke" fontSize="10" fontWeight="800">{m.label} {fp(m.price)}</text></g>; })}
             {/* DECLARED projection zones — the up/down band the system states it expects, over the pending window */}
             {(signals || []).filter((s) => s.projection && s.i >= start && (s.outcome === "pending" || sigHover === s.i)).map((s, k) => {
@@ -357,7 +421,7 @@ export function MicroChart({ bars: closedBars, zones = [], lines = [], symbol, t
             {!hideDraws && temp && drawEl(temp, -1, true)}
             {/* crosshair + axis boxes */}
             {hover && (
-              <g>
+              <g pointerEvents="none">
                 <rect x={xFor(barAt(hover.x)) - slot / 2} y={PY0} width={slot} height={PH} fill="var(--accent-cyan)" opacity="0.05" />
                 <line x1={hover.x} y1={PY0} x2={hover.x} y2={PY1} stroke="#3a4d61" strokeDasharray="2 3" />
                 <line x1={PX0} y1={hover.y} x2={PX1} y2={hover.y} stroke="#3a4d61" strokeDasharray="2 3" />

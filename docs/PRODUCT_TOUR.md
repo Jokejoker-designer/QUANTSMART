@@ -188,3 +188,23 @@ For a closer look at the authoring workflow, open the illustrated
 
 See the [README](../README.md) for installation, MT5 setup and the distinction
 between research runs and optional manually confirmed Demo tickets.
+
+
+### Strategy activity in Cockpit
+
+Select a Card in Strategy & orders, or select a saved Beast in Strategy activity. Choose Historical or Live feed and select Evaluate closed candles. The panel shows the sample and last evaluated close, recorded trigger reasons and weights, veto reasons, and modeled entries. It runs on a bounded sample of closed candles with HARD costs.
+
+For a Beast, expand a role to see the contributing Cards, retained and excluded modules, and the result when removing that role on the same sample. Roles with multiple members also show each member's separate comparison when its modules can be removed independently. Shared modules stay present while another member supplies them. Removing the primary Attacker leaves no primary candidate. Results describe activity in this sample.
+
+If a Beast has stale member fingerprints, Save refreshed Beast copy creates a separate version from the current saved Cards when the original role slots, modules and context still match. A changed composition needs review in Beast Lab.
+
+In Microscope, select any saved Card to inspect it. A supporting role, incompatible CSV timeframe, or missing trigger is explained beside the affected selection. Side-by-side results require the same design timeframe and design-close execution. The active source is shown with the result.
+
+
+### Card activity on the chart
+
+Cockpit and Microscope follow the selected chart's closed candles. The Strategy activity panel refreshes automatically when the candle sample or definition changes. The chart uses circles for recorded votes, crosses for vetoes, and squares for replay entries. Select a mark to read its timestamp, trigger weights and reason. The status line reports the closed sample and Demo runner state.
+
+Demo Card decisions have their own labeled mark when the running definition, asset and timeframe match the selected Card. MT5 deal diamonds retain their broker execution timestamps and prices. Use Check Card support to see Demo-specific restrictions in the chart status line. Microscope exposes the same Demo controls in its Live view.
+
+Changing source, timeframe or Card clears old chart activity. A source price mismatch prevents a replay annotation from being attached to the chart. Previous run receipts with an older engine or coefficient context remain saved as unverified history while new workspace edits can be saved.

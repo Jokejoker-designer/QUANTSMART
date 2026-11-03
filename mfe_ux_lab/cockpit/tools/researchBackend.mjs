@@ -94,7 +94,7 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
         for await (const chunk of req) { size += chunk.length; if (size > 64 * 1024 * 1024) return send(res, 413, { error: 'INPUT_TOO_LARGE' }); chunks.push(chunk); }
         const request = JSON.parse(Buffer.concat(chunks).toString('utf8'));
         if (!['backtest', 'calibration', 'market','diagnostic','csv_import','csv_view','feature_preview','layer_preview'].includes(request.kind)) return send(res, 400, { error: 'INVALID_JOB_KIND' });
-        if(request.kind==='diagnostic'&&!['ablation','funding','beast_roles','attribution','decision_trace'].includes(request.analysis))return send(res,400,{error:'INVALID_ANALYSIS'});
+        if(request.kind==='diagnostic'&&!['ablation','funding','beast_roles','attribution','decision_trace','cockpit_activity'].includes(request.analysis))return send(res,400,{error:'INVALID_ANALYSIS'});
         if ((request.kind === 'backtest'||request.analysis==='decision_trace') && (!request.card || !Array.isArray(request.card.modules))) return send(res, 400, { error: 'CARD_REQUIRED' });
         if (request.kind === 'backtest'||request.analysis==='decision_trace') {
           if (request.card.symbol && request.options?.symbol && request.card.symbol !== request.options.symbol) return send(res, 400, {error:'CARD_ASSET_MISMATCH'});
@@ -105,6 +105,24 @@ export async function createResearchBackend({ workspaceDirectory = join(root, 'a
         if(request.importId&&!/^[a-f0-9]{64}$/.test(request.importId))return send(res,400,{error:'INVALID_IMPORT_ID'});
         if(request.importId&&(!imports.list().some(m=>m.id===request.importId)))return send(res,404,{error:'CSV_IMPORT_NOT_FOUND'});
         if(['csv_view','feature_preview','layer_preview'].includes(request.kind)&&!request.importId)return send(res,400,{error:'IMPORT_REQUIRED'});
+        if (request.analysis === 'cockpit_activity') {
+          const { artifactKind, artifactId } = request.parameters ?? {};
+          const symbol = request.options?.symbol, tf = request.timeframe;
+          if (request.kind !== 'diagnostic' || !['CARD','BEAST'].includes(artifactKind) || typeof artifactId !== 'string' ||
+              !/^[A-Z0-9]{3,12}$/.test(symbol ?? '') || !['M1','M5','M15','H1','H4','D1'].includes(tf) ||
+              request.importId || (request.dataset ? request.dataset.symbol !== symbol || request.dataset.tf !== tf :
+                !Array.isArray(request.bars) || request.bars.length > 600))
+            return send(res, 400, { error: 'INVALID_ACTIVITY_REQUEST' });
+          const stored = workspace.read().storage;
+          const cards = JSON.parse(stored.mfe_strategy_cards || '[]');
+          const items = artifactKind === 'CARD' ? cards : JSON.parse(stored.mfe_beasts || '[]');
+          const value = items.find(item => item.id === artifactId);
+          if (!value) return send(res, 404, { error: 'ACTIVITY_ARTIFACT_NOT_SAVED' });
+          const memberIds = new Set(artifactKind === 'BEAST' ? value.members.map(member => member.card_id) : []);
+          request.parameters = { artifact: artifactKind === 'CARD' ? { kind: 'CARD', value } :
+            { kind: 'BEAST', value, cards: cards.filter(card => memberIds.has(card.id)) } };
+          request.storage = Object.fromEntries(Object.entries(stored).filter(([key]) => STORAGE.has(key)));
+        }
         let dataVersion = '';
         if (request.dataset) {
           const { symbol, tf, from, to } = request.dataset;

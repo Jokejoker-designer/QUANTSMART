@@ -18,6 +18,8 @@ import { kidiScan, kidiSummary } from "../lib/kidiEvents.ts";
 import { closedFrameCutoff, finite, observedBias, rangePercentile, sessionAt, type MarketSnapshot } from "../lib/cockpitTelemetry.ts";
 import { MicroChart } from "../components/MicroChart.tsx";
 import { CardEvidencePanel } from "../components/CardEvidencePanel.tsx";
+import type { CockpitActivity } from "../lib/cockpitActivity.ts";
+import { StrategyActivity } from "../components/StrategyActivity.tsx";
 import { StrategyControls } from "../components/StrategyControls.tsx";
 import { BiasBar, Gauge, Telemetry, type TelemetryTone as Tone } from "../components/CockpitTelemetry.tsx";
 import { InfoTip } from "../components/ui/Ui.tsx";
@@ -56,6 +58,8 @@ function LiveMicrostructure({ symbol, tf, volRank }: { symbol: string; tf: strin
 
 export function ResearchCockpit() {
   const symbol = getActiveSymbol();
+  const [chartActivity, setChartActivity] = useState<CockpitActivity | null>(null);
+  const [chartIssue, setChartIssue] = useState<string | null>(null);
   const [cards, setCards] = useState(() => readStrategyCards());
   const [selected, setSelected] = useState(() => localStorage.getItem("mfe_home_card") || "");
   const availableCards = cards.filter((c) => (c.symbol || "XAUUSD") === symbol);
@@ -217,7 +221,7 @@ export function ResearchCockpit() {
           <div className="quant-chart-heading"><strong>{symbol} <span>{tf}</span></strong><span>{last?.t || "Waiting for OHLC"}</span><label><input type="checkbox" checked={zones} onChange={(e) => setZones(e.target.checked)} />Zones</label></div>
           <div className="quant-zone-legend">{showZones.map((z, i) => <span key={i} style={{ color: z.color }}><i />{z.label}</span>)}<small>{card ? "Card structural model" : "Market structural model · no Card selected"} · as of last bar</small></div>
           {source === "live" && <div className="quant-zone-legend" role="status"><small>{brokerEvidence.error ? "Demo broker fill history unavailable: " + brokerEvidence.error.replace(/_/g," ") : `${brokerEvidence.deals.length} broker Demo fills loaded · diamonds mark actual executions; CLOSE is not a new opposing entry`}</small></div>}
-          <div className="quant-chart-canvas">{bars.length > 1 ? <MicroChart bars={bars} zones={showZones} zoneLayout="wide" symbol={symbol} tf={tf} live={liveReady} brokerDeals={brokerEvidence.deals} lines={brokerEvidence.lines} /> : <div className="product-empty"><h2>{source === "live" ? "Live feed unavailable" : error ? "History unavailable" : "Loading market history"}</h2><p>{source === "live" ? "Connect the data service to inspect current market observations." : "The research service reads the local OHLC dataset."}</p><button className="product-button" onClick={() => go(source === "live" ? "microscope" : "assets")}>{source === "live" ? "Open Microscope" : "Open Assets"}</button></div>}</div>
+          <div className="quant-chart-canvas">{bars.length > 1 ? <MicroChart bars={bars} zones={showZones} zoneLayout="wide" symbol={symbol} tf={tf} live={liveReady} strategyActivity={chartActivity} strategyIssue={chartIssue} demoCardId={card?.id} brokerDeals={brokerEvidence.deals} lines={brokerEvidence.lines} /> : <div className="product-empty"><h2>{source === "live" ? "Live feed unavailable" : error ? "History unavailable" : "Loading market history"}</h2><p>{source === "live" ? "Connect the data service to inspect current market observations." : "The research service reads the local OHLC dataset."}</p><button className="product-button" onClick={() => go(source === "live" ? "microscope" : "assets")}>{source === "live" ? "Open Microscope" : "Open Assets"}</button></div>}</div>
         </section>
         <div className="quant-market-widgets">
           <Panel title="Sweep map / liquidity" note="Liquidity levels come from the advisory source. The rolling 20-bar high and low are observed price extremes, not confirmed stop pools."><dl><Row label="Above liquidity">{number(above)}</Row><Row label="Below liquidity">{number(below)}</Row><Row label="20-bar high">{number(rangeHigh)}</Row><Row label="20-bar low">{number(rangeLow)}</Row></dl><button className="quant-link" onClick={() => go("microscope")}>Inspect structure</button></Panel>
@@ -229,6 +233,7 @@ export function ResearchCockpit() {
 
       <aside className="quant-decision-column" aria-label="Strategy and scenario inspection">
         <Panel title="Strategy & orders"><label className="strategy-field">Strategy Card<select aria-label="Active Strategy Card" value={card?.id || ""} onChange={(e) => setSelected(e.target.value)}><option value="">Select a strategy</option>{availableCards.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label><StrategyControls card={card} onAdvanced={inspect} />{!card && <button className="quant-link" disabled={busy} onClick={createExample}>{busy ? "Saving…" : "Create a research Card"}</button>}</Panel>
+        <Panel title="Strategy activity"><StrategyActivity card={card} symbol={symbol} source={source} chartBars={bars} chartTf={tf} onActivityChange={setChartActivity} onActivityIssueChange={setChartIssue} /></Panel>
         <CardEvidencePanel card={card} />
         <details className="quant-research-context"><summary>Research assessment & source plan</summary>
         <Panel title="Research assessment" className={advice?.no_trade?.hard_block ? "quant-assessment blocked" : "quant-assessment"}>
