@@ -43,6 +43,7 @@ top.push('tests/language-audit.test.mjs','docs/screenshots/cockpit-overview.png'
 top.push('docs/INSTALLATION.md','.github/workflows/public-install.yml','scripts/environment.mjs','scripts/install.mjs','scripts/doctor.mjs','scripts/package-portable.mjs','tests/installer.test.mjs','tests/public-runtime.test.mjs','tests/first-run.test.mjs');
 top.push('tests/default-port.test.mjs','tests/portable-entry.test.mjs','tests/csv-import.test.mjs','tests/csv-runtime.test.mjs','tests/execution-contract.test.mjs','tests/strategy-attribution.test.mjs','docs/CSV_IMPORT.md','docs/CSV_RESEARCH_VALIDATION.md','docs/CSV_RESEARCH_RESULTS.json');
 top.push('tests/availability-timing.test.mjs','docs/AVAILABILITY_TIMING_FIX.md');
+top.push('PROJECT_STATUS.md');
 top.push('docs/QUANT_CHRONOLOGY_AUDIT.md','docs/QUANT_CHRONOLOGY_RESULTS.json','tests/quant-chronology.test.mjs');
 top.push('docs/INSTALLER_VALIDATION.md','docs/QUANT_METHODOLOGY_AUDIT.md','docs/QUANT_AUDIT_RESULTS.json','tests/quant-methodology.test.mjs','tests/research-trials.test.mjs','tests/quant-history-impact.mjs');
 top.push('docs/LAYER_VALIDATION.md','docs/TUTORIALS.md','tests/l1-import.test.mjs','tests/layers-import.test.mjs','tests/portable-definitions.test.mjs','tests/module-preview-consistency.test.mjs','tests/sandbox-render.test.mjs','tests/beast-context.test.mjs','tests/layers-runtime.test.mjs','tests/module-chain-fixture.mjs');
