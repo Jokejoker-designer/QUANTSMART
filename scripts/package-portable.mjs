@@ -23,6 +23,7 @@ function add(source,target=source){const absolute=resolve(root,source);if(!absol
 function tree(directory){for(const entry of readdirSync(join(root,directory),{withFileTypes:true})){const p=join(directory,entry.name);if(entry.isSymbolicLink())throw new Error('Portable symlink refused');if(entry.isDirectory())tree(p);else if(entry.isFile())add(p);}}
 for(const file of ['LICENSE','NOTICE','.env.example','start.bat','requirements-mfe.txt','requirements-dev.txt','bridge/mt5_bridge.py','bridge/demo_execution.py','bridge/broker_deals.py','bridge/demo_automation.py','scripts/bootstrap.mjs','scripts/environment.mjs','scripts/install.mjs','scripts/doctor.mjs','docs/INSTALLATION.md','docs/DEMO_AUTOMATION.md'])add(file);
 for(const file of ['docs/DRIVE_INTEGRATION_AUDIT.md','docs/DRIVE_REASSESSMENT.md','docs/DRIVE_REASSESSMENT_RESULTS.json'])add(file);
+for(const file of ['PROJECT_STATUS.md','docs/AVAILABILITY_TIMING_FIX.md','docs/TUTORIALS.md'])add(file);
 for(const file of ['docs/AI_JSON_IMPORT.md','docs/schemas/module-import-contracts.json','docs/examples/confirmed-swing-distance.l1.json'])add(file);
 for(const file of ['bridge/tick_evidence.py','docs/TICK_EVIDENCE.md'])add(file);
 add('scripts/import-xauusd-history.py');add('docs/LOCAL_XAUUSD_HISTORY.md');

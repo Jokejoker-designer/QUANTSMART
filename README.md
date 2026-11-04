@@ -19,12 +19,12 @@ full-resolution image](docs/screenshots/cockpit-overview.png).*
 
 [Get started](#quick-start) · [Explore the 17 workspaces](docs/PRODUCT_TOUR.md) ·
 [Build custom modules](docs/CUSTOM_MODULES.md) · [Video tutorials](docs/TUTORIALS.md) ·
-[Watch the tutorial video](https://drive.google.com/drive/folders/1QuFV7GtY4ttnVvgeeI0HlnZDH2hOpVAu?usp=sharing) · [Connect MT5](#connect-xm--another-mt5-broker)
+[Watch the tutorial videos](https://drive.google.com/drive/folders/1UuT99hkPbe_WvEqsEJ-XyOjl5P-NnLbn) · [Connect MT5](#connect-xm--another-mt5-broker)
 
 ## Tutorial video
 
 📹 Watch the step-by-step walkthrough and demo videos here:
-[QUANTSMART tutorial videos on Google Drive](https://drive.google.com/drive/folders/1QuFV7GtY4ttnVvgeeI0HlnZDH2hOpVAu?usp=sharing)
+[QUANTSMART tutorial videos on Google Drive](https://drive.google.com/drive/folders/1UuT99hkPbe_WvEqsEJ-XyOjl5P-NnLbn)
 
 ## Make the rules your own
 
@@ -69,11 +69,11 @@ See [verification and limits](docs/VERIFICATION.md), [LICENSE](LICENSE) and
 
 ## Quick start
 
-Windows download: [current portable preview, default port 5090](https://github.com/Jokejoker-designer/QUANTSMART/releases/download/v1.2.0-rc.7/QUANTSMART-1.2.0-rc.7-windows-x64.zip). Historical re[...]
+Windows download: [current portable preview, default port 5090](https://github.com/Jokejoker-designer/QUANTSMART/releases/download/v1.2.0-rc.7/QUANTSMART-1.2.0-rc.7-windows-x64.zip). Extract the entire ZIP into a writable folder and run `start.bat`. Historical research works offline without an installed Node.js or Python. MT5 requires Windows, your terminal and Python 3.11+ 64-bit. Read [project status and remaining work](PROJECT_STATUS.md) before interpreting preview capabilities.
 
 ### Demo Card execution preview
 
-The opt-in Card runner evaluates newly closed candles, binds a frozen Card definition to the connected Demo account, and never resumes automatically. Broker deal markers distinguish entries from c[...]
+The opt-in Card runner evaluates newly closed candles, binds a frozen Card definition to the connected Demo account, and never resumes automatically. Broker deal markers distinguish entries from closes. Only supported Card rules are executable; live automatic broker round-trip acceptance remains pending. See [the execution contract and limits](docs/DEMO_AUTOMATION.md).
 
 ### Requirements
 
@@ -106,7 +106,7 @@ npm run mfe:doctor
 npm start
 ```
 
-Normal source and portable startup use port **5090**. If it is occupied, startup reports the conflict and preserves the existing process. There is no automatic alternate-port search. Only an expl[...]
+Normal source and portable startup use port **5090**. If it is occupied, startup reports the conflict and preserves the existing process. There is no automatic alternate-port search. An explicit `--port` argument or local `MFE_PORT` setting can override the default.
 
 The app opens:
 
@@ -288,25 +288,25 @@ your public repository from it. The command does not upload or publish anything.
 
 ## Quantitative methodology audit
 
-The [methodology audit](docs/QUANT_METHODOLOGY_AUDIT.md) documents reproduced gap-fill and custom-ablation defects, their regression tests, causal measurement checks, and the observed search-tria[...]
+The [methodology audit](docs/QUANT_METHODOLOGY_AUDIT.md) documents reproduced gap-fill and custom-ablation defects, their regression tests, causal measurement checks and the observed search-trial ledger. Historical and external attempts remain unknown; the ledger does not establish complete trial history or a multiple-testing correction.
 
 ### Entry chronology corrections in 1.1.2
 
-The [follow-up audit](docs/QUANT_CHRONOLOGY_AUDIT.md) reproduces and fixes next-open ATR/Auto R:R look-ahead, missed exits in the intrabar entry candle, and tick-exact labels inferred from metada[...]
+The [follow-up audit](docs/QUANT_CHRONOLOGY_AUDIT.md) reproduces and fixes next-open ATR/Auto R:R look-ahead, missed exits in the intrabar entry candle and tick-exact labels inferred from metadata. Results from affected older versions require reruns. Passing these regression cases does not prove causality for every possible strategy.
 
 ## Durable CSV research and matched controls
 
-Import historical prices in the [CSV workflow](docs/CSV_IMPORT.md), review strict validation and reopen local datasets after restart. The same stored bars feed chart aggregation and supported Car[...]
+Import historical prices in the [CSV workflow](docs/CSV_IMPORT.md), review validation and reopen local datasets after restart. The same stored bars feed chart aggregation and supported Card research. Larger local M1 archives use the [streaming history importer](docs/LOCAL_XAUUSD_HISTORY.md), which preserves gaps and excludes incomplete higher-timeframe buckets.
 
-Current downloadable preview: [1.2.0-rc.7](https://github.com/Jokejoker-designer/QUANTSMART/releases/tag/v1.2.0-rc.7). Default URL: **http://localhost:5090/**. CSV file-chooser acceptance and cus[...]
+Current downloadable preview: [1.2.0-rc.7](https://github.com/Jokejoker-designer/QUANTSMART/releases/tag/v1.2.0-rc.7). Default URL: **http://localhost:5090/**. See [CSV validation](docs/CSV_RESEARCH_VALIDATION.md) and [custom-layer validation](docs/LAYER_VALIDATION.md) for the recorded test scope and limits.
 
 The [decision-time availability correction](docs/AVAILABILITY_TIMING_FIX.md) documents the Atlas and Beast routing timestamp fixes and Replay pivot confirmation. Previous Atlas and routing reports require recomputation.
 
 ## Inspect decision and outcome evidence
 
-In Microscope, select a saved CSV and Strategy Card, then open **Decision & outcome evidence**. Build a local journal to link observed engine signals, policy blocks, modeled fills and completed t[...]
+In Microscope, select a saved CSV and Strategy Card, then open **Decision & outcome evidence**. Build a local journal to link observed engine signals, policy blocks, modeled fills and completed trades. These are simulator observations, separate from MT5 broker fills.
 
-The journal covers observed canonical signals on 61–5,000 design bars. It does not invent structural-thesis identity, missing veto events, exact excursions or calibrated probabilities. See the [...]
+The journal covers observed canonical signals on 61–5,000 design bars. It does not invent structural-thesis identity, missing veto events, exact excursions or calibrated probabilities. See the [Drive reassessment](docs/DRIVE_REASSESSMENT.md) for branch capture, unsupported modes and missing-evidence semantics.
 
 ## License
 
