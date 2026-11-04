@@ -1,21 +1,12 @@
-// conductorMode — Nhạc-trưởng thử nghiệm (WO owner 2026-07-04) · SHADOW_ONLY / ADVISORY_ONLY / MEASUREMENT_ONLY.
-//
-// DOCTRINE (owner, BINDING): KHÔNG tìm alpha vĩnh viễn. Xây các specialist biết khi nào mình có lợi thế và khi
-// nào phải IM LẶNG. Router chọn beast theo VÙNG NĂNG LỰC (Compatibility Passport per-regime, OOS-validate),
-// dựa context PAST-ONLY (causal, no-lookahead ≤ nến vào lệnh) — CẤM chạy theo beast vừa thắng gần đây
-// (recency/hindsight = curve-fit = mirage). ABSTAIN / NO_ACTION là kết quả HỢP LỆ. Nếu routed PF vẫn ≤ 1 →
-// GHI THẬT (NO_EDGE_EVEN_ROUTED), không xoay tham số tới khi đẹp (p-hacking). Zero authority: không lệnh/khối-lượng/rủi-ro.
-//
-// Cơ chế (tái dùng nền có sẵn, KHÔNG engine mới):
-//   1) Chạy realisticStrategySim MỘT LẦN mỗi beast trên TRAIN → buildCardAtlas = passport per-regime (30/100 gate)
-//   2) Chạy MỘT LẦN mỗi beast trên TEST → thu trades có entry-time
-//   3) Với mỗi nến test t: fingerprintAt(t) causal → regime → router chọn beast có atlas-TRAIN verdict FITS ở
-//      regime đó (evidence USABLE ưu tiên; nhiều beast FITS → điểm regime-edge cao hơn; không beast FITS → NO_ACTION)
-//   4) Portfolio = gộp trade của beast ĐƯỢC CHỌN tại từng nến (một beast cầm lái mỗi thời điểm) → PF/coverage/gap/overlap
+// Experimental selection of completed trades from fixed specialist runs.
+// Routing at a fill open uses only already-closed candles. Aggregate sample
+// results retain the limitations of independently simulated specialist paths.
 import type { OhlcBar } from "../../adapters/loadOhlcReplayChart.ts";
 import { runRealisticBacktest } from "../realisticSimRun.ts";
 import { buildCardAtlas, type CardAtlas } from "../strategyAtlas.ts";
-import { fingerprintAt, environmentFingerprint, type EnvironmentFingerprint } from "../environmentFingerprint.ts";
+import { environmentFingerprint, type EnvironmentFingerprint } from "../environmentFingerprint.ts";
+import { barTimeMs, barCloseTimes, completedBarIndex } from "../barAvailability.ts";
+import type { Timeframe } from "../simConfig.ts";
 import { composeBeast } from "./beastCompose.ts";
 import { beastMembers, trendRetestMembers } from "./breakoutLiquidityBeast.ts";
 
@@ -51,10 +42,11 @@ function pickFromFp(fp: EnvironmentFingerprint | null, passports: BeastPassport[
   }
   return best ? best.beast : "NO_ACTION";                          // không beast nào đủ năng lực → IM LẶNG (hợp lệ)
 }
-// ── ROUTER causal: tại nến t, đọc regime từ fingerprint ≤ t, chọn beast có passport-TRAIN FITS ở regime đó ──
-// Chữ ký CỐ Ý chỉ (bars, t, passports) — KHÔNG có kết quả tương lai, KHÔNG có PF/thắng-thua gần đây (no recency).
-export function routePickAt(bars: OhlcBar[], t: number, passports: BeastPassport[]): string {
-  return pickFromFp(fingerprintAt(bars, t), passports);
+/** Select a specialist at the open of bar t using completed design candles. */
+export function routePickAt(bars: OhlcBar[], t: number, passports: BeastPassport[], timeframe: Timeframe = "M15"): string {
+  if (!Number.isInteger(t) || t < 0 || t >= bars.length) return "NO_ACTION";
+  const completed = completedBarIndex(barCloseTimes(bars, timeframe), barTimeMs(bars[t].t));
+  return pickFromFp(completed === null ? null : environmentFingerprint(bars)[completed], passports);
 }
 
 export interface Solo { beast: string; n: number; netR: number; pf: number }
@@ -70,7 +62,9 @@ export interface ConductorResult {
   passports: BeastPassport[];
   solos: Solo[];
   portfolio: Portfolio;
-  verdict: "ROUTED_EDGE_SHADOW" | "NO_EDGE_EVEN_ROUTED" | "INSUFFICIENT_COVERAGE";
+  verdict: "POSITIVE_ROUTED_SAMPLE" | "NONPOSITIVE_ROUTED_SAMPLE" | "INSUFFICIENT_COVERAGE";
+  timing: "LAST_COMPLETED_BAR_AT_FILL_OPEN";
+  note: string;
 }
 
 function pf(trades: { netR: number }[]): number {
@@ -100,10 +94,12 @@ export function runConductor(bars: OhlcBar[]): ConductorResult {
   // ROUTING trên TEST: mỗi nến → beast cầm lái (causal) → nếu beast đó CÓ trade entry tại nến này thì nhận.
   // fingerprint tính MỘT LẦN (batch O(n) — CAUSAL by construction) thay vì per-bar O(n²).
   const fps = environmentFingerprint(test);
+  const closes = barCloseTimes(test, "M15");
   const routed: { netR: number }[] = [];
   let coverBars = 0, gapBars = 0, overlapBars = 0, noAction = 0;
   for (let t = 0; t < test.length; t++) {
-    const fp = fps[t];
+    const completed = completedBarIndex(closes, barTimeMs(test[t].t));
+    const fp = completed === null ? null : fps[completed];
     const fits = fp ? passports.filter((p) => { const c = p.regimes.find((r) => r.regime === fp.regime); return c && c.verdict === "FITS" && c.evidence !== "INSUFFICIENT_SAMPLE"; }) : [];
     if (fits.length >= 1) coverBars++; else { gapBars++; noAction++; }
     if (fits.length >= 2) overlapBars++;
@@ -120,7 +116,10 @@ export function runConductor(bars: OhlcBar[]): ConductorResult {
     coveragePct: +(coverBars / test.length * 100).toFixed(1), gapPct: +(gapBars / test.length * 100).toFixed(1),
     overlapPct: +(overlapBars / test.length * 100).toFixed(1), noActionBars: noAction,
   };
-  const verdict = portfolio.coveragePct < 5 ? "INSUFFICIENT_COVERAGE" : portfolio.pf > 1 ? "ROUTED_EDGE_SHADOW" : "NO_EDGE_EVEN_ROUTED";
+  const verdict = portfolio.coveragePct < 5 ? "INSUFFICIENT_COVERAGE" : portfolio.pf > 1 ? "POSITIVE_ROUTED_SAMPLE" : "NONPOSITIVE_ROUTED_SAMPLE";
   const rng = (a: OhlcBar[]) => `${a[0]?.t.slice(0, 10)}→${a[a.length - 1]?.t.slice(0, 10)}`;
-  return { trainRange: rng(train), testRange: rng(test), testStartIndex: cut, passports, solos, portfolio, verdict };
+  return { trainRange: rng(train), testRange: rng(test), testStartIndex: cut, passports, solos, portfolio, verdict,
+    timing: "LAST_COMPLETED_BAR_AT_FILL_OPEN",
+    note: "Selection among independent modeled specialist runs. The routed sample does not simulate shared position ownership, capital or portfolio execution and is not an independently qualified edge.",
+  };
 }

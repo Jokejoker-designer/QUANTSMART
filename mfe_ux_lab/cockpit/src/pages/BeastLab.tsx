@@ -450,14 +450,15 @@ export function BeastLab() {
           const c = conductor;
           const VC: Record<string, string> = { FITS: TK.green, HOSTILE: TK.red, NEUTRAL: TK.muted, INSUFFICIENT: TK.orange };
           const vLabel =
-            c.verdict === "ROUTED_EDGE_SHADOW"
-              ? { t: "Positive routed research result; confirmation required", col: TK.green }
-              : c.verdict === "NO_EDGE_EVEN_ROUTED"
-                ? { t: "No measured edge after routing", col: TK.red }
-                : { t: "Insufficient coverage; no eligible OOS region found", col: TK.orange };
+            c.verdict === "POSITIVE_ROUTED_SAMPLE"
+              ? { t: "Positive net result in the routed sample", col: TK.green }
+              : c.verdict === "NONPOSITIVE_ROUTED_SAMPLE"
+                ? { t: "No positive net result in the routed sample", col: TK.red }
+                : { t: "Insufficient coverage in the test sample", col: TK.orange };
           return (
             <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ fontSize: 12, color: vLabel.col, fontWeight: 800 }}>▶ {vLabel.t}</div>
+              <p className="xs co-mut">{c.note}</p>
               <div className="xs co-mut">
                 TRAIN {c.trainRange} (passport learning) · TEST {c.testRange} (route)
               </div>
