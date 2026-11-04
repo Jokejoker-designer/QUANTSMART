@@ -300,6 +300,8 @@ Import historical prices in the [CSV workflow](docs/CSV_IMPORT.md), review stric
 
 Current downloadable preview: [1.2.0-rc.7](https://github.com/Jokejoker-designer/QUANTSMART/releases/tag/v1.2.0-rc.7). Default URL: **http://localhost:5090/**. CSV file-chooser acceptance and cus[...]
 
+The [decision-time availability correction](docs/AVAILABILITY_TIMING_FIX.md) documents the Atlas and Beast routing timestamp fixes and Replay pivot confirmation. Previous Atlas and routing reports require recomputation.
+
 ## Inspect decision and outcome evidence
 
 In Microscope, select a saved CSV and Strategy Card, then open **Decision & outcome evidence**. Build a local journal to link observed engine signals, policy blocks, modeled fills and completed t[...]

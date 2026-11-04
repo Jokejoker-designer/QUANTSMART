@@ -1,6 +1,6 @@
-// simWalkForward — split the tape into sequential out-of-sample folds and check the edge PERSISTS (P2).
-// These cards have no fitted params, so walk-forward = does the NET edge hold across consecutive
-// time windows, or only in one lucky stretch? Each fold runs the realistic engine independently.
+// Runs one frozen configuration across sequential time segments.
+// These segment summaries do not establish that strategy or parameter choices
+// were made independently of the evaluated data.
 import type { OhlcBar } from "../adapters/loadOhlcReplayChart.ts";
 import type { SimulatorRealismConfig, Timeframe } from "./simConfig.ts";
 import type { SymbolSpec } from "./symbolSpec.ts";

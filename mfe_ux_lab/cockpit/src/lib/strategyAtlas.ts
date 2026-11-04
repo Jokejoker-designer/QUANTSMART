@@ -1,12 +1,9 @@
-// strategyAtlas — WO-5. Map ONE card's real trades onto the MEASURED environment they actually occurred
-// in. For every trade we read the EnvironmentFingerprint AT ENTRY (causal, WO-4) and bucket the NET R by
-// regime / session / volatility / month. Suitability is MEASURED (not the heuristic taxonomy), and gated by
-// sample size (guard #6: <30 INSUFFICIENT · 30–99 WEAK · ≥100 USABLE). A thin cell may NOT claim "fits".
-// These cards have NO fitted params → the full run IS out-of-sample, so per-env aggregates are honest OOS.
-// Pure · no engine re-run · advisory · "suitability ≠ promise".
+// Historical trade outcomes grouped by information available when the signal was issued.
+// Evidence thresholds describe the observed sample. Holdout status requires separate provenance.
 import type { OhlcBar } from "../adapters/loadOhlcReplayChart.ts";
 import type { RealisticBacktest } from "./realisticSimRun.ts";
 import { environmentFingerprint, type EnvironmentFingerprint, type FingerprintOptions } from "./environmentFingerprint.ts";
+import { barTimeMs, barCloseTimes, completedBarIndex } from "./barAvailability.ts";
 import { SESSION_LABEL } from "./simTimeframe.ts";
 
 export type EvidenceLevel = "INSUFFICIENT_SAMPLE" | "WEAK_EVIDENCE" | "USABLE_EVIDENCE";
@@ -25,6 +22,7 @@ export interface CardAtlas {
   dimensions: AtlasDimensionView[];
   thresholds: { weak: number; usable: number };
   source: "measured"; note: string;
+  timing: "LAST_COMPLETED_BAR_AT_SIGNAL";
 }
 
 export interface AtlasOptions { cardId?: string; weak?: number; usable?: number; fingerprint?: FingerprintOptions }
@@ -46,14 +44,13 @@ function dimLabel(dim: AtlasDimension, key: string): string {
 export function buildCardAtlas(designBars: OhlcBar[], bt: RealisticBacktest, opts: AtlasOptions = {}): CardAtlas {
   const weak = opts.weak ?? 30, usable = opts.usable ?? 100;
   const fps = environmentFingerprint(designBars, opts.fingerprint);
-  const timeIndex = new Map<string, number>();
-  designBars.forEach((b, i) => { const k = b.t.slice(0, 16); if (!timeIndex.has(k)) timeIndex.set(k, i); });
+  const closes = barCloseTimes(designBars, bt.designTf);
 
   const trades = bt.sim?.trades ?? [];
   const enriched: { netR: number; fp: EnvironmentFingerprint }[] = [];
   for (const t of trades) {
-    const idx = timeIndex.get(String(t.signal_time).slice(0, 16));
-    const fp = idx != null ? fps[idx] : null;
+    const idx = completedBarIndex(closes, barTimeMs(t.signal_time));
+    const fp = idx !== null ? fps[idx] : null;
     if (fp) enriched.push({ netR: t.netR, fp });
   }
 
@@ -78,7 +75,7 @@ export function buildCardAtlas(designBars: OhlcBar[], bt: RealisticBacktest, opt
   return {
     card_id: opts.cardId || "card",
     totalTrades: trades.length, bucketedTrades: enriched.length,
-    dimensions, thresholds: { weak, usable }, source: "measured",
-    note: "Measured per-Card net R by causal entry-environment fingerprint. Samples below " + weak + " are INSUFFICIENT; " + weak + "–" + (usable - 1) + " = WEAK; ≥ " + usable + " are USABLE. A full run is OOS only when no parameters were fitted to that data. Suitability is descriptive, modeled research.",
+    dimensions, thresholds: { weak, usable }, source: "measured", timing: "LAST_COMPLETED_BAR_AT_SIGNAL",
+    note: "Measured per-Card net R grouped by the last completed design candle at signal availability. Samples below " + weak + " are INSUFFICIENT; " + weak + "–" + (usable - 1) + " = WEAK; ≥ " + usable + " are USABLE. These descriptive sample groups do not establish held-out predictive performance or account for strategy selection on the same data.",
   };
 }

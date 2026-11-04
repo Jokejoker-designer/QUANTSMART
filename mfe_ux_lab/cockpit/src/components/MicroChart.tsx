@@ -10,6 +10,7 @@ import { arrangeZoneLabels } from "../lib/chartZoneLabels.ts";
 import { useLiveTickFeed } from "../lib/liveTickFeed.ts";
 import { withFormingBar } from "../lib/liveTickModel.ts";
 import { useElementSize } from "../core/useElementSize.ts";
+import { confirmedPricePivots, pivotsAvailableAt } from "../lib/confirmedPricePivots.ts";
 import { cardChartAnnotations, demoDecisionAnnotation, type CardChartAnnotation } from "../lib/cardChartAnnotations.ts";
 import { useDemoChartStatus } from "../lib/useDemoChartStatus.ts";
 import type { CockpitActivity } from "../lib/cockpitActivity.ts";
@@ -137,7 +138,8 @@ export function MicroChart({ bars: closedBars, zones = [], lines = [], symbol, t
   const emaF = useMemo(() => ema(closes, 10), [closes]);
   const emaS = useMemo(() => ema(closes, 34), [closes]);
   const vwap = useMemo(() => { let cum = 0; return bars.map((b, i) => { cum += (b.h + b.l + b.c) / 3; return cum / (i + 1); }); }, [bars]);
-  const pivots = useMemo(() => { const w = 3; const out: { i: number; price: number; dir: "high" | "low" }[] = []; for (let i = w; i < n - w; i++) { let hi = true, lo = true; for (let k = 1; k <= w; k++) { if (bars[i].h < bars[i - k].h || bars[i].h < bars[i + k].h) hi = false; if (bars[i].l > bars[i - k].l || bars[i].l > bars[i + k].l) lo = false; } if (hi) out.push({ i, price: bars[i].h, dir: "high" }); else if (lo) out.push({ i, price: bars[i].l, dir: "low" }); } return out; }, [bars, n]);
+  const pivots = useMemo(() => confirmedPricePivots(closedBars), [closedBars]);
+  const availablePivots = pivotsAvailableAt(pivots, Math.min(cursor ?? closedBars.length - 1, closedBars.length - 1));
   if (n < 2) return <div ref={setWrap} style={{ flex: 1, minHeight: 0, display: "flex" }}><div className="mfe-empty" style={{ flex: 1 }}><div className="ic">◫</div><div className="msg">Loading candles…</div></div></div>;
 
   // Y-domain fits the visible candles AND any overlaid zones/lines, so wider zones (e.g. a higher-TF Setup
@@ -384,7 +386,7 @@ export function MicroChart({ bars: closedBars, zones = [], lines = [], symbol, t
             <polyline points={poly(emaF)} fill="none" stroke="var(--accent-cyan)" strokeWidth="1.4" opacity="0.9" />
             <polyline points={poly(emaS)} fill="none" stroke="var(--warn-amber)" strokeWidth="1.4" opacity="0.9" />
             <polyline points={poly(vwap)} fill="none" stroke="var(--accent-cyan)" strokeWidth="1.1" strokeDasharray="5 4" opacity="0.7" />
-            {pivots.filter((pv) => pv.i >= start && pv.i <= end).map((pv, k) => { const x = xFor(pv.i), y = yFor(pv.price) + (pv.dir === "high" ? -8 : 8), s = 3; const col = pv.dir === "high" ? "var(--zone-purple)" : "var(--bull-green)"; return <path key={`pv${k}`} d={`M ${x} ${y - s} L ${x + s} ${y} L ${x} ${y + s} L ${x - s} ${y} Z`} fill={col} opacity="0.85" />; })}
+            {availablePivots.filter((pv) => pv.i >= start && pv.i <= end).map((pv, k) => { const x = xFor(pv.i), y = yFor(pv.price) + (pv.dir === "high" ? -8 : 8), s = 3; const col = pv.dir === "high" ? "var(--zone-purple)" : "var(--bull-green)"; return <path key={`pv${k}`} d={`M ${x} ${y - s} L ${x + s} ${y} L ${x} ${y + s} L ${x - s} ${y} Z`} fill={col} opacity="0.85"><title>{`Pivot at ${closedBars[pv.i].t}; confirmed after close of ${closedBars[pv.confirmIndex].t}`}</title></path>; })}
             <text x={PX0 + 5} y={PY1 - 5} fill="var(--accent-cyan)" fontSize="9.5" fontWeight="700" fontFamily={MONO}>VWAP · {fp(vwap[end])}</text>
             {lines.map((l, k) => { if (l.price < lo || l.price > hi) return null; const y = yFor(l.price); const gs = 11, tw = l.label.length * 5.6; return <g key={`l${k}`}><line x1={xAnchor} y1={y} x2={PX1} y2={y} stroke={l.color} strokeWidth="1.2" strokeDasharray={l.dash ? "5 3" : undefined} opacity="0.9" />{l.glyph && <ChartGlyph name={l.glyph} gx={PX1 - 5 - tw - gs - 2} gy={y - 12} gs={gs} color={l.color} />}<text x={PX1 - 5} y={y - 3} fill={l.color} fontSize="10" fontWeight="700" textAnchor="end">{l.label}</text></g>; })}
             {/* NOW marker — plan zones project from here */}
